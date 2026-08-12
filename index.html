@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>재고 & 판매 현황 효율적 조회 시스템</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .musinsa-badge { background-color: #000; color: #fff; font-weight: 700; font-size: 0.7rem; padding: 2px 6px; border-radius: 2px; }
@@ -336,6 +336,7 @@
             return '<i class="fa-solid fa-genderless text-purple-500 mr-1.5"></i>';
         }
 
+        // 안전한 2D 매트릭스 변환 (셀 스타일/정렬 충돌 예외를 완벽 방지)
         function safeSheetToMatrix(sheet) {
             try {
                 return XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false, blankrows: false });
@@ -389,44 +390,72 @@
             }).filter(item => item !== null);
         }
 
+        // 안전한 파일 읽기 (ERP 셀 스타일/정렬 충돌 방지)
+        function readWorkbookSafely(file, callback) {
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                try {
+                    const data = evt.target.result;
+                    let workbook;
+                    try {
+                        workbook = XLSX.read(data, { type: 'binary', dense: true, cellStyles: false, cellNF: false, cellDates: false, cellFormulas: false });
+                    } catch (err1) {
+                        const arr = new Uint8Array(data);
+                        workbook = XLSX.read(arr, { type: 'array', dense: true, cellStyles: false, cellNF: false, cellDates: false, cellFormulas: false });
+                    }
+                    callback(null, workbook);
+                } catch (errFinal) {
+                    callback(errFinal, null);
+                }
+            };
+
+            try {
+                reader.readAsBinaryString(file);
+            } catch (e) {
+                reader.readAsArrayBuffer(file);
+            }
+        }
+
         fileInventoryInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
             file1Text.textContent = file.name.length > 10 ? file.name.substring(0, 8) + '...' : file.name;
-            const reader = new FileReader();
-            reader.onload = (evt) => {
+            readWorkbookSafely(file, (err, workbook) => {
+                if (err) {
+                    console.error(err);
+                    alert("재고 데이터 읽기 실패: " + err.message);
+                    return;
+                }
                 try {
-                    const data = new Uint8Array(evt.target.result);
-                    const workbook = XLSX.read(data, { type: 'array', cellStyles: false, cellFormulas: false, cellHTML: false });
                     const sheet = workbook.Sheets[workbook.SheetNames[0]];
                     const json = parseExcelUniversal(sheet);
                     processInventoryData(json);
-                } catch (err) {
-                    console.error(err);
-                    alert("재고 데이터 처리 중 오류 발생: " + err.message);
+                } catch (errProc) {
+                    console.error(errProc);
+                    alert("재고 데이터 파싱 중 오류: " + errProc.message);
                 }
-            };
-            reader.readAsArrayBuffer(file);
+            });
         });
 
         fileSalesInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
             file2Text.textContent = file.name.length > 10 ? file.name.substring(0, 8) + '...' : file.name;
-            const reader = new FileReader();
-            reader.onload = (evt) => {
+            readWorkbookSafely(file, (err, workbook) => {
+                if (err) {
+                    console.error(err);
+                    alert("판매 데이터 읽기 실패: " + err.message);
+                    return;
+                }
                 try {
-                    const data = new Uint8Array(evt.target.result);
-                    const workbook = XLSX.read(data, { type: 'array', cellStyles: false, cellFormulas: false, cellHTML: false });
                     const sheet = workbook.Sheets[workbook.SheetNames[0]];
                     const json = parseExcelUniversal(sheet);
                     processSalesData(json);
-                } catch (err) {
-                    console.error(err);
-                    alert("판매 데이터 처리 중 오류 발생: " + err.message);
+                } catch (errProc) {
+                    console.error(errProc);
+                    alert("판매 데이터 파싱 중 오류: " + errProc.message);
                 }
-            };
-            reader.readAsArrayBuffer(file);
+            });
         });
 
         function processInventoryData(json) {
