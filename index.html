@@ -274,14 +274,23 @@
         const viewGridBtn = document.getElementById('viewGridBtn');
         const viewTableBtn = document.getElementById('viewTableBtn');
 
-        function extractBrand(subCategoryStr) {
-            if (!subCategoryStr) return '기타';
-            let cleaned = String(subCategoryStr).trim();
-            cleaned = cleaned.replace(/^(신발|의류|용품|잡화|용품\(브랜드\)|의류\(브랜드\)|신발\(브랜드\))[\s\/\_\-\(\)]*/gi, '');
-            const match = cleaned.match(/\(([^)]+)\)/);
-            if (match) return match.trim();
-            return cleaned.replace(/[\(\)]/g, '').trim() || subCategoryStr;
-        }
+      function extractBrand(subCategoryStr) {
+
+    if (!subCategoryStr) return '기타';
+
+    const cleaned = String(subCategoryStr).trim();
+
+    const match = cleaned.match(/\(([^)]+)\)/);
+
+    if (match && match[1]) {
+        return match[1].trim();
+    }
+
+    return cleaned
+        .replace(/신발|의류|용품|잡화/gi, '')
+        .replace(/[()]/g, '')
+        .trim() || '기타';
+}
 
         function formatShoeSizeDisplay(rawSize, genderStr) {
             const strVal = String(rawSize).trim();
@@ -356,30 +365,88 @@
             }
         }
 
-        function parseExcelUniversal(sheet) {
-            const rawMatrix = safeSheetToMatrix(sheet);
-            if (!rawMatrix || rawMatrix.length < 2) return [];
+      function parseExcelUniversal(sheet) {
 
-            let headerRowIdx = -1;
-            for (let i = 0; i < Math.min(rawMatrix.length, 10); i++) {
-                if (!Array.isArray(rawMatrix[i])) continue;
-                const rowText = rawMatrix[i].map(c => String(c).toLowerCase()).join(' ');
-                if (rowText.includes('품번') || rowText.includes('sku') || rowText.includes('품명') || rowText.includes('코드')) {
-                    headerRowIdx = i;
-                    break;
-                }
+    const rawMatrix = safeSheetToMatrix(sheet);
+
+    if (!rawMatrix || rawMatrix.length === 0) {
+        return [];
+    }
+
+    let headerRowIdx = -1;
+
+    for (let i = 0; i < Math.min(rawMatrix.length, 30); i++) {
+
+        const row = rawMatrix[i] || [];
+
+        const text = row
+            .map(v => String(v || '').toLowerCase())
+            .join(' ');
+
+        let score = 0;
+
+        if (text.includes('품번')) score++;
+        if (text.includes('품명')) score++;
+        if (text.includes('성별')) score++;
+        if (text.includes('카테고리')) score++;
+        if (text.includes('브랜드')) score++;
+        if (text.includes('규격')) score++;
+
+        if (score >= 2) {
+            headerRowIdx = i;
+            break;
+        }
+    }
+
+    if (headerRowIdx < 0) {
+        console.error('헤더 행을 찾지 못함');
+        return [];
+    }
+
+    const headers =
+        (rawMatrix[headerRowIdx] || [])
+            .map(v => String(v || '').trim());
+
+    const result = [];
+
+    rawMatrix
+        .slice(headerRowIdx + 1)
+        .forEach(row => {
+
+            if (!Array.isArray(row)) return;
+
+            const rowText =
+                row.join(' ')
+                   .toUpperCase();
+
+            if (
+                rowText.includes('TOTAL') ||
+                rowText.includes('합계')
+            ) {
+                return;
             }
 
-            if (headerRowIdx === -1) headerRowIdx = 1;
+            const obj = {};
 
-            const headers = (rawMatrix[headerRowIdx] || []).map(c => String(c).trim());
-            const dataRows = rawMatrix.slice(headerRowIdx + 1);
+            headers.forEach((header, idx) => {
 
-            return dataRows.map(row => {
-                if (!Array.isArray(row)) return null;
-                const rowStr = row.map(c => String(c).toUpperCase()).join(' ');
-                if (rowStr.includes('TOTAL') || rowStr.includes('합계')) return null;
+                if (!header) return;
 
+                obj[header] =
+                    row[idx] !== undefined
+                    ? row[idx]
+                    : '';
+            });
+
+            if (Object.keys(obj).length > 0) {
+                result.push(obj);
+            }
+        });
+
+    console.log('파싱행수', result.length);
+
+    return result;
+}
                 let obj = {};
                 headers.forEach((h, colIdx) => {
                     if (h) obj[h] = row[colIdx] !== undefined ? row[colIdx] : '';
@@ -443,9 +510,36 @@
                     return;
                 }
                 try {
-                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const json = parseExcelUniversal(sheet);
-                    processInventoryData(json);
+                   let json = [];
+
+for (const sheetName of workbook.SheetNames) {
+
+    const sheet =
+        workbook.Sheets[sheetName];
+
+    const rows =
+        parseExcelUniversal(sheet);
+
+    console.log(
+        '재고시트',
+        sheetName,
+        rows.length
+    );
+
+    if (rows.length > 0) {
+
+        json = rows;
+
+        console.log(
+            '사용재고시트',
+            sheetName
+        );
+
+        break;
+    }
+}
+
+processInventoryData(json);
                 } catch (errProc) {
                     console.error(errProc);
                     alert("재고 데이터 파싱 중 오류: " + errProc.message);
@@ -464,9 +558,36 @@
                     return;
                 }
                 try {
-                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const json = parseExcelUniversal(sheet);
-                    processSalesData(json);
+                  let json = [];
+
+for (const sheetName of workbook.SheetNames) {
+
+    const sheet =
+        workbook.Sheets[sheetName];
+
+    const rows =
+        parseExcelUniversal(sheet);
+
+    console.log(
+        '판매시트',
+        sheetName,
+        rows.length
+    );
+
+    if (rows.length > 0) {
+
+        json = rows;
+
+        console.log(
+            '사용판매시트',
+            sheetName
+        );
+
+        break;
+    }
+}
+
+processSalesData(json);
                 } catch (errProc) {
                     console.error(errProc);
                     alert("판매 데이터 파싱 중 오류: " + errProc.message);
@@ -484,7 +605,12 @@
             const keys = Object.keys(sampleRow);
 
             const skuKey = keys.find(k => k.trim() === '품번') || keys.find(k => k.includes('품번') || k.toLowerCase().includes('sku') || k.includes('코드')) || keys[0];
-            const nameKey = keys.find(k => k.trim() === '품명') || keys.find(k => k.includes('품명') || k.includes('상품명')) || keys;
+          const nameKey =
+keys.find(k => k.trim() === '품명')
+|| keys.find(k => k.includes('품명'))
+|| keys.find(k => k.includes('상품명'))
+|| keys[1]
+|| '';
             const subCatKey = keys.find(k => k.includes('품목소분류') || k.includes('소분류') || k.includes('브랜드')) || '';
             const cat2Key = keys.find(k => k.includes('카테고리2') || k.includes('카테고리 2') || k.includes('중분류') || k.toLowerCase().includes('biz')) || '';
             const genderKey = keys.find(k => k.trim() === '성별') || keys.find(k => k.includes('성별')) || '';
@@ -536,8 +662,13 @@
             const keys = Object.keys(sampleRow);
 
             const skuKey = keys.find(k => k.trim() === '품번') || keys.find(k => k.includes('품번') || k.toLowerCase().includes('sku') || k.includes('코드')) || keys[0];
-            const qtyKey = keys.find(k => k.trim() === '수량') || keys.find(k => k.includes('수량') || k.includes('판매') || k.includes('출고')) || keys;
-
+const qtyKey =
+keys.find(k => k.trim() === '수량')
+|| keys.find(k => k.includes('수량'))
+|| keys.find(k => k.includes('판매'))
+|| keys.find(k => k.includes('출고'))
+|| keys[0]
+|| '';
             json.forEach(row => {
                 const sku = String(row[skuKey] || '').trim();
                 const qtyStr = String(row[qtyKey] || '0').replace(/,/g, '');
