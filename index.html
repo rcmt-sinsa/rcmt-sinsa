@@ -336,7 +336,6 @@
             return '<i class="fa-solid fa-genderless text-purple-500 mr-1.5"></i>';
         }
 
-        // 안전한 2D 매트릭스 변환 (셀 스타일/정렬 충돌 예외를 완벽 방지)
         function safeSheetToMatrix(sheet) {
             try {
                 return XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false, blankrows: false });
@@ -357,7 +356,6 @@
             }
         }
 
-        // 범용 파서: 2행 헤더 파싱 및 TOTAL 요약행/빈행 완전 제거
         function parseExcelUniversal(sheet) {
             const rawMatrix = safeSheetToMatrix(sheet);
             if (!rawMatrix || rawMatrix.length < 2) return [];
@@ -372,7 +370,7 @@
                 }
             }
 
-            if (headerRowIdx === -1) headerRowIdx = 1; // 2행 (idx 1)
+            if (headerRowIdx === -1) headerRowIdx = 1;
 
             const headers = (rawMatrix[headerRowIdx] || []).map(c => String(c).trim());
             const dataRows = rawMatrix.slice(headerRowIdx + 1);
@@ -390,7 +388,7 @@
             }).filter(item => item !== null);
         }
 
-        // 안전한 파일 읽기 (ERP 셀 스타일/정렬 충돌 방지)
+        // bookStyles: false로 xl/styles.xml 파싱을 원천적으로 제외하여 alignment 오류 완벽 방지
         function readWorkbookSafely(file, callback) {
             const reader = new FileReader();
             reader.onload = (evt) => {
@@ -398,10 +396,28 @@
                     const data = evt.target.result;
                     let workbook;
                     try {
-                        workbook = XLSX.read(data, { type: 'binary', dense: true, cellStyles: false, cellNF: false, cellDates: false, cellFormulas: false });
+                        workbook = XLSX.read(data, {
+                            type: 'binary',
+                            bookStyles: false,
+                            cellStyles: false,
+                            cellNF: false,
+                            cellDates: false,
+                            cellFormulas: false,
+                            cellHTML: false,
+                            dense: true
+                        });
                     } catch (err1) {
-                        const arr = new Uint8Array(data);
-                        workbook = XLSX.read(arr, { type: 'array', dense: true, cellStyles: false, cellNF: false, cellDates: false, cellFormulas: false });
+                        console.warn("Binary read fallback...", err1);
+                        workbook = XLSX.read(data, {
+                            type: 'array',
+                            bookStyles: false,
+                            cellStyles: false,
+                            cellNF: false,
+                            cellDates: false,
+                            cellFormulas: false,
+                            cellHTML: false,
+                            dense: true
+                        });
                     }
                     callback(null, workbook);
                 } catch (errFinal) {
