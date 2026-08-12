@@ -67,8 +67,8 @@
                 <p id="metricTotalItems" class="text-2xl font-black mt-1">0</p>
             </div>
             <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                <p class="text-xs text-gray-500 font-medium">총 재고 수량</p>
-                <p id="metricTotalStock" class="text-2xl font-black mt-1">0</p>
+                <p class="text-xs text-gray-500 font-medium">매장(신사동) 총 재고</p>
+                <p id="metricTotalStock" class="text-2xl font-black mt-1 text-green-600">0</p>
             </div>
             <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                 <p class="text-xs text-gray-500 font-medium">주간 총 판매 수량</p>
@@ -182,7 +182,7 @@
                     <select id="sortBySelect" class="border border-gray-300 rounded px-2 py-1.5 bg-white text-xs font-semibold focus:outline-none focus:border-black">
                         <option value="sales_desc">주간 판매량 높은순 🔥</option>
                         <option value="wos_asc">WOS 소진 임박순 🚨</option>
-                        <option value="stock_desc">재고 수량 많은순 📦</option>
+                        <option value="stock_desc">매장 재고 많은순 📦</option>
                         <option value="name_asc">상품명 순 (가나다)</option>
                     </select>
                 </div>
@@ -218,7 +218,7 @@
                                 <th class="p-3">브랜드</th>
                                 <th class="p-3">BIZ</th>
                                 <th class="p-3">성별</th>
-                                <th class="p-3 text-right">현재 재고</th>
+                                <th class="p-3 text-right">매장(신사동) 재고</th>
                                 <th class="p-3 text-right">주간 판매량 (SUMIF)</th>
                             </tr>
                         </thead>
@@ -341,7 +341,7 @@
                 return XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false, blankrows: false });
             } catch (e) {
                 console.warn("sheet_to_json fallback:", e);
-                const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1:Z200');
+                const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1:Z300');
                 const matrix = [];
                 for (let R = range.s.r; R <= range.e.r; ++R) {
                     const row = [];
@@ -356,78 +356,37 @@
             }
         }
 
-        function parseInventorySheetExact(sheet) {
+        // 범용 파서: 2행 헤더 파싱 및 TOTAL 요약행/빈행 완전 제거
+        function parseExcelUniversal(sheet) {
             const rawMatrix = safeSheetToMatrix(sheet);
             if (!rawMatrix || rawMatrix.length < 2) return [];
 
-            let headerRowIdx = 1; // 2행 (0-indexed 1)
-            let dataStartIdx = 3; // 4행 (0-indexed 3)
-
+            let headerRowIdx = -1;
             for (let i = 0; i < Math.min(rawMatrix.length, 10); i++) {
                 if (!Array.isArray(rawMatrix[i])) continue;
                 const rowText = rawMatrix[i].map(c => String(c).toLowerCase()).join(' ');
                 if (rowText.includes('품번') || rowText.includes('sku') || rowText.includes('품명') || rowText.includes('코드')) {
                     headerRowIdx = i;
-                    dataStartIdx = (i === 1) ? 3 : i + 1;
                     break;
                 }
             }
+
+            if (headerRowIdx === -1) headerRowIdx = 1; // 2행 (idx 1)
 
             const headers = (rawMatrix[headerRowIdx] || []).map(c => String(c).trim());
-            const dataRows = rawMatrix.slice(dataStartIdx);
+            const dataRows = rawMatrix.slice(headerRowIdx + 1);
 
             return dataRows.map(row => {
+                if (!Array.isArray(row)) return null;
+                const rowStr = row.map(c => String(c).toUpperCase()).join(' ');
+                if (rowStr.includes('TOTAL') || rowStr.includes('합계')) return null;
+
                 let obj = {};
-                if (Array.isArray(row)) {
-                    headers.forEach((h, colIdx) => {
-                        if (h) obj[h] = row[colIdx] !== undefined ? row[colIdx] : '';
-                    });
-                }
+                headers.forEach((h, colIdx) => {
+                    if (h) obj[h] = row[colIdx] !== undefined ? row[colIdx] : '';
+                });
                 return obj;
-            });
-        }
-
-        function parseSalesSheetExact(sheet) {
-            const rawMatrix = safeSheetToMatrix(sheet);
-            if (!rawMatrix || rawMatrix.length < 2) return [];
-
-            let headerRowIdx = 1; // 2행
-            let dataStartIdx = 4; // 5행 (0-indexed 4)
-
-            for (let i = 0; i < Math.min(rawMatrix.length, 10); i++) {
-                if (!Array.isArray(rawMatrix[i])) continue;
-                const rowText = rawMatrix[i].map(c => String(c).toLowerCase()).join(' ');
-                if (rowText.includes('품번') || rowText.includes('sku') || rowText.includes('수량') || rowText.includes('판매')) {
-                    headerRowIdx = i;
-                    dataStartIdx = (i === 1) ? 4 : i + 1;
-                    break;
-                }
-            }
-
-            const headers1 = rawMatrix[headerRowIdx] || [];
-            const headers2 = rawMatrix[headerRowIdx + 1] || [];
-            const headers = [];
-
-            const maxCols = Math.max(headers1.length, headers2.length);
-            for (let c = 0; c < maxCols; c++) {
-                const h1 = String(headers1[c] || '').trim();
-                const h2 = String(headers2[c] || '').trim();
-                let combined = h1;
-                if (h2 && h2 !== h1) combined += ' ' + h2;
-                headers.push(combined || `COL_${c}`);
-            }
-
-            const dataRows = rawMatrix.slice(dataStartIdx);
-
-            return dataRows.map(row => {
-                let obj = {};
-                if (Array.isArray(row)) {
-                    headers.forEach((h, colIdx) => {
-                        if (h) obj[h] = row[colIdx] !== undefined ? row[colIdx] : '';
-                    });
-                }
-                return obj;
-            });
+            }).filter(item => item !== null);
         }
 
         fileInventoryInput.addEventListener('change', (e) => {
@@ -440,7 +399,7 @@
                     const data = new Uint8Array(evt.target.result);
                     const workbook = XLSX.read(data, { type: 'array', cellStyles: false, cellFormulas: false, cellHTML: false });
                     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const json = parseInventorySheetExact(sheet);
+                    const json = parseExcelUniversal(sheet);
                     processInventoryData(json);
                 } catch (err) {
                     console.error(err);
@@ -460,7 +419,7 @@
                     const data = new Uint8Array(evt.target.result);
                     const workbook = XLSX.read(data, { type: 'array', cellStyles: false, cellFormulas: false, cellHTML: false });
                     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const json = parseSalesSheetExact(sheet);
+                    const json = parseExcelUniversal(sheet);
                     processSalesData(json);
                 } catch (err) {
                     console.error(err);
@@ -479,13 +438,15 @@
             const sampleRow = json[0] || {};
             const keys = Object.keys(sampleRow);
 
-            const skuKey = keys.find(k => k.includes('품번') || k.toLowerCase().includes('sku') || k.includes('상품코드') || k.includes('자재코드') || k.includes('코드')) || keys[0];
-            const nameKey = keys.find(k => k.includes('품명') || k.includes('상품명') || k.includes('제품명') || k.includes('자재명')) || keys;
-            const subCatKey = keys.find(k => k.includes('소분류') || k.includes('품목소') || k.includes('브랜드')) || '';
+            const skuKey = keys.find(k => k.trim() === '품번') || keys.find(k => k.includes('품번') || k.toLowerCase().includes('sku') || k.includes('코드')) || keys[0];
+            const nameKey = keys.find(k => k.trim() === '품명') || keys.find(k => k.includes('품명') || k.includes('상품명')) || keys;
+            const subCatKey = keys.find(k => k.includes('품목소분류') || k.includes('소분류') || k.includes('브랜드')) || '';
             const cat2Key = keys.find(k => k.includes('카테고리2') || k.includes('카테고리 2') || k.includes('중분류') || k.toLowerCase().includes('biz')) || '';
-            const genderKey = keys.find(k => k.includes('성별') || k.includes('구분')) || '';
-            const stockKey = keys.find(k => k.includes('재고') || k.includes('수량') || k.includes('현재고') || k.includes('실재고') || k.includes('총재고')) || '';
-            const sizeKey = keys.find(k => k.includes('규격') || k.includes('사이즈') || k.toLowerCase().includes('size')) || '';
+            const genderKey = keys.find(k => k.trim() === '성별') || keys.find(k => k.includes('성별')) || '';
+            
+            // 매장(신사동) 재고 열 최우선 탐색
+            const stockKey = keys.find(k => k.includes('신사동') || k.includes('매장 (신사동)') || k.includes('매장(신사동)')) || keys.find(k => k.includes('매장')) || keys.find(k => k.includes('재고') || k.includes('수량')) || '';
+            const sizeKey = keys.find(k => k.trim() === '규격') || keys.find(k => k.includes('규격') || k.includes('사이즈')) || '';
             const imgKey = keys.find(k => k.includes('이미지') || k.toLowerCase().includes('image') || k.includes('사진')) || '';
 
             rawInventory = json.map(row => {
@@ -529,8 +490,8 @@
             const sampleRow = json[0] || {};
             const keys = Object.keys(sampleRow);
 
-            const skuKey = keys.find(k => k.includes('품번') || k.toLowerCase().includes('sku') || k.includes('상품코드') || k.includes('코드')) || keys[0];
-            const qtyKey = keys.find(k => k.includes('수량') || k.includes('판매') || k.includes('출고') || k.includes('주간')) || keys;
+            const skuKey = keys.find(k => k.trim() === '품번') || keys.find(k => k.includes('품번') || k.toLowerCase().includes('sku') || k.includes('코드')) || keys[0];
+            const qtyKey = keys.find(k => k.trim() === '수량') || keys.find(k => k.includes('수량') || k.includes('판매') || k.includes('출고')) || keys;
 
             json.forEach(row => {
                 const sku = String(row[skuKey] || '').trim();
@@ -776,7 +737,7 @@
                     </div>
                     <div class="p-3 border-t border-gray-100 bg-gray-50 flex justify-between items-center text-xs">
                         <div>
-                            <p class="text-[10px] text-gray-400">현재재고</p>
+                            <p class="text-[10px] text-gray-400">매장재고(신사)</p>
                             <p class="font-bold ${item.stock === 0 ? 'text-red-500' : 'text-gray-900'}">${item.stock.toLocaleString()} EA</p>
                         </div>
                         <div class="text-right">
@@ -844,7 +805,7 @@
                 "브랜드": item.brand,
                 "BIZ": item.category2,
                 "성별": item.gender,
-                "현재재고": item.stock,
+                "매장재고(신사동)": item.stock,
                 "주간판매량": item.sales
             }));
 
