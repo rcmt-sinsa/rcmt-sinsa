@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>재고 & 판매 현황 효율적 조회 시스템</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .musinsa-badge { background-color: #000; color: #fff; font-weight: 700; font-size: 0.7rem; padding: 2px 6px; border-radius: 2px; }
@@ -456,47 +456,38 @@
         }
 
         // bookStyles: false로 xl/styles.xml 파싱을 원천적으로 제외하여 alignment 오류 완벽 방지
-        function readWorkbookSafely(file, callback) {
-            const reader = new FileReader();
-            reader.onload = (evt) => {
-                try {
-                    const data = evt.target.result;
-                    let workbook;
-                    try {
-                        workbook = XLSX.read(data, {
-                            type: 'binary',
-                            bookStyles: false,
-                            cellStyles: false,
-                            cellNF: false,
-                            cellDates: false,
-                            cellFormulas: false,
-                            cellHTML: false,
-                            dense: true
-                        });
-                    } catch (err1) {
-                        console.warn("Binary read fallback...", err1);
-                        workbook = XLSX.read(data, {
-                            type: 'array',
-                            bookStyles: false,
-                            cellStyles: false,
-                            cellNF: false,
-                            cellDates: false,
-                            cellFormulas: false,
-                            cellHTML: false,
-                            dense: true
-                        });
-                    }
-                    callback(null, workbook);
-                } catch (errFinal) {
-                    callback(errFinal, null);
-                }
-            };
+       function readWorkbookSafely(file, callback) {
 
-            try {
-                reader.readAsBinaryString(file);
-            } catch (e) {
-                reader.readAsArrayBuffer(file);
-            }
+    const reader = new FileReader();
+
+    reader.onload = function (e) {
+
+        try {
+
+            const data = new Uint8Array(e.target.result);
+
+            const workbook = XLSX.read(data, {
+                type: "array",
+                cellStyles: false,
+                cellNF: false,
+                cellHTML: false,
+                cellFormula: false,
+                cellText: false,
+                cellDates: false
+            });
+
+            callback(null, workbook);
+
+        } catch (err) {
+
+            console.error(err);
+
+            callback(err);
+        }
+    };
+
+    reader.readAsArrayBuffer(file);
+}
         }
 
         fileInventoryInput.addEventListener('change', (e) => {
