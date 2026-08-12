@@ -10,66 +10,26 @@
     <style>
         .musinsa-badge { background-color: #000; color: #fff; font-weight: 700; font-size: 0.7rem; padding: 2px 6px; border-radius: 2px; }
         .heat-badge { background-color: #ff3333; color: #fff; font-weight: 800; }
-        .soldout-badge { background-color: #6b7280; color: #fff; font-weight: 800; }
-        .warning-badge { background-color: #f59e0b; color: #fff; font-weight: 800; }
-        
         .chip-btn {
-            display: inline-flex;
-            align-items: center;
-            padding: 0.35rem 0.75rem;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.15s ease-in-out;
-            user-select: none;
-            border: 1px solid #e5e7eb;
-            background-color: #f9fafb;
-            color: #374151;
+            display: inline-flex; align-items: center; padding: 0.35rem 0.75rem; border-radius: 9999px;
+            font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.15s ease-in-out;
+            user-select: none; border: 1px solid #e5e7eb; background-color: #f9fafb; color: #374151;
         }
-        .chip-btn:hover {
-            background-color: #f3f4f6;
-            border-color: #d1d5db;
-        }
-        .chip-btn.active {
-            background-color: #000000;
-            color: #ffffff !important;
-            border-color: #000000;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-        }
-        .chip-btn.active i {
-            color: #ffffff !important;
-        }
-
+        .chip-btn:hover { background-color: #f3f4f6; border-color: #d1d5db; }
+        .chip-btn.active { background-color: #000000; color: #ffffff !important; border-color: #000000; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+        .chip-btn.active i { color: #ffffff !important; }
         .size-chip-btn {
-            display: inline-flex;
-            align-items: center;
-            padding: 0.25rem 0.55rem;
-            border-radius: 6px;
-            font-size: 11px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.15s ease-in-out;
-            user-select: none;
-            border: 1px solid #e5e7eb;
-            background-color: #ffffff;
-            color: #4b5563;
+            display: inline-flex; align-items: center; padding: 0.25rem 0.55rem; border-radius: 6px;
+            font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s ease-in-out;
+            user-select: none; border: 1px solid #e5e7eb; background-color: #ffffff; color: #4b5563;
         }
-        .size-chip-btn:hover {
-            background-color: #f3f4f6;
-            border-color: #9ca3af;
-        }
-        .size-chip-btn.active {
-            background-color: #000000;
-            color: #ffffff !important;
-            border-color: #000000;
-            font-weight: 700;
-        }
+        .size-chip-btn:hover { background-color: #f3f4f6; border-color: #9ca3af; }
+        .size-chip-btn.active { background-color: #000000; color: #ffffff !important; border-color: #000000; font-weight: 700; }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-900 min-h-screen">
 
-    <!-- Header Section with Compact Top-Right File Upload Icons -->
+    <!-- Header Section -->
     <header class="bg-black text-white py-3 px-4 md:px-6 shadow-md sticky top-0 z-50">
         <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-3">
             <div class="flex items-center space-x-3">
@@ -79,14 +39,12 @@
 
             <!-- Top Right Compact File Upload Buttons -->
             <div class="flex items-center space-x-2 text-xs">
-                <!-- File 1 Upload -->
                 <label for="fileInventory" class="bg-gray-800 hover:bg-gray-700 text-gray-200 px-3 py-1.5 rounded cursor-pointer transition flex items-center border border-gray-700">
                     <i class="fa-solid fa-boxes-stacked text-green-400 mr-1.5"></i>
                     <span id="file1Text">재고 RAW 업로드</span>
                     <input type="file" id="fileInventory" accept=".xlsx, .xls, .csv" class="hidden">
                 </label>
 
-                <!-- File 2 Upload -->
                 <label for="fileSales" class="bg-gray-800 hover:bg-gray-700 text-gray-200 px-3 py-1.5 rounded cursor-pointer transition flex items-center border border-gray-700">
                     <i class="fa-solid fa-chart-line text-blue-400 mr-1.5"></i>
                     <span id="file2Text">판매 RAW 업로드</span>
@@ -124,20 +82,569 @@
 
         <!-- Search & Filter Panel -->
         <section class="bg-white rounded-lg p-5 shadow-sm border border-gray-200 space-y-4">
-            <!-- Search Bar + Search Button + Reset Button + Excel Export -->
+            <!-- Search Bar + Buttons -->
             <div class="flex flex-col sm:flex-row gap-2">
                 <div class="relative flex-1">
                     <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-gray-400"></i>
                     <input type="text" id="searchInput" placeholder="제품명(품명) 또는 품번 입력 후 검색 버튼을 누르세요..." class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-black">
                 </div>
-                <!-- Search Button -->
                 <button id="searchBtn" class="bg-black hover:bg-gray-800 text-white px-5 py-2.5 rounded-md text-sm font-bold transition flex items-center justify-center">
                     <i class="fa-solid fa-magnifying-glass mr-1.5"></i>검색
                 </button>
-                <!-- Compact Reset Button -->
                 <button id="resetFiltersBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-2.5 rounded-md text-xs font-semibold transition flex items-center justify-center border border-gray-200">
                     <i class="fa-solid fa-rotate-right mr-1"></i>초기화
                 </button>
-                <!-- Excel Export Button -->
                 <button id="exportExcelBtn" class="bg-green-700 hover:bg-green-800 text-white px-3 py-2.5 rounded-md text-xs font-bold transition flex items-center justify-center">
-                    <i class="fa-solid fa
+                    <i class="fa-solid fa-file-excel mr-1"></i>엑셀 내보내기
+                </button>
+            </div>
+
+            <!-- Quick Toggles (High Heat & WOS Warning) -->
+            <div class="border-t border-gray-100 pt-4 space-y-4">
+                <div class="flex flex-wrap items-center gap-2 pb-2 border-b border-gray-100">
+                    <button id="toggleHighHeat" class="px-3 py-1.5 rounded text-xs font-bold border border-red-300 text-red-600 hover:bg-red-50 transition flex items-center">
+                        <i class="fa-solid fa-fire mr-1"></i> HIGH HEAT 품목만 보기
+                    </button>
+                    <button id="toggleWosWarning" class="px-3 py-1.5 rounded text-xs font-bold border border-amber-300 text-amber-800 hover:bg-amber-50 transition flex items-center">
+                        <i class="fa-solid fa-triangle-exclamation mr-1"></i> 🚨 1~2주 내 품절 위험 (WOS)
+                    </button>
+                </div>
+
+                <!-- 1. Brand Filter Chips -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-2">
+                        <i class="fa-solid fa-tags text-gray-400 mr-1"></i>브랜드
+                    </label>
+                    <div id="brandChipContainer" class="flex flex-wrap gap-1.5">
+                        <span class="text-xs text-gray-400">파일 업로드 시 브랜드 목록이 나타납니다.</span>
+                    </div>
+                </div>
+
+                <!-- 2. BIZ Filter Chips -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-2">
+                        <i class="fa-solid fa-layer-group text-gray-400 mr-1"></i>BIZ (카테고리)
+                    </label>
+                    <div id="bizChipContainer" class="flex flex-wrap gap-1.5">
+                        <span class="text-xs text-gray-400">파일 업로드 시 BIZ 목록이 나타납니다.</span>
+                    </div>
+                </div>
+
+                <!-- 3. Gender Filter Chips -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-2">
+                        <i class="fa-solid fa-users text-gray-400 mr-1"></i>성별
+                    </label>
+                    <div id="genderChipContainer" class="flex flex-wrap gap-1.5">
+                        <span class="text-xs text-gray-400">파일 업로드 시 성별 목록이 나타납니다.</span>
+                    </div>
+                </div>
+
+                <!-- 4. Size Filter Section -->
+                <div class="border-t border-gray-100 pt-3">
+                    <label class="block text-xs font-bold text-gray-700 mb-2">
+                        <i class="fa-solid fa-ruler-horizontal text-gray-400 mr-1"></i>사이즈 (규격)
+                    </label>
+                    
+                    <div class="space-y-2 text-[11px]">
+                        <div id="shoeSizeSection" class="hidden">
+                            <span class="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 mr-1">👟 신발 (나이키 US/EU 변환)</span>
+                            <div id="shoeSizeContainer" class="flex flex-wrap gap-1 mt-1.5"></div>
+                        </div>
+
+                        <div id="apparelSizeSection" class="hidden">
+                            <span class="text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 mr-1">👕 의류</span>
+                            <div id="apparelSizeContainer" class="flex flex-wrap gap-1 mt-1.5"></div>
+                        </div>
+
+                        <div id="equipSizeSection" class="hidden">
+                            <span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 mr-1">🎒 용품/기타</span>
+                            <div id="equipSizeContainer" class="flex flex-wrap gap-1 mt-1.5"></div>
+                        </div>
+
+                        <div id="sizeEmptyText" class="text-xs text-gray-400">
+                            파일 업로드 시 사이즈 목록이 나타납니다.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- View Controls & Sorting & Results Header -->
+        <section class="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-lg shadow-sm border border-gray-200 gap-3">
+            <span class="text-sm font-bold text-gray-800">
+                조회 결과 (<span id="resultCount" class="text-black font-extrabold">0</span>건)
+            </span>
+
+            <div class="flex items-center space-x-3 text-xs">
+                <div class="flex items-center space-x-1">
+                    <span class="font-bold text-gray-500">정렬:</span>
+                    <select id="sortBySelect" class="border border-gray-300 rounded px-2 py-1.5 bg-white text-xs font-semibold focus:outline-none focus:border-black">
+                        <option value="sales_desc">주간 판매량 높은순 🔥</option>
+                        <option value="wos_asc">WOS 소진 임박순 🚨</option>
+                        <option value="stock_desc">재고 수량 많은순 📦</option>
+                        <option value="name_asc">상품명 순 (가나다)</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center space-x-1">
+                    <button id="viewGridBtn" class="px-3 py-1.5 rounded border font-bold bg-black text-white border-black flex items-center transition">
+                        <i class="fa-solid fa-grip mr-1"></i>카드형
+                    </button>
+                    <button id="viewTableBtn" class="px-3 py-1.5 rounded border font-bold bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200 flex items-center transition">
+                        <i class="fa-solid fa-list mr-1"></i>표 형태
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Results Display Container -->
+        <section id="resultsContainer">
+            <div id="gridView" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                <div class="col-span-full bg-white p-12 text-center text-gray-400 rounded-lg border border-gray-200">
+                    우측 상단의 <i class="fa-solid fa-boxes-stacked text-green-500 mx-1"></i>재고 RAW 및 <i class="fa-solid fa-chart-line text-blue-500 mx-1"></i>판매 RAW 버튼을 눌러 파일을 업로드해 주세요.
+                </div>
+            </div>
+
+            <div id="tableView" class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-gray-100 text-gray-700 font-bold uppercase border-b border-gray-200">
+                            <tr>
+                                <th class="p-3">상태 / WOS</th>
+                                <th class="p-3">품번 (SKU)</th>
+                                <th class="p-3">품명 (상품명)</th>
+                                <th class="p-3">규격 (사이즈)</th>
+                                <th class="p-3">브랜드</th>
+                                <th class="p-3">BIZ</th>
+                                <th class="p-3">성별</th>
+                                <th class="p-3 text-right">현재 재고</th>
+                                <th class="p-3 text-right">주간 판매량 (SUMIF)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventoryTbody" class="divide-y divide-gray-100">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        let rawInventory = [];
+        let salesMap = {};
+        let filteredData = [];
+        let isHighHeatOnly = false;
+        let isWosWarningOnly = false;
+        let viewMode = 'grid';
+        let sortBy = 'sales_desc';
+        const HIGH_HEAT_THRESHOLD = 5;
+
+        let selectedBrand = '';
+        let selectedBiz = '';
+        let selectedGender = '';
+        let selectedSizeDisplay = '';
+
+        const fileInventoryInput = document.getElementById('fileInventory');
+        const fileSalesInput = document.getElementById('fileSales');
+        const file1Text = document.getElementById('file1Text');
+        const file2Text = document.getElementById('file2Text');
+        const statusIndicator = document.getElementById('statusIndicator');
+
+        const searchInput = document.getElementById('searchInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const toggleHighHeat = document.getElementById('toggleHighHeat');
+        const toggleWosWarning = document.getElementById('toggleWosWarning');
+        const resetFiltersBtn = document.getElementById('resetFiltersBtn');
+        const exportExcelBtn = document.getElementById('exportExcelBtn');
+        const sortBySelect = document.getElementById('sortBySelect');
+
+        const metricsSection = document.getElementById('metricsSection');
+        const metricTotalItems = document.getElementById('metricTotalItems');
+        const metricTotalStock = document.getElementById('metricTotalStock');
+        const metricTotalSales = document.getElementById('metricTotalSales');
+        const metricHighHeat = document.getElementById('metricHighHeat');
+
+        const gridView = document.getElementById('gridView');
+        const tableView = document.getElementById('tableView');
+        const inventoryTbody = document.getElementById('inventoryTbody');
+        const resultCount = document.getElementById('resultCount');
+
+        const viewGridBtn = document.getElementById('viewGridBtn');
+        const viewTableBtn = document.getElementById('viewTableBtn');
+
+        function extractBrand(subCategoryStr) {
+            if (!subCategoryStr) return '기타';
+            let cleaned = String(subCategoryStr).trim();
+            cleaned = cleaned.replace(/^(신발|의류|용품|잡화|용품\(브랜드\)|의류\(브랜드\)|신발\(브랜드\))[\s\/\_\-\(\)]*/gi, '');
+            const match = cleaned.match(/\(([^)]+)\)/);
+            if (match) return match.trim();
+            return cleaned.replace(/[\(\)]/g, '').trim() || subCategoryStr;
+        }
+
+        function formatShoeSizeDisplay(rawSize, genderStr) {
+            const strVal = String(rawSize).trim();
+            const num = parseInt(strVal.replace(/[^0-9]/g, ''), 10);
+            if (!num || num < 200 || num > 330) return strVal;
+
+            const isWomen = String(genderStr).includes('여') || String(genderStr).toLowerCase().includes('wmn');
+
+            const mensMap = {
+                240: "US6, EU38.5", 245: "US6.5, EU39", 250: "US7, EU40", 255: "US7.5, EU40.5",
+                260: "US8, EU41", 265: "US8.5, EU42", 270: "US9, EU42.5", 275: "US9.5, EU43",
+                280: "US10, EU44", 285: "US10.5, EU44.5", 290: "US11, EU45", 295: "US11.5, EU45.5", 300: "US12, EU46"
+            };
+
+            const womensMap = {
+                220: "US5, EU35.5", 225: "US5.5, EU36", 230: "US6, EU36.5", 235: "US6.5, EU37.5",
+                240: "US7, EU38", 245: "US7.5, EU38.5", 250: "US8, EU39", 255: "US8.5, EU40",
+                260: "US9, EU40.5", 265: "US9.5, EU41.5", 270: "US10, EU42"
+            };
+
+            const conversionMap = isWomen ? womensMap : mensMap;
+            return conversionMap[num] ? `${num} (${conversionMap[num]})` : `${num}`;
+        }
+
+        function getBrandIconHtml(brandName) {
+            const name = String(brandName).toLowerCase();
+            if (name.includes('나이키') || name.includes('nike')) return '<i class="fa-solid fa-bolt text-yellow-500 mr-1.5"></i>';
+            if (name.includes('아디다스') || name.includes('adidas')) return '<i class="fa-solid fa-mountain text-slate-700 mr-1.5"></i>';
+            if (name.includes('호카') || name.includes('hoka')) return '<i class="fa-solid fa-feather text-sky-500 mr-1.5"></i>';
+            if (name.includes('살로몬') || name.includes('salomon')) return '<i class="fa-solid fa-person-running text-red-500 mr-1.5"></i>';
+            if (name.includes('온러닝') || name.includes('온') || name.includes('on')) return '<i class="fa-solid fa-circle-dot text-black mr-1.5"></i>';
+            if (name.includes('노말') || name.includes('nnormal')) return '<i class="fa-solid fa-leaf text-green-600 mr-1.5"></i>';
+            if (name.includes('노다') || name.includes('norda')) return '<i class="fa-solid fa-compass text-indigo-500 mr-1.5"></i>';
+            if (name.includes('브룩스') || name.includes('brooks')) return '<i class="fa-solid fa-person-running text-blue-600 mr-1.5"></i>';
+            if (name.includes('라스포티바') || name.includes('sportiva')) return '<i class="fa-solid fa-mountain-sun text-amber-500 mr-1.5"></i>';
+            if (name.includes('뉴발란스') || name.includes('balance')) return '<i class="fa-solid fa-italic text-red-600 mr-1.5"></i>';
+            return '<i class="fa-solid fa-tag text-gray-400 mr-1.5"></i>';
+        }
+
+        function getBizIconHtml(bizName) {
+            const name = String(bizName).toLowerCase();
+            if (name.includes('신발') || name.includes('footwear') || name.includes('shoes')) return '<i class="fa-solid fa-shoe-prints text-amber-600 mr-1.5"></i>';
+            if (name.includes('의류') || name.includes('apparel') || name.includes('clothing')) return '<i class="fa-solid fa-shirt text-blue-600 mr-1.5"></i>';
+            if (name.includes('용품') || name.includes('잡화') || name.includes('acc') || name.includes('equipment')) return '<i class="fa-solid fa-toolbox text-emerald-600 mr-1.5"></i>';
+            return '<i class="fa-solid fa-layer-group text-gray-400 mr-1.5"></i>';
+        }
+
+        function getGenderIconHtml(genderName) {
+            const name = String(genderName).toLowerCase();
+            if (name.includes('남') || name.includes('men')) return '<i class="fa-solid fa-mars text-blue-500 mr-1.5"></i>';
+            if (name.includes('여') || name.includes('wmn') || name.includes('women')) return '<i class="fa-solid fa-venus text-pink-500 mr-1.5"></i>';
+            return '<i class="fa-solid fa-genderless text-purple-500 mr-1.5"></i>';
+        }
+
+        function parseSheetSmart(sheet) {
+            const rawMatrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+            if (!rawMatrix || rawMatrix.length === 0) return [];
+
+            let headerRowIdx = -1;
+            for (let i = 0; i < Math.min(rawMatrix.length, 15); i++) {
+                const rowText = rawMatrix[i].map(cell => String(cell).toLowerCase()).join(' ');
+                if (rowText.includes('품번') || rowText.includes('sku') || rowText.includes('품명') || rowText.includes('상품명') || rowText.includes('코드')) {
+                    headerRowIdx = i;
+                    break;
+                }
+            }
+
+            if (headerRowIdx === -1) headerRowIdx = 0;
+
+            const headers = rawMatrix[headerRowIdx].map(cell => String(cell).trim());
+            const dataRows = rawMatrix.slice(headerRowIdx + 1);
+
+            return dataRows.map(row => {
+                let obj = {};
+                headers.forEach((h, colIdx) => {
+                    if (h) obj[h] = row[colIdx] !== undefined ? row[colIdx] : '';
+                });
+                return obj;
+            });
+        }
+
+        fileInventoryInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            file1Text.textContent = file.name.length > 10 ? file.name.substring(0, 8) + '...' : file.name;
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                try {
+                    const data = new Uint8Array(evt.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const json = parseSheetSmart(sheet);
+                    processInventoryData(json);
+                } catch (err) {
+                    console.error(err);
+                    alert("재고 데이터 처리 중 오류 발생: " + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        fileSalesInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            file2Text.textContent = file.name.length > 10 ? file.name.substring(0, 8) + '...' : file.name;
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                try {
+                    const data = new Uint8Array(evt.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const json = parseSheetSmart(sheet);
+                    processSalesData(json);
+                } catch (err) {
+                    console.error(err);
+                    alert("판매 데이터 처리 중 오류 발생: " + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        function processInventoryData(json) {
+            if (!json || json.length === 0) {
+                alert("재고 데이터에서 행을 찾지 못했습니다.");
+                return;
+            }
+
+            const sampleRow = json[0] || {};
+            const keys = Object.keys(sampleRow);
+
+            const skuKey = keys.find(k => k.includes('품번') || k.toLowerCase().includes('sku') || k.includes('상품코드') || k.includes('자재코드') || k.includes('코드')) || keys[0];
+            const nameKey = keys.find(k => k.includes('품명') || k.includes('상품명') || k.includes('제품명') || k.includes('자재명')) || keys;
+            const subCatKey = keys.find(k => k.includes('소분류') || k.includes('품목소') || k.includes('브랜드')) || '';
+            const cat2Key = keys.find(k => k.includes('카테고리2') || k.includes('카테고리 2') || k.includes('중분류') || k.toLowerCase().includes('biz')) || '';
+            const genderKey = keys.find(k => k.includes('성별') || k.includes('구분')) || '';
+            const stockKey = keys.find(k => k.includes('재고') || k.includes('수량') || k.includes('현재고') || k.includes('실재고') || k.includes('총재고')) || '';
+            const sizeKey = keys.find(k => k.includes('규격') || k.includes('사이즈') || k.toLowerCase().includes('size')) || '';
+            const imgKey = keys.find(k => k.includes('이미지') || k.toLowerCase().includes('image') || k.includes('사진')) || '';
+
+            rawInventory = json.map(row => {
+                const rawSku = String(row[skuKey] || '').trim();
+                const rawName = String(row[nameKey] || '').trim();
+                const rawSubCat = subCatKey ? String(row[subCatKey] || '').trim() : '';
+                const rawCat2 = cat2Key ? String(row[cat2Key] || '').trim() : '';
+                const rawGender = genderKey ? String(row[genderKey] || '').trim() : '';
+                const rawStockStr = stockKey ? String(row[stockKey] || '0').replace(/,/g, '') : '0';
+                const stockVal = parseInt(rawStockStr, 10) || 0;
+                const rawSize = sizeKey ? String(row[sizeKey] || '').trim() : '';
+                const rawImg = imgKey ? String(row[imgKey] || '').trim() : '';
+
+                const isShoe = rawCat2.includes('신발') || rawCat2.toLowerCase().includes('footwear');
+                const formattedSize = isShoe ? formatShoeSizeDisplay(rawSize, rawGender) : rawSize;
+
+                return {
+                    sku: rawSku,
+                    name: rawName,
+                    brand: extractBrand(rawSubCat),
+                    category2: rawCat2,
+                    gender: rawGender,
+                    size: rawSize,
+                    sizeDisplay: formattedSize,
+                    stock: stockVal,
+                    imageUrl: rawImg,
+                    sales: 0,
+                    wos: 999,
+                    isHighHeat: false
+                };
+            }).filter(item => item.sku || item.name);
+
+            renderFilterChips();
+            applyFiltersAndRender();
+        }
+
+        function processSalesData(json) {
+            salesMap = {};
+            if (!json || json.length === 0) return;
+
+            const sampleRow = json[0] || {};
+            const keys = Object.keys(sampleRow);
+
+            const skuKey = keys.find(k => k.includes('품번') || k.toLowerCase().includes('sku') || k.includes('상품코드') || k.includes('코드')) || keys[0];
+            const qtyKey = keys.find(k => k.includes('수량') || k.includes('판매') || k.includes('출고') || k.includes('주간')) || keys;
+
+            json.forEach(row => {
+                const sku = String(row[skuKey] || '').trim();
+                const qtyStr = String(row[qtyKey] || '0').replace(/,/g, '');
+                const qty = parseInt(qtyStr, 10) || 0;
+                if (sku) salesMap[sku] = (salesMap[sku] || 0) + qty;
+            });
+
+            applyFiltersAndRender();
+        }
+
+        function renderFilterChips() {
+            const brandSet = new Set();
+            const bizSet = new Set();
+            const genderSet = new Set();
+
+            const shoeSizesMap = new Map();
+            const apparelSizesSet = new Set();
+            const equipSizesSet = new Set();
+
+            rawInventory.forEach(item => {
+                if (item.brand) brandSet.add(item.brand);
+                if (item.category2) bizSet.add(item.category2);
+                if (item.gender) genderSet.add(item.gender);
+
+                if (item.sizeDisplay) {
+                    const bizName = item.category2.toLowerCase();
+                    if (bizName.includes('신발') || bizName.includes('footwear')) {
+                        shoeSizesMap.set(item.sizeDisplay, (shoeSizesMap.get(item.sizeDisplay) || 0) + 1);
+                    } else if (bizName.includes('의류') || bizName.includes('apparel')) {
+                        apparelSizesSet.add(item.sizeDisplay);
+                    } else {
+                        equipSizesSet.add(item.sizeDisplay);
+                    }
+                }
+            });
+
+            const brands = Array.from(brandSet).sort();
+            let brandHtml = `<button class="chip-btn ${selectedBrand === '' ? 'active' : ''}" onclick="selectBrand('')"><i class="fa-solid fa-globe mr-1.5"></i>전체 브랜드</button>`;
+            brands.forEach(b => {
+                const icon = getBrandIconHtml(b);
+                const isActive = selectedBrand === b ? 'active' : '';
+                const safeB = String(b).replace(/'/g, "\\'");
+                brandHtml += `<button class="chip-btn ${isActive}" onclick="selectBrand('${safeB}')">${icon}${b}</button>`;
+            });
+            document.getElementById('brandChipContainer').innerHTML = brandHtml || '<span class="text-xs text-gray-400">데이터 없음</span>';
+
+            const bizs = Array.from(bizSet).sort();
+            let bizHtml = `<button class="chip-btn ${selectedBiz === '' ? 'active' : ''}" onclick="selectBiz('')"><i class="fa-solid fa-layer-group mr-1.5"></i>전체 BIZ</button>`;
+            bizs.forEach(b => {
+                const icon = getBizIconHtml(b);
+                const isActive = selectedBiz === b ? 'active' : '';
+                const safeB = String(b).replace(/'/g, "\\'");
+                bizHtml += `<button class="chip-btn ${isActive}" onclick="selectBiz('${safeB}')">${icon}${b}</button>`;
+            });
+            document.getElementById('bizChipContainer').innerHTML = bizHtml || '<span class="text-xs text-gray-400">데이터 없음</span>';
+
+            const genders = Array.from(genderSet).sort();
+            let genderHtml = `<button class="chip-btn ${selectedGender === '' ? 'active' : ''}" onclick="selectGender('')"><i class="fa-solid fa-users mr-1.5"></i>전체 성별</button>`;
+            genders.forEach(g => {
+                const icon = getGenderIconHtml(g);
+                const isActive = selectedGender === g ? 'active' : '';
+                const safeG = String(g).replace(/'/g, "\\'");
+                genderHtml += `<button class="chip-btn ${isActive}" onclick="selectGender('${safeG}')">${icon}${g}</button>`;
+            });
+            document.getElementById('genderChipContainer').innerHTML = genderHtml || '<span class="text-xs text-gray-400">데이터 없음</span>';
+
+            document.getElementById('sizeEmptyText').classList.add('hidden');
+
+            const shoeSizes = Array.from(shoeSizesMap.keys()).sort((a, b) => {
+                const numA = parseInt(a.replace(/[^0-9]/g, ''), 10) || 0;
+                const numB = parseInt(b.replace(/[^0-9]/g, ''), 10) || 0;
+                return numA - numB;
+            });
+
+            if (shoeSizes.length > 0) {
+                document.getElementById numB;
+            });
+
+            if (shoeSizes.length > 0) {
+                document.getElementById('shoeSizeSection').classList.remove('hidden');
+                let shoeHtml = '';
+                shoeSizes.forEach(s => {
+                    const isActive = selectedSizeDisplay === s ? 'active' : '';
+                    const safeS = String(s).replace(/'/g, "\\'");
+                    shoeHtml += `<button class="size-chip-btn ${isActive}" onclick="selectSize('${safeS}')">${s}</button>`;
+                });
+                document.getElementById('shoeSizeContainer').innerHTML = shoeHtml;
+            } else {
+                document.getElementById('shoeSizeSection').classList.add('hidden');
+            }
+
+            const apparelSizes = Array.from(apparelSizesSet).sort();
+            if (apparelSizes.length > 0) {
+                document.getElementById('apparelSizeSection').classList.remove('hidden');
+                let apparelHtml = '';
+                apparelSizes.forEach(s => {
+                    const isActive = selectedSizeDisplay === s ? 'active' : '';
+                    const safeS = String(s).replace(/'/g, "\\'");
+                    apparelHtml += `<button class="size-chip-btn ${isActive}" onclick="selectSize('${safeS}')">${s}</button>`;
+                });
+                document.getElementById('apparelSizeContainer').innerHTML = apparelHtml;
+            } else {
+                document.getElementById('apparelSizeSection').classList.add('hidden');
+            }
+
+            const equipSizes = Array.from(equipSizesSet).sort();
+            if (equipSizes.length > 0) {
+                document.getElementById('equipSizeSection').classList.remove('hidden');
+                let equipHtml = '';
+                equipSizes.forEach(s => {
+                    const isActive = selectedSizeDisplay === s ? 'active' : '';
+                    const safeS = String(s).replace(/'/g, "\\'");
+                    equipHtml += `<button class="size-chip-btn ${isActive}" onclick="selectSize('${safeS}')">${s}</button>`;
+                });
+                document.getElementById('equipSizeContainer').innerHTML = equipHtml;
+            } else {
+                document.getElementById('equipSizeSection').classList.add('hidden');
+            }
+        }
+
+        function selectBrand(val) {
+            selectedBrand = (selectedBrand === val) ? '' : val;
+            renderFilterChips();
+            applyFiltersAndRender();
+        }
+
+        function selectBiz(val) {
+            selectedBiz = (selectedBiz === val) ? '' : val;
+            renderFilterChips();
+            applyFiltersAndRender();
+        }
+
+        function selectGender(val) {
+            selectedGender = (selectedGender === val) ? '' : val;
+            renderFilterChips();
+            applyFiltersAndRender();
+        }
+
+        function selectSize(val) {
+            selectedSizeDisplay = (selectedSizeDisplay === val) ? '' : val;
+            renderFilterChips();
+            applyFiltersAndRender();
+        }
+
+        function applyFiltersAndRender() {
+            if (rawInventory.length === 0) return;
+            const searchTerm = searchInput.value.trim().toLowerCase();
+
+            filteredData = rawInventory.map(item => {
+                const salesQty = salesMap[item.sku] || 0;
+                const calcWos = salesQty > 0 ? (item.stock / salesQty) : (item.stock === 0 ? 0 : 999);
+                return { 
+                    ...item, 
+                    sales: salesQty, 
+                    wos: calcWos,
+                    isHighHeat: salesQty >= HIGH_HEAT_THRESHOLD 
+                };
+            }).filter(item => {
+                const matchesSearch = !searchTerm || item.name.toLowerCase().includes(searchTerm) || item.sku.toLowerCase().includes(searchTerm);
+                const matchesBrand = !selectedBrand || item.brand === selectedBrand;
+                const matchesBiz = !selectedBiz || item.category2 === selectedBiz;
+                const matchesGender = !selectedGender || item.gender === selectedGender;
+                const matchesSize = !selectedSizeDisplay || item.sizeDisplay === selectedSizeDisplay || item.size === selectedSizeDisplay;
+                const matchesHeat = !isHighHeatOnly || item.isHighHeat;
+                const matchesWosWarning = !isWosWarningOnly || (item.sales > 0 && item.wos <= 2.0);
+
+                return matchesSearch && matchesBrand && matchesBiz && matchesGender && matchesSize && matchesHeat && matchesWosWarning;
+            });
+
+            filteredData.sort((a, b) => {
+                if (sortBy === 'sales_desc') return b.sales - a.sales || b.stock - a.stock;
+                if (sortBy === 'wos_asc') return a.wos - b.wos;
+                if (sortBy === 'stock_desc') return b.stock - a.stock;
+                if (sortBy === 'name_asc') return a.name.localeCompare(b.name, 'ko');
+                return 0;
+            });
+
+            renderResults();
+        }
+
+        function getWosBadgeHtml(stock, sales, wos) {
+            if (sales > 0) {
+                const
