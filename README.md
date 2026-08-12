@@ -1,0 +1,1 @@
+# rcmt_sinsa_inventory
