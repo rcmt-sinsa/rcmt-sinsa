@@ -8,52 +8,104 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .musinsa-badge { background-color: #000; color: #fff; font-weight: 700; font-size: 0.75rem; padding: 2px 6px; border-radius: 2px; }
+        .musinsa-badge { background-color: #000; color: #fff; font-weight: 700; font-size: 0.7rem; padding: 2px 6px; border-radius: 2px; }
         .heat-badge { background-color: #ff3333; color: #fff; font-weight: 800; }
+        .soldout-badge { background-color: #6b7280; color: #fff; font-weight: 800; }
+        .warning-badge { background-color: #f59e0b; color: #fff; font-weight: 800; }
+        
+        .chip-btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.35rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease-in-out;
+            user-select: none;
+            border: 1px solid #e5e7eb;
+            background-color: #f9fafb;
+            color: #374151;
+        }
+        .chip-btn:hover {
+            background-color: #f3f4f6;
+            border-color: #d1d5db;
+        }
+        .chip-btn.active {
+            background-color: #000000;
+            color: #ffffff !important;
+            border-color: #000000;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .chip-btn.active i {
+            color: #ffffff !important;
+        }
+
+        .size-chip-btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.55rem;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease-in-out;
+            user-select: none;
+            border: 1px solid #e5e7eb;
+            background-color: #ffffff;
+            color: #4b5563;
+        }
+        .size-chip-btn:hover {
+            background-color: #f3f4f6;
+            border-color: #9ca3af;
+        }
+        .size-chip-btn.active {
+            background-color: #000000;
+            color: #ffffff !important;
+            border-color: #000000;
+            font-weight: 700;
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-900 min-h-screen">
 
-    <header class="bg-black text-white py-4 px-6 shadow-md flex justify-between items-center sticky top-0 z-50">
-        <div class="flex items-center space-x-3">
-            <span class="text-2xl font-black tracking-widest text-white">INVENTORY HUB</span>
-            <span class="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded">스마트 재고 & HIGH HEAT 조회</span>
-        </div>
-        <div id="statusIndicator" class="text-xs text-gray-400">
-            <i class="fa-solid fa-circle-info mr-1"></i>데이터 파일을 업로드해 주세요.
+    <!-- Header Section with Compact Top-Right File Upload Icons -->
+    <header class="bg-black text-white py-3 px-4 md:px-6 shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-3">
+            <div class="flex items-center space-x-3">
+                <span class="text-xl font-black tracking-widest text-white">INVENTORY HUB</span>
+                <span class="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded hidden sm:inline-block">스마트 재고 & HIGH HEAT</span>
+            </div>
+
+            <!-- Top Right Compact File Upload Buttons -->
+            <div class="flex items-center space-x-2 text-xs">
+                <!-- File 1 Upload -->
+                <label for="fileInventory" class="bg-gray-800 hover:bg-gray-700 text-gray-200 px-3 py-1.5 rounded cursor-pointer transition flex items-center border border-gray-700">
+                    <i class="fa-solid fa-boxes-stacked text-green-400 mr-1.5"></i>
+                    <span id="file1Text">재고 RAW 업로드</span>
+                    <input type="file" id="fileInventory" accept=".xlsx, .xls, .csv" class="hidden">
+                </label>
+
+                <!-- File 2 Upload -->
+                <label for="fileSales" class="bg-gray-800 hover:bg-gray-700 text-gray-200 px-3 py-1.5 rounded cursor-pointer transition flex items-center border border-gray-700">
+                    <i class="fa-solid fa-chart-line text-blue-400 mr-1.5"></i>
+                    <span id="file2Text">판매 RAW 업로드</span>
+                    <input type="file" id="fileSales" accept=".xlsx, .xls, .csv" class="hidden">
+                </label>
+
+                <div id="statusIndicator" class="text-xs text-gray-400 ml-1 hidden lg:block">
+                    <i class="fa-solid fa-circle-info mr-1"></i>파일 대기중
+                </div>
+            </div>
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
-
-        <!-- File Upload Section -->
-        <section class="bg-white rounded-lg p-5 shadow-sm border border-gray-200">
-            <h2 class="text-lg font-bold mb-3 flex items-center text-gray-800">
-                <i class="fa-solid fa-file-excel text-green-600 mr-2"></i>RAW DATA 파일 업로드
-            </h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-black transition cursor-pointer relative bg-gray-50">
-                    <input type="file" id="fileInventory" accept=".xlsx, .xls, .csv" class="absolute inset-0 opacity-0 cursor-pointer">
-                    <i class="fa-solid fa-boxes-stacked text-3xl text-gray-400 mb-2"></i>
-                    <p class="font-semibold text-sm">파일 1: 재고 데이터 (RAW DATA)</p>
-                    <p class="text-xs text-gray-500 mt-1">품명, 품번, 품목자산분류, 품목소분류, 카테고리2, 성별 등</p>
-                    <span id="file1Name" class="inline-block mt-2 text-xs text-blue-600 font-bold"></span>
-                </div>
-
-                <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-black transition cursor-pointer relative bg-gray-50">
-                    <input type="file" id="fileSales" accept=".xlsx, .xls, .csv" class="absolute inset-0 opacity-0 cursor-pointer">
-                    <i class="fa-solid fa-chart-line text-3xl text-gray-400 mb-2"></i>
-                    <p class="font-semibold text-sm">파일 2: 판매 데이터 분석 (주간 판매 현황)</p>
-                    <p class="text-xs text-gray-500 mt-1">품번별 판매수량 SUMIF 집계 및 HIGH HEAT 분석</p>
-                    <span id="file2Name" class="inline-block mt-2 text-xs text-green-600 font-bold"></span>
-                </div>
-            </div>
-        </section>
+    <main class="max-w-7xl mx-auto p-4 md:p-6 space-y-5">
 
         <!-- Summary Metrics Dashboard -->
         <section id="metricsSection" class="grid grid-cols-2 md:grid-cols-4 gap-4 hidden">
             <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                <p class="text-xs text-gray-500 font-medium">전체 조회 품목 수</p>
+                <p class="text-xs text-gray-500 font-medium">전체 보유 품목 수</p>
                 <p id="metricTotalItems" class="text-2xl font-black mt-1">0</p>
             </div>
             <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
@@ -72,286 +124,20 @@
 
         <!-- Search & Filter Panel -->
         <section class="bg-white rounded-lg p-5 shadow-sm border border-gray-200 space-y-4">
-            <div class="flex flex-col md:flex-row gap-3">
+            <!-- Search Bar + Search Button + Reset Button + Excel Export -->
+            <div class="flex flex-col sm:flex-row gap-2">
                 <div class="relative flex-1">
-                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-3.5 text-gray-400"></i>
-                    <input type="text" id="searchInput" placeholder="제품명(품명) 또는 품번을 입력하세요..." class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-black">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-gray-400"></i>
+                    <input type="text" id="searchInput" placeholder="제품명(품명) 또는 품번 입력 후 검색 버튼을 누르세요..." class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-black">
                 </div>
-                <button id="resetFiltersBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-md text-sm font-semibold transition flex items-center justify-center">
-                    <i class="fa-solid fa-rotate-right mr-2"></i>필터 초기화
+                <!-- Search Button -->
+                <button id="searchBtn" class="bg-black hover:bg-gray-800 text-white px-5 py-2.5 rounded-md text-sm font-bold transition flex items-center justify-center">
+                    <i class="fa-solid fa-magnifying-glass mr-1.5"></i>검색
                 </button>
-            </div>
-
-            <div class="border-t border-gray-100 pt-4 space-y-3">
-                <div class="flex items-center space-x-2 pb-2 border-b border-gray-100">
-                    <button id="toggleHighHeat" class="px-3 py-1.5 rounded text-xs font-bold border border-red-300 text-red-600 hover:bg-red-50 transition flex items-center">
-                        <i class="fa-solid fa-fire mr-1"></i> HIGH HEAT 품목만 보기
-                    </button>
-                </div>
-
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-600 mb-1">품목자산분류</label>
-                        <select id="filterAsset" class="w-full border border-gray-300 rounded px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:border-black">
-                            <option value="">전체 (Asset)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-600 mb-1">브랜드 (소분류 추출)</label>
-                        <select id="filterBrand" class="w-full border border-gray-300 rounded px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:border-black">
-                            <option value="">전체 브랜드</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-600 mb-1">카테고리2</label>
-                        <select id="filterCategory2" class="w-full border border-gray-300 rounded px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:border-black">
-                            <option value="">전체 카테고리</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-600 mb-1">성별</label>
-                        <select id="filterGender" class="w-full border border-gray-300 rounded px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:border-black">
-                            <option value="">전체 성별</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Inventory Data Table -->
-        <section class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div class="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-                <span class="text-sm font-bold text-gray-700">조회 결과 (<span id="resultCount" class="text-black">0</span>건)</span>
-                <span class="text-xs text-gray-500">* 품번 기준 주간 판매수량이 자동 SUMIF 연산됩니다.</span>
-            </div>
-            
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-xs">
-                    <thead class="bg-gray-100 text-gray-700 font-bold uppercase border-b border-gray-200">
-                        <tr>
-                            <th class="p-3">상태</th>
-                            <th class="p-3">품번 (SKU)</th>
-                            <th class="p-3">품명 (상품명)</th>
-                            <th class="p-3">브랜드</th>
-                            <th class="p-3">자산분류</th>
-                            <th class="p-3">카테고리2</th>
-                            <th class="p-3">성별</th>
-                            <th class="p-3 text-right">현재 재고</th>
-                            <th class="p-3 text-right">주간 판매량 (SUMIF)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="inventoryTbody" class="divide-y divide-gray-100">
-                        <tr>
-                            <td colspan="9" class="p-8 text-center text-gray-400">
-                                상단 영역에서 RAW DATA 파일 1(재고)과 파일 2(판매 분석)를 업로드해 주세요.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-    </main>
-
-    <script>
-        let rawInventory = [];
-        let salesMap = {};
-        let filteredData = [];
-        let isHighHeatOnly = false;
-        const HIGH_HEAT_THRESHOLD = 5;
-
-        const fileInventoryInput = document.getElementById('fileInventory');
-        const fileSalesInput = document.getElementById('fileSales');
-        const file1Name = document.getElementById('file1Name');
-        const file2Name = document.getElementById('file2Name');
-        const statusIndicator = document.getElementById('statusIndicator');
-
-        const searchInput = document.getElementById('searchInput');
-        const filterAsset = document.getElementById('filterAsset');
-        const filterBrand = document.getElementById('filterBrand');
-        const filterCategory2 = document.getElementById('filterCategory2');
-        const filterGender = document.getElementById('filterGender');
-        const toggleHighHeat = document.getElementById('toggleHighHeat');
-        const resetFiltersBtn = document.getElementById('resetFiltersBtn');
-
-        const metricsSection = document.getElementById('metricsSection');
-        const metricTotalItems = document.getElementById('metricTotalItems');
-        const metricTotalStock = document.getElementById('metricTotalStock');
-        const metricTotalSales = document.getElementById('metricTotalSales');
-        const metricHighHeat = document.getElementById('metricHighHeat');
-
-        const inventoryTbody = document.getElementById('inventoryTbody');
-        const resultCount = document.getElementById('resultCount');
-
-        function extractBrand(subCategoryStr) {
-            if (!subCategoryStr) return '기타';
-            let cleaned = String(subCategoryStr).trim();
-            cleaned = cleaned.replace(/^(신발|의류|용품|잡화)[\s\/\_\-\(\)]*/gi, '');
-            const match = cleaned.match(/\(([^)]+)\)/);
-            if (match) return match[1].trim();
-            return cleaned.replace(/[\(\)]/g, '').trim() || subCategoryStr;
-        }
-
-        fileInventoryInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            file1Name.textContent = `✓ ${file.name}`;
-            const reader = new FileReader();
-            reader.onload = (evt) => {
-                const data = new Uint8Array(evt.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: '' });
-                processInventoryData(json);
-            };
-            reader.readAsArrayBuffer(file);
-        });
-
-        fileSalesInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            file2Name.textContent = `✓ ${file.name}`;
-            const reader = new FileReader();
-            reader.onload = (evt) => {
-                const data = new Uint8Array(evt.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: '' });
-                processSalesData(json);
-            };
-            reader.readAsArrayBuffer(file);
-        });
-
-        function processInventoryData(json) {
-            rawInventory = json.map(row => {
-                const skuKey = Object.keys(row).find(k => k.includes('품번') || k.toLowerCase().includes('sku')) || '품번';
-                const nameKey = Object.keys(row).find(k => k.includes('품명') || k.includes('상품명')) || '품명';
-                const assetKey = Object.keys(row).find(k => k.includes('품목자산분류')) || '품목자산분류';
-                const subCatKey = Object.keys(row).find(k => k.includes('품목소분류')) || '품목소분류';
-                const cat2Key = Object.keys(row).find(k => k.includes('카테고리2')) || '카테고리2';
-                const genderKey = Object.keys(row).find(k => k.includes('성별')) || '성별';
-                const stockKey = Object.keys(row).find(k => k.includes('재고') || k.includes('수량')) || '재고수량';
-
-                const rawSubCat = row[subCatKey] || '';
-                return {
-                    sku: String(row[skuKey] || '').trim(),
-                    name: String(row[nameKey] || '').trim(),
-                    asset: String(row[assetKey] || '').trim(),
-                    brand: extractBrand(rawSubCat),
-                    category2: String(row[cat2Key] || '').trim(),
-                    gender: String(row[genderKey] || '').trim(),
-                    stock: parseInt(row[stockKey] || 0, 10) || 0,
-                    sales: 0,
-                    isHighHeat: false
-                };
-            }).filter(item => item.sku || item.name);
-
-            populateFilterDropdowns();
-            applyFiltersAndRender();
-        }
-
-        function processSalesData(json) {
-            salesMap = {};
-            json.forEach(row => {
-                const skuKey = Object.keys(row).find(k => k.includes('품번') || k.toLowerCase().includes('sku')) || '품번';
-                const qtyKey = Object.keys(row).find(k => k.includes('수량') || k.includes('판매')) || '수량';
-                const sku = String(row[skuKey] || '').trim();
-                const qty = parseInt(row[qtyKey] || 0, 10) || 0;
-                if (sku) salesMap[sku] = (salesMap[sku] || 0) + qty;
-            });
-            applyFiltersAndRender();
-        }
-
-        function populateFilterDropdowns() {
-            const assets = new Set(), brands = new Set(), categories = new Set(), genders = new Set();
-            rawInventory.forEach(item => {
-                if (item.asset) assets.add(item.asset);
-                if (item.brand) brands.add(item.brand);
-                if (item.category2) categories.add(item.category2);
-                if (item.gender) genders.add(item.gender);
-            });
-            fillSelect(filterAsset, Array.from(assets), "전체 (Asset)");
-            fillSelect(filterBrand, Array.from(brands), "전체 브랜드");
-            fillSelect(filterCategory2, Array.from(categories), "전체 카테고리");
-            fillSelect(filterGender, Array.from(genders), "전체 성별");
-        }
-
-        function fillSelect(selectEl, items, defaultText) {
-            selectEl.innerHTML = `<option value="">${defaultText}</option>`;
-            items.sort().forEach(item => {
-                const opt = document.createElement('option');
-                opt.value = item; opt.textContent = item;
-                selectEl.appendChild(opt);
-            });
-        }
-
-        function applyFiltersAndRender() {
-            if (rawInventory.length === 0) return;
-            const searchTerm = searchInput.value.trim().toLowerCase();
-
-            filteredData = rawInventory.map(item => {
-                const salesQty = salesMap[item.sku] || 0;
-                return { ...item, sales: salesQty, isHighHeat: salesQty >= HIGH_HEAT_THRESHOLD };
-            }).filter(item => {
-                const matchesSearch = !searchTerm || item.name.toLowerCase().includes(searchTerm) || item.sku.toLowerCase().includes(searchTerm);
-                const matchesAsset = !filterAsset.value || item.asset === filterAsset.value;
-                const matchesBrand = !filterBrand.value || item.brand === filterBrand.value;
-                const matchesCat2 = !filterCategory2.value || item.category2 === filterCategory2.value;
-                const matchesGender = !filterGender.value || item.gender === filterGender.value;
-                const matchesHeat = !isHighHeatOnly || item.isHighHeat;
-
-                return matchesSearch && matchesAsset && matchesBrand && matchesCat2 && matchesGender && matchesHeat;
-            });
-
-            renderTableAndMetrics();
-        }
-
-        function renderTableAndMetrics() {
-            metricsSection.classList.remove('hidden');
-            metricTotalItems.textContent = filteredData.length.toLocaleString();
-            metricTotalStock.textContent = filteredData.reduce((acc, cur) => acc + cur.stock, 0).toLocaleString();
-            metricTotalSales.textContent = filteredData.reduce((acc, cur) => acc + cur.sales, 0).toLocaleString();
-            metricHighHeat.textContent = filteredData.filter(i => i.isHighHeat).length.toLocaleString();
-            resultCount.textContent = filteredData.length.toLocaleString();
-
-            if (filteredData.length === 0) {
-                inventoryTbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-gray-400">조건에 부합하는 상품이 없습니다.</td></tr>`;
-                return;
-            }
-
-            inventoryTbody.innerHTML = filteredData.map(item => `
-                <tr class="hover:bg-gray-50 border-b border-gray-100">
-                    <td class="p-3">${item.isHighHeat ? '<span class="heat-badge text-xs px-2 py-0.5 rounded">🔥 HIGH HEAT</span>' : '<span class="text-xs text-gray-400">일반</span>'}</td>
-                    <td class="p-3 font-mono font-bold">${item.sku}</td>
-                    <td class="p-3 font-medium">${item.name}</td>
-                    <td class="p-3"><span class="musinsa-badge">${item.brand}</span></td>
-                    <td class="p-3 text-gray-600">${item.asset || '-'}</td>
-                    <td class="p-3 text-gray-600">${item.category2 || '-'}</td>
-                    <td class="p-3 text-gray-600">${item.gender || '-'}</td>
-                    <td class="p-3 text-right font-bold">${item.stock.toLocaleString()} EA</td>
-                    <td class="p-3 text-right font-extrabold ${item.sales > 0 ? 'text-blue-600' : 'text-gray-400'}">${item.sales.toLocaleString()} EA</td>
-                </tr>
-            `).join('');
-            statusIndicator.innerHTML = `<i class="fa-solid fa-circle-check text-green-400 mr-1"></i>조회 완료 (${filteredData.length}건)`;
-        }
-
-        searchInput.addEventListener('input', applyFiltersAndRender);
-        filterAsset.addEventListener('change', applyFiltersAndRender);
-        filterBrand.addEventListener('change', applyFiltersAndRender);
-        filterCategory2.addEventListener('change', applyFiltersAndRender);
-        filterGender.addEventListener('change', applyFiltersAndRender);
-
-        toggleHighHeat.addEventListener('click', () => {
-            isHighHeatOnly = !isHighHeatOnly;
-            toggleHighHeat.classList.toggle('bg-red-600');
-            toggleHighHeat.classList.toggle('text-white');
-            applyFiltersAndRender();
-        });
-
-        resetFiltersBtn.addEventListener('click', () => {
-            searchInput.value = ''; filterAsset.value = ''; filterBrand.value = ''; filterCategory2.value = ''; filterGender.value = '';
-            isHighHeatOnly = false;
-            toggleHighHeat.classList.remove('bg-red-600', 'text-white');
-            applyFiltersAndRender();
-        });
-    </script>
-</body>
-</html>
+                <!-- Compact Reset Button -->
+                <button id="resetFiltersBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-2.5 rounded-md text-xs font-semibold transition flex items-center justify-center border border-gray-200">
+                    <i class="fa-solid fa-rotate-right mr-1"></i>초기화
+                </button>
+                <!-- Excel Export Button -->
+                <button id="exportExcelBtn" class="bg-green-700 hover:bg-green-800 text-white px-3 py-2.5 rounded-md text-xs font-bold transition flex items-center justify-center">
+                    <i class="fa-solid fa
