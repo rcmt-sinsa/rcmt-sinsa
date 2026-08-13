@@ -447,15 +447,7 @@
 
     return result;
 }
-                let obj = {};
-                headers.forEach((h, colIdx) => {
-                    if (h) obj[h] = row[colIdx] !== undefined ? row[colIdx] : '';
-                });
-                return obj;
-            }).filter(item => item !== null);
-        }
 
-        // bookStyles: false로 xl/styles.xml 파싱을 원천적으로 제외하여 alignment 오류 완벽 방지
        function readWorkbookSafely(file, callback) {
 
     const reader = new FileReader();
