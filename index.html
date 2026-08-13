@@ -1024,21 +1024,37 @@ async function loadCsvData() {
         const salesCsv =
             await salesRes.text();
 
-        const inventoryRows =
-            XLSX.utils.sheet_to_json(
-                XLSX.read(
-                    inventoryCsv,
-                    { type: 'string' }
-                ).Sheets.Sheet1
-            );
+       const inventoryWorkbook =
+    XLSX.read(
+        inventoryCsv,
+        { type: "string" }
+    );
 
-        const salesRows =
-            XLSX.utils.sheet_to_json(
-                XLSX.read(
-                    salesCsv,
-                    { type: 'string' }
-                ).Sheets.Sheet1
-            );
+const inventorySheet =
+    inventoryWorkbook.Sheets[
+        inventoryWorkbook.SheetNames[0]
+    ];
+
+const inventoryRows =
+    parseExcelUniversal(
+        inventorySheet
+    );
+
+     const salesWorkbook =
+    XLSX.read(
+        salesCsv,
+        { type: "string" }
+    );
+
+const salesSheet =
+    salesWorkbook.Sheets[
+        salesWorkbook.SheetNames[0]
+    ];
+
+const salesRows =
+    parseExcelUniversal(
+        salesSheet
+    );
 
         processInventoryData(
             inventoryRows
@@ -1048,6 +1064,24 @@ async function loadCsvData() {
             salesRows
         );
 
+console.log(
+2
+"inventory sample",
+3
+inventoryRows[0]
+4
+);
+5
+ 
+6
+console.log(
+7
+"sales sample",
+8
+salesRows[0]
+9
+);
+        
         statusIndicator.innerHTML =
             '✅ 저장소 데이터 로딩 완료';
 
