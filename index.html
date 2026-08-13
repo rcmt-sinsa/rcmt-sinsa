@@ -144,6 +144,15 @@
                     </div>
                 </div>
 
+<div class="pt-3 border-t border-gray-100">
+    <button
+        id="clearFilterBtn"
+        class="px-3 py-1.5 rounded border border-gray-300 bg-white hover:bg-gray-100 text-xs font-bold text-gray-700 transition">
+        <i class="fa-solid fa-filter-circle-xmark mr-1"></i>
+        필터 전체 초기화
+    </button>
+</div>
+                
                 <!-- 4. Size Filter Section -->
                 <div class="border-t border-gray-100 pt-3">
                     <label class="block text-xs font-bold text-gray-700 mb-2">
@@ -1037,6 +1046,40 @@ const salesQty =
             renderFilterChips();
             applyFiltersAndRender();
         });
+
+        const clearFilterBtn =
+    document.getElementById(
+        'clearFilterBtn'
+    );
+
+if (clearFilterBtn) {
+
+    clearFilterBtn.addEventListener(
+        'click',
+        () => {
+
+            selectedBrand = '';
+            selectedBiz = '';
+            selectedGender = '';
+            selectedSizeDisplay = '';
+isHighHeatOnly = false;
+isWosWarningOnly = false;
+
+            toggleHighHeat.classList.remove(
+    'bg-red-600',
+    'text-white'
+);
+
+toggleWosWarning.classList.remove(
+    'bg-amber-600',
+    'text-white'
+);
+            
+            renderFilterChips();
+            applyFiltersAndRender();
+        }
+    );
+}
 
 async function loadCsvData() {
 
