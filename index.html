@@ -1046,7 +1046,9 @@ const imageArea = item.imageUrl
         </div>
     `;
                 return `
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col justify-between hover:shadow-md transition">
+                <div
+    class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col justify-between hover:shadow-md transition cursor-pointer"
+    onclick="toggleCardDetail('${item.sku}_${item.size}')">
                     <div>
                        <div class="relative">
     ${imageArea}
@@ -1089,6 +1091,23 @@ const imageArea = item.imageUrl
                             <p class="text-[10px] text-gray-400">주간판매</p>
                             <p class="font-extrabold ${item.sales > 0 ? 'text-blue-600' : 'text-gray-400'}">${item.sales.toLocaleString()} EA</p>
                         </div>
+
+<div
+    id="detail_${item.sku}_${item.size}"
+    class="hidden px-4 py-3 border-t bg-gray-50 text-xs text-gray-600">
+
+    <div>품번 : ${item.sku}</div>
+    <div>규격 : ${item.size}</div>
+    <div>재고 : ${item.stock} EA</div>
+    <div>판매 : ${item.sales} EA</div>
+
+    <div>
+        POS :
+        ${item.hasPosBarcode ? '등록' : '미등록'}
+    </div>
+
+</div>
+
                     </div>
                 </div>
                 `;
@@ -1393,10 +1412,18 @@ async function updateLastModified() {
 
 updateLastModified();
 
+function toggleCardDetail(id){
+
+    const el =
+        document.getElementById(
+            'detail_' + id
+        );
+
+    if(!el) return;
+
+    el.classList.toggle('hidden');
+}
+
 </script>
-</body>
-</html>
-        
-    </script>
 </body>
 </html>
