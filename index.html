@@ -1018,13 +1018,24 @@ async function loadGoogleSheet() {
 29
  
 30
-const response = await fetch(GOOGLE_API);
-31
+const response =
+2
+await fetch(
+3
+GOOGLE_API
+4
+);
+5
  
-32
-const data = await response.json();
-33
+6
+const text =
+7
+await response.text();
+8
  
+9
+console.log(text);
+    
 34
 const inventoryJson =
 35
