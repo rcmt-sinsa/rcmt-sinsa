@@ -665,11 +665,32 @@ keys.find(k => k.trim() === '수량')
 || keys.find(k => k.includes('출고'))
 || keys[0]
 || '';
+            
+            const sizeKey =
+    keys.find(k => k.trim() === '규격')
+    || keys.find(k => k.includes('규격'))
+    || '';
+            
             json.forEach(row => {
-                const sku = String(row[skuKey] || '').trim();
-                const qtyStr = String(row[qtyKey] || '0').replace(/,/g, '');
-                const qty = parseInt(qtyStr, 10) || 0;
-                if (sku) salesMap[sku] = (salesMap[sku] || 0) + qty;
+             const sku = String(row[skuKey] || '').trim();
+
+const size =
+    String(row[sizeKey] || '').trim();
+
+const qtyStr =
+    String(row[qtyKey] || '0')
+        .replace(/,/g, '');
+
+const qty =
+    parseInt(qtyStr, 10) || 0;
+
+const salesKey =
+    sku + "|" + size;
+
+if (sku)
+    salesMap[salesKey] =
+        (salesMap[salesKey] || 0)
+        + qty;
             });
 
             applyFiltersAndRender();
@@ -810,7 +831,12 @@ keys.find(k => k.trim() === '수량')
             const searchTerm = searchInput.value.trim().toLowerCase();
 
             filteredData = rawInventory.map(item => {
-                const salesQty = salesMap[item.sku] || 0;
+                const salesKey =
+    item.sku + "|" + item.size;
+
+const salesQty =
+    salesMap[salesKey]
+    || 0;
                 const calcWos = salesQty > 0 ? (item.stock / salesQty) : (item.stock === 0 ? 0 : 999);
                 return { 
                     ...item, 
