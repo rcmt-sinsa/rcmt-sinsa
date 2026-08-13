@@ -1008,71 +1008,59 @@ keys.find(k => k.trim() === '수량')
             applyFiltersAndRender();
         });
 
-const GOOGLE_API =
-"https://script.googleusercontent.com/macros/echo?user_content_key=AUkAhnTjT1cxMnqdzEDfpeEnzssDD_2FoMgiPaWUfDh-2W3AqxG2R-NnENkwjTEsrOK1zuJagxiPZ5nuc-5SpQ2e2LVD4MHPygk-ElxQc97VYguA29XeNnv8F_Jc-O0P6aSckmPgDCQkFGoJMLqaLLvnzZgSHKGM776vEP8q4JjdbMMZaNEvC0rHk9V9c0qL1baaP9e5aa95XtmkDWu6MQRNNC5vTgT8l0J_u1su5UqnMpiQa6lr3ux7svlNaVmBOqDq1bf_XTdkFsme8DPDkmntVpzYIkglhw&lib=MaF6IBu8QMattzV_npDt0gzOmqOjcdjRL";
-
-async function loadGoogleSheet() {
+async function loadCsvData() {
 
     try {
 
-        const response =
-            await fetch(
-                GOOGLE_API
+        const inventoryRes =
+            await fetch('./inventory.csv');
+
+        const salesRes =
+            await fetch('./sales.csv');
+
+        const inventoryCsv =
+            await inventoryRes.text();
+
+        const salesCsv =
+            await salesRes.text();
+
+        const inventoryRows =
+            XLSX.utils.sheet_to_json(
+                XLSX.read(
+                    inventoryCsv,
+                    { type: 'string' }
+                ).Sheets.Sheet1
             );
 
-        const data =
-            await response.json();
-
-        const inventoryJson =
-            matrixToObjects(
-                data.inventory
-            );
-
-        const salesJson =
-            matrixToObjects(
-                data.sales
+        const salesRows =
+            XLSX.utils.sheet_to_json(
+                XLSX.read(
+                    salesCsv,
+                    { type: 'string' }
+                ).Sheets.Sheet1
             );
 
         processInventoryData(
-            inventoryJson
+            inventoryRows
         );
 
         processSalesData(
-            salesJson
+            salesRows
         );
 
-    } catch (err) {
+        statusIndicator.innerHTML =
+            '✅ 저장소 데이터 로딩 완료';
 
-        console.error(
-            "Google Sheet 로딩 실패",
-            err
-        );
+    } catch(err) {
+
+        console.error(err);
+
+        statusIndicator.innerHTML =
+            '❌ CSV 로딩 실패';
     }
 }
 
-function matrixToObjects(rows) {
-
-    if (!rows || rows.length < 2) {
-        return [];
-    }
-
-    const headers = rows[1];
-
-    return rows
-        .slice(3)
-        .map(row => {
-
-            const obj = {};
-
-            headers.forEach((h, idx) => {
-                obj[h] = row[idx];
-            });
-
-            return obj;
-        });
-}
-
-loadGoogleSheet();
+loadCsvData();
         
     </script>
 </body>
