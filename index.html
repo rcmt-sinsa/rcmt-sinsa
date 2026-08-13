@@ -624,6 +624,10 @@ keys.find(k => k.trim() === '품명')
             const stockKey = keys.find(k => k.includes('신사동') || k.includes('매장 (신사동)') || k.includes('매장(신사동)')) || keys.find(k => k.includes('매장')) || keys.find(k => k.includes('재고') || k.includes('수량')) || '';
             const sizeKey = keys.find(k => k.trim() === '규격') || keys.find(k => k.includes('규격') || k.includes('사이즈')) || '';
             const imgKey = keys.find(k => k.includes('이미지') || k.toLowerCase().includes('image') || k.includes('사진')) || '';
+            const posBarcodeKey =
+    keys.find(k => k.includes('POS'))
+    || keys.find(k => k.includes('바코드'))
+    || '';
 
             rawInventory = json.map(row => {
                 const rawSku = String(row[skuKey] || '').trim();
@@ -634,7 +638,15 @@ keys.find(k => k.trim() === '품명')
                 const rawStockStr = stockKey ? String(row[stockKey] || '0').replace(/,/g, '') : '0';
                 const stockVal = parseInt(rawStockStr, 10) || 0;
                 const rawSize = sizeKey ? String(row[sizeKey] || '').trim() : '';
-                const rawImg = imgKey ? String(row[imgKey] || '').trim() : '';
+               const rawImg =
+    imgKey
+    ? String(row[imgKey] || '').trim()
+    : '';
+
+const rawPosBarcode =
+    posBarcodeKey
+    ? String(row[posBarcodeKey] || '').trim()
+    : '';
 
                 const isShoe = rawCat2.includes('신발') || rawCat2.toLowerCase().includes('footwear');
                 const formattedSize = isShoe ? formatShoeSizeDisplay(rawSize, rawGender) : rawSize;
@@ -648,10 +660,14 @@ keys.find(k => k.trim() === '품명')
                     size: rawSize,
                     sizeDisplay: formattedSize,
                     stock: stockVal,
-                    imageUrl: rawImg,
-                    sales: 0,
-                    wos: 999,
-                    isHighHeat: false
+                   imageUrl: rawImg,
+
+hasPosBarcode:
+    rawPosBarcode !== '',
+
+sales: 0,
+wos: 999,
+isHighHeat: false
                 };
             }).filter(item => item.sku || item.name);
 
@@ -997,10 +1013,25 @@ const salesQty =
                 return `
                 <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col justify-between hover:shadow-md transition">
                     <div>
-                        <div class="relative">
-                            ${imageArea}
-                            ${item.isHighHeat ? '<span class="absolute top-2 left-2 heat-badge text-[10px] px-2 py-0.5 rounded shadow">🔥 HIGH HEAT</span>' : ''}
-                        </div>
+                       <div class="relative">
+    ${imageArea}
+
+    ${item.isHighHeat
+        ? '<span class="absolute top-2 left-2 heat-badge text-[10px] px-2 py-0.5 rounded shadow">🔥 HIGH HEAT</span>'
+        : ''
+    }
+
+    ${
+        !item.hasPosBarcode
+        ? `
+        <span class="absolute bottom-2 right-2 bg-black text-white text-[10px] px-2 py-1 rounded font-bold shadow">
+            POS 미등록
+        </span>
+        `
+        : ''
+    }
+
+</div>
                         <div class="p-3 space-y-1.5">
                             <div class="flex justify-between items-center">
                                 <span class="musinsa-badge">${item.brand}</span>
@@ -1033,6 +1064,18 @@ const salesQty =
                 return `
                 <tr class="hover:bg-gray-50 border-b border-gray-100">
                     <td class="p-3">${item.isHighHeat ? '<span class="heat-badge text-xs px-2 py-0.5 rounded mr-1">🔥 HIGH HEAT</span>' : ''}${wosHtml}</td>
+                    ${
+!item.hasPosBarcode
+?
+`
+<span
+class="absolute bottom-2 right-2 bg-black text-white text-[10px] px-2 py-1 rounded font-bold shadow">
+POS 미등록
+</span>
+`
+:
+''
+}
                     <td class="p-3 font-mono font-bold">${item.sku}</td>
                     <td class="p-3 font-medium">${item.name}</td>
                     <td class="p-3 font-bold text-gray-800">${item.sizeDisplay || '-'}</td>
