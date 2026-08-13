@@ -1010,3 +1010,53 @@ keys.find(k => k.trim() === '수량')
     </script>
 </body>
 </html>
+
+async function loadGoogleSheet() {
+
+    const response = await fetch(
+        "https://script.google.com/macros/s/AKfycbwYqq0MElowiMoWgpUsy5XTozaxpm87714np9xeIU0HV88Y29ZJn0cJxjYO-qr94nw7/exec"
+    );
+
+    const data = await response.json();
+
+    const inventoryJson =
+        matrixToObjects(data.inventory);
+
+    const salesJson =
+        matrixToObjects(data.sales);
+
+    processInventoryData(
+        inventoryJson
+    );
+
+    processSalesData(
+        salesJson
+    );
+}
+
+function matrixToObjects(rows){
+
+    if(!rows || rows.length < 2)
+        return [];
+
+    const headers = rows[1];
+
+    return rows
+        .slice(3)
+        .map(row => {
+
+            const obj = {};
+
+            headers.forEach(
+                (h, idx) => {
+
+                    obj[h] =
+                        row[idx];
+                }
+            );
+
+            return obj;
+        });
+}
+
+        loadGoogleSheet();
