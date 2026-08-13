@@ -1019,8 +1019,11 @@ const salesQty =
                 const googleSearchUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(item.sku + ' ' + item.name)}`;
                 const wosHtml = getWosBadgeHtml(item.stock, item.sales, item.wos);
 
-             const imageArea = item.imageUrl ?
-    `<img src="${item.imageUrl}" class="w-full h-24 object-cover rounded-t-lg" alt="${item.name}" onerror="this.onerror=null; this.src='https://via.placeholder.com/200x     <i class="fa-solid fa-shirt text-xl text-gray-300 mb-2"></i>
+        const imageArea = item.imageUrl
+    ? `<img src="${item.imageUrl}"
+            class="w-full h-24 object-cover rounded-t-lg"
+            alt="${item.name}"
+            onerror="this.onerror=null; this.src='https://via.placeholder.com/200x200?textl text-gray-300 mb-2"></i>
 
         <span class="text-[10px] text-gray-400">
             이미지 미등록
