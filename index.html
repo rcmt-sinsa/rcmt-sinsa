@@ -787,19 +787,9 @@ if (sku)
                 document.getElementById('apparelSizeSection').classList.add('hidden');
             }
 
-            const equipSizes = Array.from(equipSizesSet).sort();
-            if (equipSizes.length > 0) {
-                document.getElementById('equipSizeSection').classList.remove('hidden');
-                let equipHtml = '';
-                equipSizes.forEach(s => {
-                    const isActive = selectedSizeDisplay === s ? 'active' : '';
-                    const safeS = String(s).replace(/'/g, "\\'");
-                    equipHtml += `<button class="size-chip-btn ${isActive}" onclick="selectSize('${safeS}')">${s}</button>`;
-                });
-                document.getElementById('equipSizeContainer').innerHTML = equipHtml;
-            } else {
-                document.getElementById('equipSizeSection').classList.add('hidden');
-            }
+         const equipSizes = Array.from(equipSizesSet).sort();
+
+document.getElementById('equipSizeSection').classList.add('hidden');
         }
 
         function selectBrand(val) {
