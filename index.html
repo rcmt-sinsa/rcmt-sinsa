@@ -254,10 +254,10 @@
         let sortBy = 'sales_desc';
         const HIGH_HEAT_THRESHOLD = 5;
 
-        let selectedBrand = '';
-        let selectedBiz = '';
-        let selectedGender = '';
-        let selectedSizeDisplay = '';
+     let selectedBrand = [];
+let selectedBiz = [];
+let selectedGender = [];
+let selectedSizeDisplay = [];
 
         const fileInventoryInput = document.getElementById('fileInventory');
         const fileSalesInput = document.getElementById('fileSales');
@@ -735,7 +735,10 @@ if (sku)
             let brandHtml = `<button class="chip-btn ${selectedBrand === '' ? 'active' : ''}" onclick="selectBrand('')"><i class="fa-solid fa-globe mr-1.5"></i>전체 브랜드</button>`;
             brands.forEach(b => {
                 const icon = getBrandIconHtml(b);
-                const isActive = selectedBrand === b ? 'active' : '';
+        const isActive =
+    selectedBrand.includes(b)
+    ? 'active'
+    : '';
                 const safeB = String(b).replace(/'/g, "\\'");
                 brandHtml += `<button class="chip-btn ${isActive}" onclick="selectBrand('${safeB}')">${icon}${b}</button>`;
             });
@@ -745,7 +748,10 @@ if (sku)
             let bizHtml = `<button class="chip-btn ${selectedBiz === '' ? 'active' : ''}" onclick="selectBiz('')"><i class="fa-solid fa-layer-group mr-1.5"></i>전체 BIZ</button>`;
             bizs.forEach(b => {
                 const icon = getBizIconHtml(b);
-                const isActive = selectedBiz === b ? 'active' : '';
+           const isActive =
+    selectedBiz.includes(b)
+    ? 'active'
+    : '';
                 const safeB = String(b).replace(/'/g, "\\'");
                 bizHtml += `<button class="chip-btn ${isActive}" onclick="selectBiz('${safeB}')">${icon}${b}</button>`;
             });
@@ -755,7 +761,10 @@ if (sku)
             let genderHtml = `<button class="chip-btn ${selectedGender === '' ? 'active' : ''}" onclick="selectGender('')"><i class="fa-solid fa-users mr-1.5"></i>전체 성별</button>`;
             genders.forEach(g => {
                 const icon = getGenderIconHtml(g);
-                const isActive = selectedGender === g ? 'active' : '';
+               const isActive =
+    selectedGender.includes(g)
+    ? 'active'
+    : '';
                 const safeG = String(g).replace(/'/g, "\\'");
                 genderHtml += `<button class="chip-btn ${isActive}" onclick="selectGender('${safeG}')">${icon}${g}</button>`;
             });
@@ -773,7 +782,10 @@ if (sku)
                 document.getElementById('shoeSizeSection').classList.remove('hidden');
                 let shoeHtml = '';
                 shoeSizes.forEach(s => {
-                    const isActive = selectedSizeDisplay === s ? 'active' : '';
+                   const isActive =
+    selectedSizeDisplay.includes(s)
+    ? 'active'
+    : '';
                     const safeS = String(s).replace(/'/g, "\\'");
                     shoeHtml += `<button class="size-chip-btn ${isActive}" onclick="selectSize('${safeS}')">${s}</button>`;
                 });
@@ -801,29 +813,78 @@ if (sku)
 document.getElementById('equipSizeSection').classList.add('hidden');
         }
 
-        function selectBrand(val) {
-            selectedBrand = (selectedBrand === val) ? '' : val;
-            renderFilterChips();
-            applyFiltersAndRender();
-        }
+    function selectBrand(val) {
+
+    const idx =
+        selectedBrand.indexOf(val);
+
+    if(idx > -1){
+
+        selectedBrand.splice(idx,1);
+
+    } else {
+
+        selectedBrand.push(val);
+    }
+
+    renderFilterChips();
+    applyFiltersAndRender();
+}
 
         function selectBiz(val) {
-            selectedBiz = (selectedBiz === val) ? '' : val;
-            renderFilterChips();
-            applyFiltersAndRender();
-        }
 
-        function selectGender(val) {
-            selectedGender = (selectedGender === val) ? '' : val;
-            renderFilterChips();
-            applyFiltersAndRender();
-        }
+    const idx =
+        selectedBiz.indexOf(val);
 
-        function selectSize(val) {
-            selectedSizeDisplay = (selectedSizeDisplay === val) ? '' : val;
-            renderFilterChips();
-            applyFiltersAndRender();
-        }
+    if(idx > -1){
+
+        selectedBiz.splice(idx,1);
+
+    } else {
+
+        selectedBiz.push(val);
+    }
+
+    renderFilterChips();
+    applyFiltersAndRender();
+}
+
+    function selectGender(val) {
+
+    const idx =
+        selectedGender.indexOf(val);
+
+    if(idx > -1){
+
+        selectedGender.splice(idx,1);
+
+    } else {
+
+        selectedGender.push(val);
+    }
+
+    renderFilterChips();
+    applyFiltersAndRender();
+}
+
+     function selectSize(val) {
+
+    const idx =
+        selectedSizeDisplay.indexOf(val);
+
+    if(idx > -1){
+
+        selectedSizeDisplay.splice(idx,1);
+
+    } else {
+
+        selectedSizeDisplay.push(val);
+    }
+
+    renderFilterChips();
+    applyFiltersAndRender();
+}
+
 
         function applyFiltersAndRender() {
             if (rawInventory.length === 0) return;
@@ -845,10 +906,31 @@ const salesQty =
                 };
             }).filter(item => {
                 const matchesSearch = !searchTerm || item.name.toLowerCase().includes(searchTerm) || item.sku.toLowerCase().includes(searchTerm);
-                const matchesBrand = !selectedBrand || item.brand === selectedBrand;
-                const matchesBiz = !selectedBiz || item.category2 === selectedBiz;
-                const matchesGender = !selectedGender || item.gender === selectedGender;
-                const matchesSize = !selectedSizeDisplay || item.sizeDisplay === selectedSizeDisplay || item.size === selectedSizeDisplay;
+             const matchesBrand =
+    selectedBrand.length === 0
+    || selectedBrand.includes(
+         item.brand
+       );
+              const matchesBiz =
+    selectedBiz.length === 0
+    || selectedBiz.includes(
+         item.category2
+       );
+
+         const matchesGender =
+    selectedGender.length === 0
+    || selectedGender.includes(
+         item.gender
+       );
+          const matchesSize =
+    selectedSizeDisplay.length === 0
+    || selectedSizeDisplay.includes(
+        item.sizeDisplay
+    )
+    || selectedSizeDisplay.includes(
+        item.size
+    );
+
                 const matchesHeat = !isHighHeatOnly || item.isHighHeat;
                 const matchesWosWarning = !isWosWarningOnly || (item.sales > 0 && item.wos <= 2.0);
 
