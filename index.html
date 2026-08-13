@@ -1015,10 +1015,12 @@ const salesQty =
             }
 
             gridView.innerHTML = filteredData.map(item => {
-           const googleSearchUrl = `
-https://www.google.com/search?tbm=isch&q=${encodeURIComponent(item.sku + ' ' + item.name)}-[10px] bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded hover:bg-gray-300 transition">
+        const googleSearchUrl = `
+<a href="https://www.google.com/search?tbm=isch&q=${encodeURIComponent + ' ' + item.name)}="_blank"
+   rel="noopener noreferrer"
+   class="text-[10px] bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded hover:bg-gray-300 transition">
 
-    구글 🔍
+   구글 🔍
 
 </a>`;
                 const wosHtml = getWosBadgeHtml(item.stock, item.sales, item.wos);
