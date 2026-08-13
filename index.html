@@ -1009,96 +1009,64 @@ keys.find(k => k.trim() === '수량')
         });
 
         const GOOGLE_API =
-26
+
 "https://script.google.com/macros/s/AKfycbwYqq0MElowiMoWgpUsy5XTozaxpm87714np9xeIU0HV88Y29ZJn0cJxjYO-qr94nw7/exec";
-27
  
-28
+const GOOGLE_API =
+"https://script.google.com/macros/s/AKfycbwYqq0MElowiMoWgpUsy5XTozaxpm87714np9xeIU0HV88Y29ZJn0cJxjYO-qr94nw7/exec";
+
 async function loadGoogleSheet() {
-29
- 
-30
-const response =
-2
-await fetch(
-3
-GOOGLE_API
-4
-);
-5
- 
-6
-const text =
-7
-await response.text();
-8
- 
-9
-console.log(text);
-    
-34
-const inventoryJson =
-35
-matrixToObjects(data.inventory);
-36
- 
-37
-const salesJson =
-38
-matrixToObjects(data.sales);
-39
- 
-40
-processInventoryData(inventoryJson);
-41
-processSalesData(salesJson);
-42
+
+    try {
+
+        const response =
+            await fetch(GOOGLE_API);
+
+        const data =
+            await response.json();
+
+        console.log(data);
+
+        const inventoryJson =
+            matrixToObjects(data.inventory);
+
+        const salesJson =
+            matrixToObjects(data.sales);
+
+        processInventoryData(inventoryJson);
+        processSalesData(salesJson);
+
+    } catch (err) {
+
+        console.error(
+            "Google Sheet 로딩 실패",
+            err
+        );
+    }
 }
-43
- 
-44
-function matrixToObjects(rows){
-45
- 
-46
-if(!rows || rows.length < 2)
-47
-return [];
-48
- 
-49
-const headers = rows[1];
-50
- 
-51
-return rows
-52
-.slice(3)
-53
-.map(row => {
-54
- 
-55
-const obj = {};
-56
- 
-57
-headers.forEach((h, idx) => {
-58
-obj[h] = row[idx];
-59
-});
-60
- 
-61
-return obj;
-62
-});
-63
+
+function matrixToObjects(rows) {
+
+    if (!rows || rows.length < 2) {
+        return [];
+    }
+
+    const headers = rows[1];
+
+    return rows
+        .slice(3)
+        .map(row => {
+
+            const obj = {};
+
+            headers.forEach((h, idx) => {
+                obj[h] = row[idx];
+            });
+
+            return obj;
+        });
 }
-64
- 
-65
+
 loadGoogleSheet();
         
     </script>
