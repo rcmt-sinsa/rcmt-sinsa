@@ -112,6 +112,11 @@
                     <button id="toggleWosWarning" class="px-3 py-1.5 rounded text-xs font-bold border border-amber-300 text-amber-800 hover:bg-amber-50 transition flex items-center">
                         <i class="fa-solid fa-triangle-exclamation mr-1"></i> 🚨 1~2주 내 품절 위험 (WOS)
                     </button>
+                    <button id="togglePosMissing"
+        class="px-3 py-1.5 rounded text-xs font-bold border border-black text-black hover:bg-gray-100 transition flex items-center">
+    <i class="fa-solid fa-barcode mr-1"></i>
+    POS 미등록만 보기
+</button>
                 </div>
 
                 <!-- 1. Brand Filter Chips -->
@@ -258,7 +263,8 @@
 let selectedBiz = [];
 let selectedGender = [];
 let selectedSizeDisplay = [];
-
+let isPosMissingOnly = false;
+        
         const fileInventoryInput = document.getElementById('fileInventory');
         const fileSalesInput = document.getElementById('fileSales');
         const file1Text = document.getElementById('file1Text');
@@ -269,6 +275,10 @@ let selectedSizeDisplay = [];
         const searchBtn = document.getElementById('searchBtn');
         const toggleHighHeat = document.getElementById('toggleHighHeat');
         const toggleWosWarning = document.getElementById('toggleWosWarning');
+        const togglePosMissing =
+    document.getElementById(
+        'togglePosMissing'
+    );
         const resetFiltersBtn = document.getElementById('resetFiltersBtn');
         const exportExcelBtn = document.getElementById('exportExcelBtn');
         const sortBySelect = document.getElementById('sortBySelect');
@@ -949,8 +959,18 @@ const salesQty =
 
                 const matchesHeat = !isHighHeatOnly || item.isHighHeat;
                 const matchesWosWarning = !isWosWarningOnly || (item.sales > 0 && item.wos <= 2.0);
+                const matchesPosMissing =
+    !isPosMissingOnly
+    || !item.hasPosBarcode;
 
-                return matchesSearch && matchesBrand && matchesBiz && matchesGender && matchesSize && matchesHeat && matchesWosWarning;
+               return matchesSearch
+&& matchesBrand
+&& matchesBiz
+&& matchesGender
+&& matchesSize
+&& matchesHeat
+&& matchesWosWarning
+&& matchesPosMissing;
             });
 
             filteredData.sort((a, b) => {
@@ -1156,6 +1176,31 @@ POS 미등록
             applyFiltersAndRender();
         });
 
+if (togglePosMissing) {
+
+    togglePosMissing
+        .addEventListener(
+            'click',
+            () => {
+
+                isPosMissingOnly =
+                    !isPosMissingOnly;
+
+                togglePosMissing
+                    .classList.toggle(
+                        'bg-black'
+                    );
+
+                togglePosMissing
+                    .classList.toggle(
+                        'text-white'
+                    );
+
+                applyFiltersAndRender();
+            }
+        );
+}
+        
         resetFiltersBtn.addEventListener('click', () => {
             searchInput.value = '';
             selectedBrand = '';
@@ -1183,14 +1228,17 @@ if (clearFilterBtn) {
         'click',
         () => {
 
-            selectedBrand = '';
-            selectedBiz = '';
-            selectedGender = '';
-            selectedSizeDisplay = '';
+          selectedBrand = '';
+selectedBiz = '';
+selectedGender = '';
+selectedSizeDisplay = '';
+
 isHighHeatOnly = false;
 isWosWarningOnly = false;
 
-            toggleHighHeat.classList.remove(
+isPosMissingOnly = false; // 추가
+
+toggleHighHeat.classList.remove(
     'bg-red-600',
     'text-white'
 );
@@ -1199,6 +1247,14 @@ toggleWosWarning.classList.remove(
     'bg-amber-600',
     'text-white'
 );
+
+            if (togglePosMissing) {
+
+    togglePosMissing.classList.remove(
+        'bg-black',
+        'text-white'
+    );
+}
             
             renderFilterChips();
             applyFiltersAndRender();
