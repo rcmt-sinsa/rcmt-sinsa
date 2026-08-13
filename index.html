@@ -485,7 +485,10 @@
     reader.readAsArrayBuffer(file);
 }
 
-        fileInventoryInput.addEventListener('change', (e) => {
+        if (fileInventoryInput) {
+            
+fileInventoryInput.addEventListener('change', (e) => {});
+}
             const file = e.target.files[0];
             if (!file) return;
             file1Text.textContent = file.name.length > 10 ? file.name.substring(0, 8) + '...' : file.name;
@@ -533,7 +536,10 @@ processInventoryData(json);
             });
         });
 
-        fileSalesInput.addEventListener('change', (e) => {
+      if (fileSalesInput) {
+
+fileSalesInput.addEventListener('change', (e) => {});
+}
             const file = e.target.files[0];
             if (!file) return;
             file2Text.textContent = file.name.length > 10 ? file.name.substring(0, 8) + '...' : file.name;
