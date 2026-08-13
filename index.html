@@ -1009,33 +1009,37 @@ keys.find(k => k.trim() === '수량')
         });
 
 const GOOGLE_API =
-"https://script.google.com/macros/s/AKfycbwYqq0MElowiMoWgpUsy5XTozaxpm87714np9xeIU0HV88Y29ZJn0cJxjYO-qr94nw7/exec";
+"https://script.googleusercontent.com/macros/echo?user_content_key=AUkAhnTjT1cxMnqdzEDfpeEnzssDD_2FoMgiPaWUfDh-2W3AqxG2R-NnENkwjTEsrOK1zuJagxiPZ5nuc-5SpQ2e2LVD4MHPygk-ElxQc97VYguA29XeNnv8F_Jc-O0P6aSckmPgDCQkFGoJMLqaLLvnzZgSHKGM776vEP8q4JjdbMMZaNEvC0rHk9V9c0qL1baaP9e5aa95XtmkDWu6MQRNNC5vTgT8l0J_u1su5UqnMpiQa6lr3ux7svlNaVmBOqDq1bf_XTdkFsme8DPDkmntVpzYIkglhw&lib=MaF6IBu8QMattzV_npDt0gzOmqOjcdjRL";
 
 async function loadGoogleSheet() {
 
     try {
 
-const response =
-    await fetch(
-       GOOGLE_API + "?t=" + Date.now()
-    );
+        const response =
+            await fetch(
+                GOOGLE_API
+            );
 
-const text =
-    await response.text();
-
-console.log(text);
-
-const data =
-    JSON.parse(text);
+        const data =
+            await response.json();
 
         const inventoryJson =
-            matrixToObjects(data.inventory);
+            matrixToObjects(
+                data.inventory
+            );
 
         const salesJson =
-            matrixToObjects(data.sales);
+            matrixToObjects(
+                data.sales
+            );
 
-        processInventoryData(inventoryJson);
-        processSalesData(salesJson);
+        processInventoryData(
+            inventoryJson
+        );
+
+        processSalesData(
+            salesJson
+        );
 
     } catch (err) {
 
