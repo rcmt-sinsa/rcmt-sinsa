@@ -1207,7 +1207,8 @@ POS 미등록
                 `;
             }).join('');
 
-            statusIndicator.innerHTML = `<i class="fa-solid fa-circle-check text-green-400 mr-1"></i>보유재고 전체 조회중 (${filteredData.length}건)`;
+    statusIndicator.innerHTML =
+    `<**class="fa-solid fa-circle-check t**t-green-400 mr-1"></i>SKU 조회**(${groupedData.length}건)`;
         }
 
         viewGridBtn.addEventListener('click', () => {
