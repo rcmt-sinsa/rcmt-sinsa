@@ -1054,18 +1054,26 @@ console.log(
     "groupedData sample",
     groupedData[0]
 );
+
+gridView.innerHTML = groupedData.map(item => {
+
+console.log(
+    "groupedData sample",
+    groupedData[0]
+);
             
            gridView.innerHTML = groupedData.map(item => {
-const googleSearchUrl =
-    'https://www.google.com/search?tbm=isch&q=' +
-    encodeURIComponent(item.sku + ' ' + item.name);
+const googleSearchUrl = `
+<a href="https://www.google.com/search?tbm=isch&q=${encodeURIComponent(item.sku + ' ' + item.name)}"
+   target="_blank"
+   rel="noopener noreferrer"
+   class="text-[10px] bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded hover:bg-gray-300 transition">
 
-const googleSearchLink = `
-${googleSearchUrl}
    구글 🔍
-</a>`;
 
-const calcWos =
+</a>`;
+                
+              const calcWos =
     item.totalSales > 0
         ? item.totalStock / item.totalSales
         : 999;
@@ -1076,10 +1084,12 @@ const wosHtml =
         item.totalSales,
         calcWos
     );
-const imageAre**= item.imageUrl
+const imageArea = item.imageUrl
     ? `
-        <**g
-            src="${item.imageUr** <div class="w-full h-24 bg-gray-100 rounded-t-lg flex flex-col items-center justify-center p-3 text-center border-b border-gray-100">
+        ${item.imageUrl}
+    `
+    : `
+        <div class="w-full h-24 bg-gray-100 rounded-t-lg flex flex-col items-center justify-center p-3 text-center border-b border-gray-100">
 
             <i class="fa-solid fa-shirt text-xl text-gray-300 mb-2"></i>
 
@@ -1088,15 +1098,14 @@ const imageAre**= item.imageUrl
             </span>
 
             <div class="flex gap-1 mt-2">
-                <a href="${googleSearchUrl}"
-                   target="_blank"
-                 v>
+                ${googleSearchUrl}
+            </div>
 
         </div>
     `;
-``**
                 return `
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col justify-between hover:shadow-md transition cursor-pointer"
+                <div
+    class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col justify-between hover:shadow-md transition cursor-pointer"
     onclick="toggleCardDetail('${item.sku}')">
                     <div>
                        <div class="relative">
@@ -1141,11 +1150,11 @@ const imageAre**= item.imageUrl
                     <div class="p-3 border-t border-gray-100 bg-gray-50 flex justify-between items-center text-xs">
                         <div>
                             <p class="text-[10px] text-gray-400">매장재고(신사)</p>
-                            <p class="font-bold ${item.totalStock === 0 ? 'text-red-500' : 'text-gray-900'}">${item.totalStock.toLocaleString()} EA</p>
+                            <p class="font-bold ${item.stock === 0 ? 'text-red-500' : 'text-gray-900'}">${item.totalStock.toLocaleString()} EA</p>
                         </div>
                         <div class="text-right">
                             <p class="text-[10px] text-gray-400">주간판매</p>
-                            <p class="font-extrabold ${item.totalSales > 0 ? 'text-blue-600' : 'text-gray-400'}">${item.totalSales.toLocaleString()} EA</p>
+                            <p class="font-extrabold ${item.sales > 0 ? 'text-blue-600' : 'text-gray-400'}">${item.totalSales.toLocaleString()} EA</p>
                         </div>
 <div
     id="detail_${item.sku}"
