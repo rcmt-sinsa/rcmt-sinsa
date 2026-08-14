@@ -1057,8 +1057,7 @@ console.log(
             
            gridView.innerHTML = groupedData.map(item => {
 const googleSearchUrl = `
-<a href="https://www.google.com/search?tbm=isch&qURIComponent(item.sku + ' ' + item.name)}   target="_blank"
-   rel="noopener noreferrer"
+<a href="https://www.google.com/search?tbm=isch&q=${encodeURIComponent + ' ' + item.name)}   rel="noopener noreferrer"
    class="text-[10px] bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded hover:bg-gray-300 transition">
    구글 🔍
 </a>`;
@@ -1077,8 +1076,8 @@ const wosHtml =
 
 const imageArea = item.imageUrl
     ? `
-        ${item.imageUrl}
-    `
+        <img
+                `
     : `
         <div class="w-full h-24 bg-gray-100 rounded-t-lg flex flex-col items-center justify-center p-3 text-center border-b border-gray-100">
 
