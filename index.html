@@ -1056,7 +1056,10 @@ console.log(
 );
             
            gridView.innerHTML = groupedData.map(item => {
-const googleSearchUrl =
+<a href="${googleSearchUrl}"
+   target="_blank"
+   rel="noopener noreferrer"
+   class="text-[10px] bg-gray-200 text-gray-700 px-1.
     'https://www.google.com/search?tbm=isch&q=' +
     encodeURIComponent(item.sku + ' ' + item.name);
                
@@ -1072,28 +1075,24 @@ const wosHtml =
         calcWos
     );
 
-const imageArea = item.imageUrl
+const imageArea **item.imageUrl
     ? `
-        <img
-                `
-    : `
-        <div class="w-full h-24 bg-gray-100 rounded-t-lg flex flex-col items-center justify-center p-3 text-center border-b border-gray-100">
+        <im**            src="${item.imageUrl}**div class****full h-24 bg-gray-100 rounded-t-l**flex flex-col items-center justif**center p-3 text-center border-b b**der-gray-100">
 
-            <i class="fa-solid fa-shirt text-xl text-gray-300 mb-2"></i>
+            <i cl**s="fa-solid fa-shirt text-xl text**ray-300 mb-2"></i>
 
-            <span class="text-[10px] text-gray-400">
+            <**an class="text-[10px] text-gray-4**">
                 이미지 미등록
-            </span>
+      **    </span>
 
-            <div class="flex gap-1 mt-2">
-                <a href="${googleSearchUrl}"
-   target="_blank"
-   rel="noopener noreferrer"
-   class="text-[10px] bg-gray-200 text-gray-700 px-1.
-            </div>
+            <div cla**="flex gap-1 mt-2">
+             ** <a href="${googleSearchUrl}"
+   **              target="_blank"
+   **        </div>
 
         </div>
-    `;
+  **`;
+``**
                 return `
                 <div
     class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col justify-between hover:shadow-md transition cursor-pointer"
