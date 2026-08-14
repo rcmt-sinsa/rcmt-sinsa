@@ -1106,7 +1106,7 @@ const imageArea = item.imageUrl
                 return `
                 <div
     class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col justify-between hover:shadow-md transition cursor-pointer"
-    onclick="toggleCardDetail('${item.sku}_${item.size}')">
+    onclick="toggleCardDetail('${item.sku}')">
                     <div>
                        <div class="relative">
     ${imageArea}
@@ -1156,13 +1156,13 @@ const imageArea = item.imageUrl
                             <p class="text-[10px] text-gray-400">주간판매</p>
                             <p class="font-extrabold ${item.sales > 0 ? 'text-blue-600' : 'text-gray-400'}">${item.totalSales.toLocaleString()} EA</p>
                         </div>
-
 <div
-    id="detail_${item.sku}_${item.size}"
+    id="detail_${item.sku}"
     class="hidden px-4 py-3 border-t bg-gray-50 text-xs text-gray-600">
 
     <div>품번 : ${item.sku}</div>
-    <div>규격 : ${item.size}</div>
+    <div>규격 :
+${item.sizeList.map(x => x.size).join(' / ')}</div>
     <div>재고 : ${item.stock} EA</div>
     <div>판매 : ${item.sales} EA</div>
 
@@ -1196,7 +1196,7 @@ const imageArea = item.imageUrl
             }).join('');
 
 statusIndicator.innerHTML =
-    `<i class="fa-solid fa-circle-check text-green-400 mr-1"></i>SKU 조회중 (${groupedData.length})`;
+    'SKU 조회중 (' + groupedData.length + ')';
 
         viewGridBtn.addEventListener('click', () => {
             viewMode = 'grid';
