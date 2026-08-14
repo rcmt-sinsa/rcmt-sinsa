@@ -1120,8 +1120,15 @@ const imageArea = item.imageUrl
                             <p class="font-bold text-xs text-gray-900 line-clamp-2 leading-snug">${item.name}</p>
                             <div class="flex justify-between items-center text-[11px] font-mono text-gray-500">
                                 <span class="font-bold">${item.sku}</span>
-                                <span class="bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded text-[10px] font-semibold">${item.sizeDisplay || 'FREE'}</span>
+                               <span class="bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded text-[10px] font-semibold">
+    ${item.sizeList.length} SIZE
+</span>
                             </div>
+                            <div class="text-[10px] text-gray-500 mt-1">
+    ${item.sizeList
+        .map(x => x.size)
+        .join(' / ')}
+</div>
                             <div class="pt-1">${wosHtml}</div>
                         </div>
                     </div>
