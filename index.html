@@ -1047,7 +1047,7 @@ console.log(
     groupedData[0]
 );
             
-            gridView.innerHTML = filteredData.map(item => {
+           gridView.innerHTML = groupedData.map(item => {
 const googleSearchUrl = `
 <a href="https://www.google.com/search?tbm=isch&q=${encodeURIComponent(item.sku + ' ' + item.name)}"
    target="_blank"
@@ -1058,7 +1058,17 @@ const googleSearchUrl = `
 
 </a>`;
                 
-                const wosHtml = getWosBadgeHtml(item.stock, item.sales, item.wos);
+              const calcWos =
+    item.totalSales > 0
+        ? item.totalStock / item.totalSales
+        : 999;
+
+const wosHtml =
+    getWosBadgeHtml(
+        item.totalStock,
+        item.totalSales,
+        calcWos
+    );
 const imageArea = item.imageUrl
     ? `
         ${item.imageUrl}
