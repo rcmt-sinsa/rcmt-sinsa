@@ -1128,11 +1128,11 @@ const imageArea = item.imageUrl
                     <div class="p-3 border-t border-gray-100 bg-gray-50 flex justify-between items-center text-xs">
                         <div>
                             <p class="text-[10px] text-gray-400">매장재고(신사)</p>
-                            <p class="font-bold ${item.stock === 0 ? 'text-red-500' : 'text-gray-900'}">${item.stock.toLocaleString()} EA</p>
+                            <p class="font-bold ${item.stock === 0 ? 'text-red-500' : 'text-gray-900'}">${item.totalStock.toLocaleString()} EA</p>
                         </div>
                         <div class="text-right">
                             <p class="text-[10px] text-gray-400">주간판매</p>
-                            <p class="font-extrabold ${item.sales > 0 ? 'text-blue-600' : 'text-gray-400'}">${item.sales.toLocaleString()} EA</p>
+                            <p class="font-extrabold ${item.sales > 0 ? 'text-blue-600' : 'text-gray-400'}">${item.totalSales.toLocaleString()} EA</p>
                         </div>
 
 <div
