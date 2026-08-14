@@ -1056,13 +1056,15 @@ console.log(
 );
             
            gridView.innerHTML = groupedData.map(item => {
-<a href="${googleSearchUrl}"
-   target="_blank"
-   rel="noopener noreferrer"
-   class="text-[10px] bg-gray-200 text-gray-700 px-1.
+const googleSearchUrl =
     'https://www.google.com/search?tbm=isch&q=' +
     encodeURIComponent(item.sku + ' ' + item.name);
-               
+
+const googleSearchLink = `
+${googleSearchUrl}
+   구글 🔍
+</a>`;
+
 const calcWos =
     item.totalSales > 0
         ? item.totalStock / item.totalSales
