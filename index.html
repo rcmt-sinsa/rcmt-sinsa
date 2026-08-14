@@ -139,21 +139,21 @@
                     </button>
                 </div>
                 
-                <!-- 4. Size Filter Section (신발 & 의류 전용) -->
+                <!-- 4. Size Filter Section -->
                 <div class="border-t border-gray-100 pt-3">
                     <label class="block text-xs font-bold text-gray-700 mb-2">
                         <i class="fa-solid fa-ruler-horizontal text-gray-400 mr-1"></i>사이즈 (규격)
                     </label>
                     
                     <div class="space-y-3 text-[11px]">
-                        <!-- 신발 사이즈 -->
+                        <!-- 신발 사이즈 (남 -> 여 -> 유니섹스 정렬) -->
                         <div id="shoeSizeSection" class="hidden">
                             <div class="flex items-center flex-wrap gap-2 mb-1.5">
                                 <span class="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
                                     👟 신발 (나이키 US/EU 변환)
                                 </span>
                                 <span class="text-[10px] text-gray-500 font-medium">
-                                    구분: <span class="text-gray-700 font-bold bg-white px-1 py-0.2 rounded border border-gray-200">♂ 남성(흰색)</span>
+                                    정렬: <span class="text-gray-700 font-bold bg-white px-1 py-0.2 rounded border border-gray-300">♂ 남성(흰색)</span>
                                     <span class="text-rose-700 font-bold bg-rose-50 px-1 py-0.2 rounded border border-rose-200 ml-1">♀ 여성(핑크)</span>
                                     <span class="text-purple-700 font-bold bg-purple-50 px-1 py-0.2 rounded border border-purple-200 ml-1">⚥ 공용(퍼플)</span>
                                 </span>
@@ -161,10 +161,10 @@
                             <div id="shoeSizeContainer" class="flex flex-wrap gap-1 mt-1"></div>
                         </div>
 
-                        <!-- 의류 사이즈 -->
+                        <!-- 의류 및 기타 사이즈 -->
                         <div id="apparelSizeSection" class="hidden">
                             <span class="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 mr-1">
-                                👕 의류
+                                👕 의류 및 용품
                             </span>
                             <div id="apparelSizeContainer" class="flex flex-wrap gap-1 mt-1.5"></div>
                         </div>
@@ -301,35 +301,46 @@
                 .trim() || '기타';
         }
 
-        // 성별 정규화 함수 (남성: men, 여성: women, 유니섹스/공용: unisex)
         function getGenderCategory(genderStr) {
             const g = String(genderStr || '').toLowerCase();
             if (g.includes('여') || g.includes('wmn') || g.includes('women')) return 'women';
-            if (g.includes('공용') || g.includes('유니') || g.includes('uni') || g.includes('all')) return 'unisex';
+            if (g.includes('공용') || g.includes('유니') || g.includes('uni') || g.includes('all') || g.includes('남,여') || g.includes('남여')) return 'unisex';
             if (g.includes('남') || g.includes('men')) return 'men';
             return 'men';
         }
 
-        // 신발 여부 판별 (BIZ 분류가 누락되었거나 용품으로 잡혀도 210~330 규격이면 신발로 처리)
-        function isShoeItemOrSize(rawSize, category2, name) {
-            const s = String(rawSize || '').trim();
-            const cat = String(category2 || '').toLowerCase();
-            const nm = String(name || '').toLowerCase();
-
-            if (cat.includes('신발') || cat.includes('footwear') || cat.includes('shoes') || cat.includes('러닝화') || cat.includes('트레일화')) {
-                return true;
+        // 순수 신발 밀리미터(210~330mm) 규격만 엄격히 판별 (1SIZE, FREE, OSFM, 의류 치수 등 제외)
+        function isShoeSize(rawSize) {
+            if (!rawSize) return false;
+            const s = String(rawSize).trim().toUpperCase();
+            if (/^(1SIZE|ONESIZE|ONE SIZE|FREE|OSFM|OSFW|OSFA|O\/S|XXS|XS|S|M|L|XL|XXL|2XL|3XL|4XL|T\d|[1-9])$/i.test(s)) {
+                return false;
             }
-            if (nm.includes('러닝화') || nm.includes('트레일화') || nm.includes('슈즈') || nm.includes('스니커즈')) {
-                return true;
-            }
-
             const num = parseInt(s.replace(/[^0-9]/g, ''), 10);
-            if (num >= 210 && num <= 330 && (s === String(num) || /^\d{3}(\.\d)?$/.test(s))) {
+            if (num >= 210 && num <= 330) {
                 return true;
             }
-
             return false;
         }
+
+        // 나이키 남성/공용 220~330mm 완벽 대응 맵
+        const mensShoeMap = {
+            220: "US4, EU36", 225: "US4.5, EU36.5", 230: "US5, EU37.5", 235: "US5.5, EU38",
+            240: "US6, EU38.5", 245: "US6.5, EU39", 250: "US7, EU40", 255: "US7.5, EU40.5",
+            260: "US8, EU41", 265: "US8.5, EU42", 270: "US9, EU42.5", 275: "US9.5, EU43",
+            280: "US10, EU44", 285: "US10.5, EU44.5", 290: "US11, EU45", 295: "US11.5, EU45.5", 
+            300: "US12, EU46", 305: "US12.5, EU47", 310: "US13, EU47.5", 315: "US13.5, EU48",
+            320: "US14, EU48.5", 330: "US15, EU49.5"
+        };
+
+        // 나이키 여성 220~300mm 완벽 대응 맵
+        const womensShoeMap = {
+            220: "US5, EU35.5", 225: "US5.5, EU36", 230: "US6, EU36.5", 235: "US6.5, EU37.5",
+            240: "US7, EU38", 245: "US7.5, EU38.5", 250: "US8, EU39", 255: "US8.5, EU40",
+            260: "US9, EU40.5", 265: "US9.5, EU41.5", 270: "US10, EU42", 275: "US10.5, EU42.5",
+            280: "US11, EU43", 285: "US11.5, EU43.5", 290: "US12, EU44", 295: "US12.5, EU44.5",
+            300: "US13, EU45"
+        };
 
         function formatShoeSizeDisplay(rawSize, genderStr) {
             const strVal = String(rawSize || '').trim();
@@ -339,25 +350,11 @@
             const gCat = getGenderCategory(genderStr);
             const isWomen = gCat === 'women';
 
-            const mensMap = {
-                240: "US6, EU38.5", 245: "US6.5, EU39", 250: "US7, EU40", 255: "US7.5, EU40.5",
-                260: "US8, EU41", 265: "US8.5, EU42", 270: "US9, EU42.5", 275: "US9.5, EU43",
-                280: "US10, EU44", 285: "US10.5, EU44.5", 290: "US11, EU45", 295: "US11.5, EU45.5", 
-                300: "US12, EU46", 305: "US12.5, EU47", 310: "US13, EU47.5"
-            };
-
-            const womensMap = {
-                220: "US5, EU35.5", 225: "US5.5, EU36", 230: "US6, EU36.5", 235: "US6.5, EU37.5",
-                240: "US7, EU38", 245: "US7.5, EU38.5", 250: "US8, EU39", 255: "US8.5, EU40",
-                260: "US9, EU40.5", 265: "US9.5, EU41.5", 270: "US10, EU42", 275: "US10.5, EU42.5",
-                280: "US11, EU43", 285: "US11.5, EU43.5", 290: "US12, EU44"
-            };
-
-            const conversionMap = isWomen ? womensMap : mensMap;
+            const conversionMap = isWomen ? womensShoeMap : mensShoeMap;
             return conversionMap[num] ? `${num} (${conversionMap[num]})` : `${num}`;
         }
 
-        // 사용자 지정 의류/용품 정렬 가중치 (1~5 -> XXS~XXL -> 슬래시복합 -> 80~130 -> T1~T3 -> OSFW/OSFM)
+        // 의류 및 기타 사이즈 정렬 규칙
         function getApparelSizeOrder(sizeStr) {
             const s = String(sizeStr || '').trim().toUpperCase();
 
@@ -366,31 +363,31 @@
                 return 100 + parseInt(s, 10);
             }
 
-            // 2. 알파벳 기본 사이즈: XXS - XS - S - M - L - XL - XXL - 2XL - 3XL - 4XL
+            // 2. 알파벳 기본 사이즈
             const alphaMap = {
                 'XXS': 201, 'XS': 202, 'S': 203, 'M': 204, 'L': 205,
                 'XL': 206, 'XXL': 207, '2XL': 208, '3XL': 209, '4XL': 210
             };
             if (alphaMap[s]) return alphaMap[s];
 
-            // 3. 슬래시 복합 사이즈: XS/S - S/M - M/L - L/XL - XL/XXL
+            // 3. 슬래시 복합 사이즈
             const slashMap = {
                 'XS/S': 301, 'S/M': 302, 'M/L': 303, 'L/XL': 304, 'XL/XXL': 305
             };
             if (slashMap[s]) return slashMap[s];
 
-            // 4. 수치형 치수 사이즈: 80 - 85 - 90 - 95 - 100 - 105 - 110 - 115 - 120 - 125 - 130
+            // 4. 수치형 치수 사이즈 (80~130)
             const num = parseInt(s.replace(/[^0-9]/g, ''), 10);
             if (num >= 70 && num <= 150 && /^\d+$/.test(s)) {
                 return 400 + num;
             }
 
-            // 5. T 사이즈: T1 - T2 - T3
+            // 5. T 사이즈 (T1, T2, T3)
             if (/^T[0-9]$/.test(s)) {
                 return 600 + parseInt(s.replace('T', ''), 10);
             }
 
-            // 6. 프리 / 원사이즈: OSFW - OSFM - OSFA - FREE
+            // 6. 프리/원사이즈
             const osMap = {
                 'OSFW': 701, 'OSFM': 702, 'OSFA': 703, 'ONE SIZE': 704, '1SIZE': 704, 'FREE': 705, 'O/S': 706
             };
@@ -542,8 +539,8 @@
                 const rawImg = imgKey ? String(row[imgKey] || '').trim() : '';
                 const rawPosBarcode = posBarcodeKey ? String(row[posBarcodeKey] || '').trim() : '';
 
-                // BIZ 무관 신발 규격/상품 예외 처리
-                const isShoe = isShoeItemOrSize(rawSize, rawCat2, rawName);
+                // 순수 210~330mm 신발 규격 여부 확인
+                const isShoe = isShoeSize(rawSize);
                 const formattedSize = isShoe ? formatShoeSizeDisplay(rawSize, rawGender) : rawSize;
 
                 return {
@@ -680,17 +677,18 @@
 
             document.getElementById('sizeEmptyText').classList.add('hidden');
 
-            // 1. Shoe sizes (성별별 색상 구분 + 정렬)
+            // 1. Shoe sizes (남성 -> 여성 -> 유니섹스 정렬)
             const shoeSizeList = Array.from(shoeSizesMap.values());
             shoeSizeList.sort((a, b) => {
-                const numA = parseInt(String(a.rawSize || a.sizeDisplay).replace(/[^0-9]/g, ''), 10) || 0;
-                const numB = parseInt(String(b.rawSize || b.sizeDisplay).replace(/[^0-9]/g, ''), 10) || 0;
-                if (numA !== numB) return numA - numB;
-
+                // 성별 순위: 남성(1) -> 여성(2) -> 공용/유니섹스(3)
                 const genderOrder = { 'men': 1, 'women': 2, 'unisex': 3 };
                 const gA = genderOrder[a.genderCat] || 4;
                 const gB = genderOrder[b.genderCat] || 4;
                 if (gA !== gB) return gA - gB;
+
+                const numA = parseInt(String(a.rawSize || a.sizeDisplay).replace(/[^0-9]/g, ''), 10) || 0;
+                const numB = parseInt(String(b.rawSize || b.sizeDisplay).replace(/[^0-9]/g, ''), 10) || 0;
+                if (numA !== numB) return numA - numB;
 
                 return String(a.sizeDisplay).localeCompare(String(b.sizeDisplay), 'ko');
             });
@@ -707,12 +705,12 @@
                     let genderBadge = '';
 
                     if (sObj.genderCat === 'women') {
-                        genderBadge = '<span class="text-[9px] font-bold mr-1">♀</span>';
+                        genderBadge = '<span class="text-[9px] font-bold mr-1 text-rose-500">♀</span>';
                         chipStyle = isActive 
                             ? 'bg-rose-600 text-white border-rose-600 active' 
                             : 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100';
                     } else if (sObj.genderCat === 'unisex') {
-                        genderBadge = '<span class="text-[9px] font-bold mr-1">⚥</span>';
+                        genderBadge = '<span class="text-[9px] font-bold mr-1 text-purple-500">⚥</span>';
                         chipStyle = isActive 
                             ? 'bg-purple-600 text-white border-purple-600 active' 
                             : 'bg-purple-50 text-purple-800 border-purple-200 hover:bg-purple-100';
@@ -731,7 +729,7 @@
                 document.getElementById('shoeSizeSection').classList.add('hidden');
             }
 
-            // 2. Apparel sizes (정밀 정렬 순서 적용)
+            // 2. Apparel & Accessory sizes
             const apparelSizes = Array.from(apparelSizesSet);
             apparelSizes.sort(compareApparelSizes);
             if (apparelSizes.length > 0) {
@@ -905,8 +903,8 @@
                 group.isHighHeat = group.totalSales >= HIGH_HEAT_THRESHOLD;
                 
                 group.sizeList.sort((a, b) => {
-                    const isShoeA = a.isShoe || isShoeItemOrSize(a.rawSize, group.category2, group.name);
-                    const isShoeB = b.isShoe || isShoeItemOrSize(b.rawSize, group.category2, group.name);
+                    const isShoeA = a.isShoe || isShoeSize(a.rawSize);
+                    const isShoeB = b.isShoe || isShoeSize(b.rawSize);
 
                     if (isShoeA && isShoeB) {
                         const numA = parseInt(String(a.rawSize || a.size).replace(/[^0-9]/g, ''), 10) || 0;
