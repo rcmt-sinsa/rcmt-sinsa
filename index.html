@@ -274,21 +274,21 @@
         const viewGridBtn = document.getElementById('viewGridBtn');
         const viewTableBtn = document.getElementById('viewTableBtn');
 
-       function extractBrand(subCategoryStr) {
-    if (!subCategoryStr) return '기타';
+        function extractBrand(subCategoryStr) {
+            if (!subCategoryStr) return '기타';
 
-    const cleaned = String(subCategoryStr).trim();
-    const match = cleaned.match(/\(([^)]+)\)/);
+            const cleaned = String(subCategoryStr).trim();
+            const match = cleaned.match(/\(([^)]+)\)/);
 
-    if (match && match[1]) {
-        return match[1].trim();
-    }
+            if (match && match) {
+                return match.trim();
+            }
 
-    return cleaned
-        .replace(/신발|의류|용품|잡화/gi, '')
-        .replace(/[()]/g, '')
-        .trim() || '기타';
-}
+            return cleaned
+                .replace(/신발|의류|용품|잡화/gi, '')
+                .replace(/[()]/g, '')
+                .trim() || '기타';
+        }
 
         function formatShoeSizeDisplay(rawSize, genderStr) {
             const strVal = String(rawSize).trim();
@@ -426,12 +426,7 @@
             const keys = Object.keys(sampleRow);
 
             const skuKey = keys.find(k => k.trim() === '품번') || keys.find(k => k.includes('품번') || k.toLowerCase().includes('sku') || k.includes('코드')) || keys[0];
-          const nameKey =
-    keys.find(k => k.trim() === '품명')
-    || keys.find(k => k.includes('품명'))
-    || keys.find(k => k.includes('상품명'))
-    || keys[1]
-    || '';
+            const nameKey = keys.find(k => k.trim() === '품명') || keys.find(k => k.includes('품명')) || keys.find(k => k.includes('상품명')) || keys || '';
             const subCatKey = keys.find(k => k.includes('품목소분류') || k.includes('소분류') || k.includes('브랜드')) || '';
             const cat2Key = keys.find(k => k.includes('카테고리2') || k.includes('카테고리 2') || k.includes('중분류') || k.toLowerCase().includes('biz')) || '';
             const genderKey = keys.find(k => k.trim() === '성별') || keys.find(k => k.includes('성별')) || '';
@@ -441,7 +436,8 @@
             const imgKey = keys.find(k => k.includes('이미지') || k.toLowerCase().includes('image') || k.includes('사진')) || '';
             const posBarcodeKey = keys.find(k => k.includes('POS')) || keys.find(k => k.includes('바코드')) || '';
 
-            rawInventory = json.map(row => {
+            // 1. 원본 데이터 파싱
+            const mappedRows = json.map(row => {
                 const rawSku = String(row[skuKey] || '').trim();
                 const rawName = String(row[nameKey] || '').trim();
                 const rawSubCat = subCatKey ? String(row[subCatKey] || '').trim() : '';
@@ -472,6 +468,26 @@
                     isHighHeat: false
                 };
             }).filter(item => item.sku || item.name);
+
+            // 2. 동일 SKU + 동일 규격(사이즈) 행 SUMIF 재고 합산 통합 (시즌별/입고차수 분리 데이터 통합)
+            const inventorySumMap = {};
+            mappedRows.forEach(item => {
+                const itemKey = item.sku + '|||' + (item.size || item.sizeDisplay || 'FREE');
+                
+                if (!inventorySumMap[itemKey]) {
+                    inventorySumMap[itemKey] = { ...item };
+                } else {
+                    inventorySumMap[itemKey].stock += item.stock;
+                    if (item.hasPosBarcode) {
+                        inventorySumMap[itemKey].hasPosBarcode = true;
+                    }
+                    if (!inventorySumMap[itemKey].imageUrl && item.imageUrl) {
+                        inventorySumMap[itemKey].imageUrl = item.imageUrl;
+                    }
+                }
+            });
+
+            rawInventory = Object.values(inventorySumMap);
 
             renderFilterChips();
             applyFiltersAndRender();
@@ -670,8 +686,7 @@
 
             filteredData = rawInventory.map(item => {
                 const salesKey = item.sku + "|" + item.size;
-               const salesQty =
-    salesMap[salesKey] || 0;
+                const salesQty = salesMap[salesKey] || 0;
                 const calcWos = salesQty > 0 ? (item.stock / salesQty) : (item.stock === 0 ? 0 : 999);
                 return { 
                     ...item, 
@@ -770,11 +785,29 @@
             groupedData.forEach(group => {
                 group.wos = group.totalSales > 0 ? (group.totalStock / group.totalSales) : (group.totalStock === 0 ? 0 : 999);
                 group.isHighHeat = group.totalSales >= HIGH_HEAT_THRESHOLD;
+                
+                const apparelOrder = {
+                    'XXS': 1, 'XS': 2, 'S': 3, 'M': 4, 'L': 5, 'XL': 6, 'XXL': 7, '2XL': 8, '3XL': 9, '4XL': 10, 'FREE': 99
+                };
                 group.sizeList.sort((a, b) => {
-                    const numA = parseInt(String(a.rawSize || a.size).replace(/[^0-9]/g, ''), 10) || 0;
-                    const numB = parseInt(String(b.rawSize || b.size).replace(/[^0-9]/g, ''), 10) || 0;
-                    if (numA && numB) return numA - numB;
-                    return String(a.size).localeCompare(String(b.size));
+                    const valA = String(a.rawSize || a.size || '').trim().toUpperCase();
+                    const valB = String(b.rawSize || b.size || '').trim().toUpperCase();
+
+                    const numA = parseInt(valA.replace(/[^0-9]/g, ''), 10) || 0;
+                    const numB = parseInt(valB.replace(/[^0-9]/g, ''), 10) || 0;
+
+                    const isShoeA = numA >= 200 && numA <= 330;
+                    const isShoeB = numB >= 200 && numB <= 330;
+                    if (isShoeA && isShoeB) return numA - numB;
+
+                    const orderA = apparelOrder[valA];
+                    const orderB = apparelOrder[valB];
+                    if (orderA && orderB) return orderA - orderB;
+                    if (orderA && !orderB) return -1;
+                    if (!orderA && orderB) return 1;
+
+                    if (numA && numB && numA < 100 && numB < 100) return numA - numB;
+                    return String(a.size).localeCompare(String(b.size), 'ko');
                 });
             });
 
@@ -1081,4 +1114,6 @@
         updateLastModified();
     </script>
 </body>
-</html>
+</html>,title:index.html}
+
+http://googleusercontent.com/action_card_content/23552ee9-2326-4ae8-9a7b-3a6733af59ca
