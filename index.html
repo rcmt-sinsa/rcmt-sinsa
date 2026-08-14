@@ -280,8 +280,11 @@
             const cleaned = String(subCategoryStr).trim();
             const match = cleaned.match(/\(([^)]+)\)/);
 
-            if (match && match) {
-                return match.trim();
+            if (match) {
+                const [rawFull, capturedBrand] = match;
+                if (capturedBrand) {
+                    return capturedBrand.trim();
+                }
             }
 
             return cleaned
@@ -426,7 +429,7 @@
             const keys = Object.keys(sampleRow);
 
             const skuKey = keys.find(k => k.trim() === '품번') || keys.find(k => k.includes('품번') || k.toLowerCase().includes('sku') || k.includes('코드')) || keys[0];
-            const nameKey = keys.find(k => k.trim() === '품명') || keys.find(k => k.includes('품명')) || keys.find(k => k.includes('상품명')) || keys || keys[0] || '';
+            const nameKey = keys.find(k => k.trim() === '품명') || keys.find(k => k.includes('품명')) || keys.find(k => k.includes('상품명')) || (keys.length > 1 ? keys : keys[0]) || '';
             const subCatKey = keys.find(k => k.includes('품목소분류') || k.includes('소분류') || k.includes('브랜드')) || '';
             const cat2Key = keys.find(k => k.includes('카테고리2') || k.includes('카테고리 2') || k.includes('중분류') || k.toLowerCase().includes('biz')) || '';
             const genderKey = keys.find(k => k.trim() === '성별') || keys.find(k => k.includes('성별')) || '';
