@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>재고 & 판매 현황 효율적 조회 시스템</title>
+    <title>RCMT 신사 재고 현황</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -37,27 +37,13 @@
                 <span class="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded hidden sm:inline-block">스마트 재고 & HIGH HEAT</span>
             </div>
 
-            <!-- Top Right Compact File Upload Buttons -->
             <div class="flex items-center space-x-2 text-xs">
-          <!--
-<label for="fileInventory"...>
-...
-</label>
-
-<label for="fileSales"...>
-...
-</label>
--->
-
-             <div id="statusIndicator"
-     class="text-xs text-green-400 ml-1">
-    ☁️ GitHub 저장소 자동 연동
-</div>
-
-<div id="lastUpdated"
-     class="text-xs text-gray-400 ml-3">
-    업데이트 확인중...
-</div>
+                <div id="statusIndicator" class="text-xs text-green-400 ml-1">
+                    ☁️ GitHub 저장소 자동 연동
+                </div>
+                <div id="lastUpdated" class="text-xs text-gray-400 ml-3">
+                    업데이트 확인중...
+                </div>
             </div>
         </div>
     </header>
@@ -67,7 +53,7 @@
         <!-- Summary Metrics Dashboard -->
         <section id="metricsSection" class="grid grid-cols-2 md:grid-cols-4 gap-4 hidden">
             <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                <p class="text-xs text-gray-500 font-medium">전체 보유 품목 수</p>
+                <p class="text-xs text-gray-500 font-medium">전체 보유 품목 수 (단품/SKU)</p>
                 <p id="metricTotalItems" class="text-2xl font-black mt-1">0</p>
             </div>
             <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
@@ -112,11 +98,9 @@
                     <button id="toggleWosWarning" class="px-3 py-1.5 rounded text-xs font-bold border border-amber-300 text-amber-800 hover:bg-amber-50 transition flex items-center">
                         <i class="fa-solid fa-triangle-exclamation mr-1"></i> 🚨 1~2주 내 품절 위험 (WOS)
                     </button>
-                    <button id="togglePosMissing"
-        class="px-3 py-1.5 rounded text-xs font-bold border border-black text-black hover:bg-gray-100 transition flex items-center">
-    <i class="fa-solid fa-barcode mr-1"></i>
-    POS 미등록만 보기
-</button>
+                    <button id="togglePosMissing" class="px-3 py-1.5 rounded text-xs font-bold border border-black text-black hover:bg-gray-100 transition flex items-center">
+                        <i class="fa-solid fa-barcode mr-1"></i> POS 미등록만 보기
+                    </button>
                 </div>
 
                 <!-- 1. Brand Filter Chips -->
@@ -125,7 +109,7 @@
                         <i class="fa-solid fa-tags text-gray-400 mr-1"></i>브랜드
                     </label>
                     <div id="brandChipContainer" class="flex flex-wrap gap-1.5">
-                        <span class="text-xs text-gray-400">파일 업로드 시 브랜드 목록이 나타납니다.</span>
+                        <span class="text-xs text-gray-400">데이터 로딩 중...</span>
                     </div>
                 </div>
 
@@ -135,7 +119,7 @@
                         <i class="fa-solid fa-layer-group text-gray-400 mr-1"></i>BIZ (카테고리)
                     </label>
                     <div id="bizChipContainer" class="flex flex-wrap gap-1.5">
-                        <span class="text-xs text-gray-400">파일 업로드 시 BIZ 목록이 나타납니다.</span>
+                        <span class="text-xs text-gray-400">데이터 로딩 중...</span>
                     </div>
                 </div>
 
@@ -145,18 +129,15 @@
                         <i class="fa-solid fa-users text-gray-400 mr-1"></i>성별
                     </label>
                     <div id="genderChipContainer" class="flex flex-wrap gap-1.5">
-                        <span class="text-xs text-gray-400">파일 업로드 시 성별 목록이 나타납니다.</span>
+                        <span class="text-xs text-gray-400">데이터 로딩 중...</span>
                     </div>
                 </div>
 
-<div class="pt-3 border-t border-gray-100">
-    <button
-        id="clearFilterBtn"
-        class="px-3 py-1.5 rounded border border-gray-300 bg-white hover:bg-gray-100 text-xs font-bold text-gray-700 transition">
-        <i class="fa-solid fa-filter-circle-xmark mr-1"></i>
-        필터 전체 초기화
-    </button>
-</div>
+                <div class="pt-3 border-t border-gray-100">
+                    <button id="clearFilterBtn" class="px-3 py-1.5 rounded border border-gray-300 bg-white hover:bg-gray-100 text-xs font-bold text-gray-700 transition">
+                        <i class="fa-solid fa-filter-circle-xmark mr-1"></i>필터 전체 초기화
+                    </button>
+                </div>
                 
                 <!-- 4. Size Filter Section -->
                 <div class="border-t border-gray-100 pt-3">
@@ -181,7 +162,7 @@
                         </div>
 
                         <div id="sizeEmptyText" class="text-xs text-gray-400">
-                            파일 업로드 시 사이즈 목록이 나타납니다.
+                            데이터 로딩 시 사이즈 목록이 나타납니다.
                         </div>
                     </div>
                 </div>
@@ -191,7 +172,7 @@
         <!-- View Controls & Sorting & Results Header -->
         <section class="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-lg shadow-sm border border-gray-200 gap-3">
             <span class="text-sm font-bold text-gray-800">
-                조회 결과 (<span id="resultCount" class="text-black font-extrabold">0</span>건)
+                조회 결과 (<span id="resultCount" class="text-black font-extrabold">0</span>개 상품 / <span id="detailCount" class="text-gray-500 font-medium">0</span>개 규격)
             </span>
 
             <div class="flex items-center space-x-3 text-xs">
@@ -207,10 +188,10 @@
 
                 <div class="flex items-center space-x-1">
                     <button id="viewGridBtn" class="px-3 py-1.5 rounded border font-bold bg-black text-white border-black flex items-center transition">
-                        <i class="fa-solid fa-grip mr-1"></i>카드형
+                        <i class="fa-solid fa-grip mr-1"></i>카드형 (통합뷰)
                     </button>
                     <button id="viewTableBtn" class="px-3 py-1.5 rounded border font-bold bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200 flex items-center transition">
-                        <i class="fa-solid fa-list mr-1"></i>표 형태
+                        <i class="fa-solid fa-list mr-1"></i>표 형태 (전체)
                     </button>
                 </div>
             </div>
@@ -218,9 +199,9 @@
 
         <!-- Results Display Container -->
         <section id="resultsContainer">
-            <div id="gridView" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            <div id="gridView" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 <div class="col-span-full bg-white p-12 text-center text-gray-400 rounded-lg border border-gray-200">
-                    우측 상단의 <i class="fa-solid fa-boxes-stacked text-green-500 mx-1"></i>재고 RAW 및 <i class="fa-solid fa-chart-line text-blue-500 mx-1"></i>판매 RAW 버튼을 눌러 파일을 업로드해 주세요.
+                    <i class="fa-solid fa-spinner fa-spin mr-2"></i>데이터를 불러오는 중입니다...
                 </div>
             </div>
 
@@ -236,8 +217,9 @@
                                 <th class="p-3">브랜드</th>
                                 <th class="p-3">BIZ</th>
                                 <th class="p-3">성별</th>
+                                <th class="p-3">POS</th>
                                 <th class="p-3 text-right">매장(신사동) 재고</th>
-                                <th class="p-3 text-right">주간 판매량 (SUMIF)</th>
+                                <th class="p-3 text-right">주간 판매량</th>
                             </tr>
                         </thead>
                         <tbody id="inventoryTbody" class="divide-y divide-gray-100">
@@ -255,31 +237,25 @@
         let filteredData = [];
         let isHighHeatOnly = false;
         let isWosWarningOnly = false;
+        let isPosMissingOnly = false;
         let viewMode = 'grid';
         let sortBy = 'sales_desc';
         const HIGH_HEAT_THRESHOLD = 5;
 
-     let selectedBrand = [];
-let selectedBiz = [];
-let selectedGender = [];
-let selectedSizeDisplay = [];
-let isPosMissingOnly = false;
-        
-        const fileInventoryInput = document.getElementById('fileInventory');
-        const fileSalesInput = document.getElementById('fileSales');
-        const file1Text = document.getElementById('file1Text');
-        const file2Text = document.getElementById('file2Text');
-        const statusIndicator = document.getElementById('statusIndicator');
+        let selectedBrand = [];
+        let selectedBiz = [];
+        let selectedGender = [];
+        let selectedSizeDisplay = [];
 
+        const statusIndicator = document.getElementById('statusIndicator');
+        const lastUpdated = document.getElementById('lastUpdated');
         const searchInput = document.getElementById('searchInput');
         const searchBtn = document.getElementById('searchBtn');
         const toggleHighHeat = document.getElementById('toggleHighHeat');
         const toggleWosWarning = document.getElementById('toggleWosWarning');
-        const togglePosMissing =
-    document.getElementById(
-        'togglePosMissing'
-    );
+        const togglePosMissing = document.getElementById('togglePosMissing');
         const resetFiltersBtn = document.getElementById('resetFiltersBtn');
+        const clearFilterBtn = document.getElementById('clearFilterBtn');
         const exportExcelBtn = document.getElementById('exportExcelBtn');
         const sortBySelect = document.getElementById('sortBySelect');
 
@@ -293,16 +269,15 @@ let isPosMissingOnly = false;
         const tableView = document.getElementById('tableView');
         const inventoryTbody = document.getElementById('inventoryTbody');
         const resultCount = document.getElementById('resultCount');
+        const detailCount = document.getElementById('detailCount');
 
         const viewGridBtn = document.getElementById('viewGridBtn');
         const viewTableBtn = document.getElementById('viewTableBtn');
 
-      function extractBrand(subCategoryStr) {
-
+       function extractBrand(subCategoryStr) {
     if (!subCategoryStr) return '기타';
 
     const cleaned = String(subCategoryStr).trim();
-
     const match = cleaned.match(/\(([^)]+)\)/);
 
     if (match && match[1]) {
@@ -388,256 +363,83 @@ let isPosMissingOnly = false;
             }
         }
 
-      function parseExcelUniversal(sheet) {
+        function parseExcelUniversal(sheet) {
+            const rawMatrix = safeSheetToMatrix(sheet);
+            if (!rawMatrix || rawMatrix.length === 0) return [];
 
-    const rawMatrix = safeSheetToMatrix(sheet);
+            let headerRowIdx = -1;
+            for (let i = 0; i < Math.min(rawMatrix.length, 30); i++) {
+                const row = rawMatrix[i] || [];
+                const text = row.map(v => String(v || '').toLowerCase()).join(' ');
 
-    if (!rawMatrix || rawMatrix.length === 0) {
-        return [];
-    }
+                let score = 0;
+                if (text.includes('품번') || text.includes('sku') || text.includes('코드')) score++;
+                if (text.includes('품명') || text.includes('상품명') || text.includes('수량')) score++;
+                if (text.includes('성별')) score++;
+                if (text.includes('카테고리')) score++;
+                if (text.includes('브랜드')) score++;
+                if (text.includes('규격') || text.includes('사이즈')) score++;
 
-    let headerRowIdx = -1;
-
-    for (let i = 0; i < Math.min(rawMatrix.length, 30); i++) {
-
-        const row = rawMatrix[i] || [];
-
-        const text = row
-            .map(v => String(v || '').toLowerCase())
-            .join(' ');
-
-        let score = 0;
-
-        if (text.includes('품번')) score++;
-        if (text.includes('품명')) score++;
-        if (text.includes('성별')) score++;
-        if (text.includes('카테고리')) score++;
-        if (text.includes('브랜드')) score++;
-        if (text.includes('규격')) score++;
-
-        if (score >= 2) {
-            headerRowIdx = i;
-            break;
-        }
-    }
-
-    if (headerRowIdx < 0) {
-        console.error('헤더 행을 찾지 못함');
-        return [];
-    }
-
-    const headers =
-        (rawMatrix[headerRowIdx] || [])
-            .map(v => String(v || '').trim());
-
-    const result = [];
-
-    rawMatrix
-        .slice(headerRowIdx + 1)
-        .forEach(row => {
-
-            if (!Array.isArray(row)) return;
-
-            const rowText =
-                row.join(' ')
-                   .toUpperCase();
-
-            if (
-                rowText.includes('TOTAL') ||
-                rowText.includes('합계')
-            ) {
-                return;
+                if (score >= 2) {
+                    headerRowIdx = i;
+                    break;
+                }
             }
 
-            const obj = {};
-
-            headers.forEach((header, idx) => {
-
-                if (!header) return;
-
-                obj[header] =
-                    row[idx] !== undefined
-                    ? row[idx]
-                    : '';
-            });
-
-            if (Object.keys(obj).length > 0) {
-                result.push(obj);
+            if (headerRowIdx < 0) {
+                for (let i = 0; i < Math.min(rawMatrix.length, 10); i++) {
+                    if ((rawMatrix[i] || []).length > 1) {
+                        headerRowIdx = i;
+                        break;
+                    }
+                }
             }
-        });
 
-    console.log('파싱행수', result.length);
+            if (headerRowIdx < 0) return [];
 
-    return result;
-}
+            const headers = (rawMatrix[headerRowIdx] || []).map(v => String(v || '').trim());
+            const result = [];
 
-       function readWorkbookSafely(file, callback) {
+            rawMatrix.slice(headerRowIdx + 1).forEach(row => {
+                if (!Array.isArray(row)) return;
+                const rowText = row.join(' ').toUpperCase();
+                if (rowText.includes('TOTAL') || rowText.includes('합계')) return;
 
-    const reader = new FileReader();
+                const obj = {};
+                headers.forEach((header, idx) => {
+                    if (!header) return;
+                    obj[header] = row[idx] !== undefined ? row[idx] : '';
+                });
 
-    reader.onload = function (e) {
-
-        try {
-
-            const data = new Uint8Array(e.target.result);
-
-            const workbook = XLSX.read(data, {
-                type: "array",
-                cellStyles: false,
-                cellNF: false,
-                cellHTML: false,
-                cellFormula: false,
-                cellText: false,
-                cellDates: false
+                if (Object.keys(obj).length > 0) {
+                    result.push(obj);
+                }
             });
 
-            callback(null, workbook);
-
-        } catch (err) {
-
-            console.error(err);
-
-            callback(err);
+            return result;
         }
-    };
 
-    reader.readAsArrayBuffer(file);
-}
-
-        /*
-        if (fileInventoryInput) {
-            
-fileInventoryInput.addEventListener('change', (e) => {});
-}
-            const file = e.target.files[0];
-            if (!file) return;
-            file1Text.textContent = file.name.length > 10 ? file.name.substring(0, 8) + '...' : file.name;
-            readWorkbookSafely(file, (err, workbook) => {
-                if (err) {
-                    console.error(err);
-                    alert("재고 데이터 읽기 실패: " + err.message);
-                    return;
-                }
-                try {
-                   let json = [];
-
-for (const sheetName of workbook.SheetNames) {
-
-    const sheet =
-        workbook.Sheets[sheetName];
-
-    const rows =
-        parseExcelUniversal(sheet);
-
-    console.log(
-        '재고시트',
-        sheetName,
-        rows.length
-    );
-
-    if (rows.length > 0) {
-
-        json = rows;
-
-        console.log(
-            '사용재고시트',
-            sheetName
-        );
-
-        break;
-    }
-}
-
-processInventoryData(json);
-                } catch (errProc) {
-                    console.error(errProc);
-                    alert("재고 데이터 파싱 중 오류: " + errProc.message);
-                }
-            });
-        });
-*/
-
-        /*
-      if (fileSalesInput) {
-
-fileSalesInput.addEventListener('change', (e) => {});
-}
-            const file = e.target.files[0];
-            if (!file) return;
-            file2Text.textContent = file.name.length > 10 ? file.name.substring(0, 8) + '...' : file.name;
-            readWorkbookSafely(file, (err, workbook) => {
-                if (err) {
-                    console.error(err);
-                    alert("판매 데이터 읽기 실패: " + err.message);
-                    return;
-                }
-                try {
-                  let json = [];
-
-for (const sheetName of workbook.SheetNames) {
-
-    const sheet =
-        workbook.Sheets[sheetName];
-
-    const rows =
-        parseExcelUniversal(sheet);
-
-    console.log(
-        '판매시트',
-        sheetName,
-        rows.length
-    );
-
-    if (rows.length > 0) {
-
-        json = rows;
-
-        console.log(
-            '사용판매시트',
-            sheetName
-        );
-
-        break;
-    }
-}
-
-processSalesData(json);
-                } catch (errProc) {
-                    console.error(errProc);
-                    alert("판매 데이터 파싱 중 오류: " + errProc.message);
-                }
-            });
-        });
-*/
-        
         function processInventoryData(json) {
-            if (!json || json.length === 0) {
-                alert("재고 데이터에서 행을 찾지 못했습니다.");
-                return;
-            }
+            if (!json || json.length === 0) return;
 
             const sampleRow = json[0] || {};
             const keys = Object.keys(sampleRow);
 
             const skuKey = keys.find(k => k.trim() === '품번') || keys.find(k => k.includes('품번') || k.toLowerCase().includes('sku') || k.includes('코드')) || keys[0];
           const nameKey =
-keys.find(k => k.trim() === '품명')
-|| keys.find(k => k.includes('품명'))
-|| keys.find(k => k.includes('상품명'))
-|| keys[1]
-|| '';
+    keys.find(k => k.trim() === '품명')
+    || keys.find(k => k.includes('품명'))
+    || keys.find(k => k.includes('상품명'))
+    || keys[1]
+    || '';
             const subCatKey = keys.find(k => k.includes('품목소분류') || k.includes('소분류') || k.includes('브랜드')) || '';
             const cat2Key = keys.find(k => k.includes('카테고리2') || k.includes('카테고리 2') || k.includes('중분류') || k.toLowerCase().includes('biz')) || '';
             const genderKey = keys.find(k => k.trim() === '성별') || keys.find(k => k.includes('성별')) || '';
             
-            // 매장(신사동) 재고 열 최우선 탐색
             const stockKey = keys.find(k => k.includes('신사동') || k.includes('매장 (신사동)') || k.includes('매장(신사동)')) || keys.find(k => k.includes('매장')) || keys.find(k => k.includes('재고') || k.includes('수량')) || '';
             const sizeKey = keys.find(k => k.trim() === '규격') || keys.find(k => k.includes('규격') || k.includes('사이즈')) || '';
             const imgKey = keys.find(k => k.includes('이미지') || k.toLowerCase().includes('image') || k.includes('사진')) || '';
-            const posBarcodeKey =
-    keys.find(k => k.includes('POS'))
-    || keys.find(k => k.includes('바코드'))
-    || '';
+            const posBarcodeKey = keys.find(k => k.includes('POS')) || keys.find(k => k.includes('바코드')) || '';
 
             rawInventory = json.map(row => {
                 const rawSku = String(row[skuKey] || '').trim();
@@ -648,15 +450,8 @@ keys.find(k => k.trim() === '품명')
                 const rawStockStr = stockKey ? String(row[stockKey] || '0').replace(/,/g, '') : '0';
                 const stockVal = parseInt(rawStockStr, 10) || 0;
                 const rawSize = sizeKey ? String(row[sizeKey] || '').trim() : '';
-               const rawImg =
-    imgKey
-    ? String(row[imgKey] || '').trim()
-    : '';
-
-const rawPosBarcode =
-    posBarcodeKey
-    ? String(row[posBarcodeKey] || '').trim()
-    : '';
+                const rawImg = imgKey ? String(row[imgKey] || '').trim() : '';
+                const rawPosBarcode = posBarcodeKey ? String(row[posBarcodeKey] || '').trim() : '';
 
                 const isShoe = rawCat2.includes('신발') || rawCat2.toLowerCase().includes('footwear');
                 const formattedSize = isShoe ? formatShoeSizeDisplay(rawSize, rawGender) : rawSize;
@@ -670,14 +465,11 @@ const rawPosBarcode =
                     size: rawSize,
                     sizeDisplay: formattedSize,
                     stock: stockVal,
-                   imageUrl: rawImg,
-
-hasPosBarcode:
-    rawPosBarcode !== '',
-
-sales: 0,
-wos: 999,
-isHighHeat: false
+                    imageUrl: rawImg,
+                    hasPosBarcode: rawPosBarcode !== '',
+                    sales: 0,
+                    wos: 999,
+                    isHighHeat: false
                 };
             }).filter(item => item.sku || item.name);
 
@@ -693,39 +485,20 @@ isHighHeat: false
             const keys = Object.keys(sampleRow);
 
             const skuKey = keys.find(k => k.trim() === '품번') || keys.find(k => k.includes('품번') || k.toLowerCase().includes('sku') || k.includes('코드')) || keys[0];
-const qtyKey =
-keys.find(k => k.trim() === '수량')
-|| keys.find(k => k.includes('수량'))
-|| keys.find(k => k.includes('판매'))
-|| keys.find(k => k.includes('출고'))
-|| keys[0]
-|| '';
-            
-            const sizeKey =
-    keys.find(k => k.trim() === '규격')
-    || keys.find(k => k.includes('규격'))
-    || '';
+            const qtyKey = keys.find(k => k.trim() === '수량') || keys.find(k => k.includes('수량')) || keys.find(k => k.includes('판매')) || keys.find(k => k.includes('출고')) || keys[0] || '';
+            const sizeKey = keys.find(k => k.trim() === '규격') || keys.find(k => k.includes('규격')) || '';
             
             json.forEach(row => {
-             const sku = String(row[skuKey] || '').trim();
+                const sku = String(row[skuKey] || '').trim();
+                const size = String(row[sizeKey] || '').trim();
+                const qtyStr = String(row[qtyKey] || '0').replace(/,/g, '');
+                const qty = parseInt(qtyStr, 10) || 0;
 
-const size =
-    String(row[sizeKey] || '').trim();
-
-const qtyStr =
-    String(row[qtyKey] || '0')
-        .replace(/,/g, '');
-
-const qty =
-    parseInt(qtyStr, 10) || 0;
-
-const salesKey =
-    sku + "|" + size;
-
-if (sku)
-    salesMap[salesKey] =
-        (salesMap[salesKey] || 0)
-        + qty;
+                const salesKey = sku + "|" + size;
+                if (sku) {
+                    salesMap[salesKey] = (salesMap[salesKey] || 0) + qty;
+                    salesMap[sku] = (salesMap[sku] || 0) + qty;
+                }
             });
 
             applyFiltersAndRender();
@@ -757,40 +530,34 @@ if (sku)
                 }
             });
 
+            // Brands
             const brands = Array.from(brandSet).sort();
-            let brandHtml = `<button class="chip-btn ${selectedBrand === '' ? 'active' : ''}" onclick="selectBrand('')"><i class="fa-solid fa-globe mr-1.5"></i>전체 브랜드</button>`;
+            let brandHtml = `<button class="chip-btn ${selectedBrand.length === 0 ? 'active' : ''}" onclick="selectBrand('')"><i class="fa-solid fa-globe mr-1.5"></i>전체 브랜드</button>`;
             brands.forEach(b => {
                 const icon = getBrandIconHtml(b);
-        const isActive =
-    selectedBrand.includes(b)
-    ? 'active'
-    : '';
+                const isActive = selectedBrand.includes(b) ? 'active' : '';
                 const safeB = String(b).replace(/'/g, "\\'");
                 brandHtml += `<button class="chip-btn ${isActive}" onclick="selectBrand('${safeB}')">${icon}${b}</button>`;
             });
             document.getElementById('brandChipContainer').innerHTML = brandHtml || '<span class="text-xs text-gray-400">데이터 없음</span>';
 
+            // BIZ
             const bizs = Array.from(bizSet).sort();
-            let bizHtml = `<button class="chip-btn ${selectedBiz === '' ? 'active' : ''}" onclick="selectBiz('')"><i class="fa-solid fa-layer-group mr-1.5"></i>전체 BIZ</button>`;
+            let bizHtml = `<button class="chip-btn ${selectedBiz.length === 0 ? 'active' : ''}" onclick="selectBiz('')"><i class="fa-solid fa-layer-group mr-1.5"></i>전체 BIZ</button>`;
             bizs.forEach(b => {
                 const icon = getBizIconHtml(b);
-           const isActive =
-    selectedBiz.includes(b)
-    ? 'active'
-    : '';
+                const isActive = selectedBiz.includes(b) ? 'active' : '';
                 const safeB = String(b).replace(/'/g, "\\'");
                 bizHtml += `<button class="chip-btn ${isActive}" onclick="selectBiz('${safeB}')">${icon}${b}</button>`;
             });
             document.getElementById('bizChipContainer').innerHTML = bizHtml || '<span class="text-xs text-gray-400">데이터 없음</span>';
 
+            // Gender
             const genders = Array.from(genderSet).sort();
-            let genderHtml = `<button class="chip-btn ${selectedGender === '' ? 'active' : ''}" onclick="selectGender('')"><i class="fa-solid fa-users mr-1.5"></i>전체 성별</button>`;
+            let genderHtml = `<button class="chip-btn ${selectedGender.length === 0 ? 'active' : ''}" onclick="selectGender('')"><i class="fa-solid fa-users mr-1.5"></i>전체 성별</button>`;
             genders.forEach(g => {
                 const icon = getGenderIconHtml(g);
-               const isActive =
-    selectedGender.includes(g)
-    ? 'active'
-    : '';
+                const isActive = selectedGender.includes(g) ? 'active' : '';
                 const safeG = String(g).replace(/'/g, "\\'");
                 genderHtml += `<button class="chip-btn ${isActive}" onclick="selectGender('${safeG}')">${icon}${g}</button>`;
             });
@@ -798,6 +565,7 @@ if (sku)
 
             document.getElementById('sizeEmptyText').classList.add('hidden');
 
+            // Shoe sizes
             const shoeSizes = Array.from(shoeSizesMap.keys()).sort((a, b) => {
                 const numA = parseInt(a.replace(/[^0-9]/g, ''), 10) || 0;
                 const numB = parseInt(b.replace(/[^0-9]/g, ''), 10) || 0;
@@ -808,10 +576,7 @@ if (sku)
                 document.getElementById('shoeSizeSection').classList.remove('hidden');
                 let shoeHtml = '';
                 shoeSizes.forEach(s => {
-                   const isActive =
-    selectedSizeDisplay.includes(s)
-    ? 'active'
-    : '';
+                    const isActive = selectedSizeDisplay.includes(s) ? 'active' : '';
                     const safeS = String(s).replace(/'/g, "\\'");
                     shoeHtml += `<button class="size-chip-btn ${isActive}" onclick="selectSize('${safeS}')">${s}</button>`;
                 });
@@ -820,12 +585,13 @@ if (sku)
                 document.getElementById('shoeSizeSection').classList.add('hidden');
             }
 
+            // Apparel sizes
             const apparelSizes = Array.from(apparelSizesSet).sort();
             if (apparelSizes.length > 0) {
                 document.getElementById('apparelSizeSection').classList.remove('hidden');
                 let apparelHtml = '';
                 apparelSizes.forEach(s => {
-                    const isActive = selectedSizeDisplay === s ? 'active' : '';
+                    const isActive = selectedSizeDisplay.includes(s) ? 'active' : '';
                     const safeS = String(s).replace(/'/g, "\\'");
                     apparelHtml += `<button class="size-chip-btn ${isActive}" onclick="selectSize('${safeS}')">${s}</button>`;
                 });
@@ -834,95 +600,78 @@ if (sku)
                 document.getElementById('apparelSizeSection').classList.add('hidden');
             }
 
-         const equipSizes = Array.from(equipSizesSet).sort();
-
-document.getElementById('equipSizeSection').classList.add('hidden');
+            // Equip sizes
+            const equipSizes = Array.from(equipSizesSet).sort();
+            if (equipSizes.length > 0) {
+                document.getElementById('equipSizeSection').classList.remove('hidden');
+                let equipHtml = '';
+                equipSizes.forEach(s => {
+                    const isActive = selectedSizeDisplay.includes(s) ? 'active' : '';
+                    const safeS = String(s).replace(/'/g, "\\'");
+                    equipHtml += `<button class="size-chip-btn ${isActive}" onclick="selectSize('${safeS}')">${s}</button>`;
+                });
+                document.getElementById('equipSizeContainer').innerHTML = equipHtml;
+            } else {
+                document.getElementById('equipSizeSection').classList.add('hidden');
+            }
         }
 
-    function selectBrand(val) {
-
-    const idx =
-        selectedBrand.indexOf(val);
-
-    if(idx > -1){
-
-        selectedBrand.splice(idx,1);
-
-    } else {
-
-        selectedBrand.push(val);
-    }
-
-    renderFilterChips();
-    applyFiltersAndRender();
-}
+        function selectBrand(val) {
+            if (!val) {
+                selectedBrand = [];
+            } else {
+                const idx = selectedBrand.indexOf(val);
+                if (idx > -1) selectedBrand.splice(idx, 1);
+                else selectedBrand.push(val);
+            }
+            renderFilterChips();
+            applyFiltersAndRender();
+        }
 
         function selectBiz(val) {
+            if (!val) {
+                selectedBiz = [];
+            } else {
+                const idx = selectedBiz.indexOf(val);
+                if (idx > -1) selectedBiz.splice(idx, 1);
+                else selectedBiz.push(val);
+            }
+            renderFilterChips();
+            applyFiltersAndRender();
+        }
 
-    const idx =
-        selectedBiz.indexOf(val);
+        function selectGender(val) {
+            if (!val) {
+                selectedGender = [];
+            } else {
+                const idx = selectedGender.indexOf(val);
+                if (idx > -1) selectedGender.splice(idx, 1);
+                else selectedGender.push(val);
+            }
+            renderFilterChips();
+            applyFiltersAndRender();
+        }
 
-    if(idx > -1){
-
-        selectedBiz.splice(idx,1);
-
-    } else {
-
-        selectedBiz.push(val);
-    }
-
-    renderFilterChips();
-    applyFiltersAndRender();
-}
-
-    function selectGender(val) {
-
-    const idx =
-        selectedGender.indexOf(val);
-
-    if(idx > -1){
-
-        selectedGender.splice(idx,1);
-
-    } else {
-
-        selectedGender.push(val);
-    }
-
-    renderFilterChips();
-    applyFiltersAndRender();
-}
-
-     function selectSize(val) {
-
-    const idx =
-        selectedSizeDisplay.indexOf(val);
-
-    if(idx > -1){
-
-        selectedSizeDisplay.splice(idx,1);
-
-    } else {
-
-        selectedSizeDisplay.push(val);
-    }
-
-    renderFilterChips();
-    applyFiltersAndRender();
-}
-
+        function selectSize(val) {
+            if (!val) {
+                selectedSizeDisplay = [];
+            } else {
+                const idx = selectedSizeDisplay.indexOf(val);
+                if (idx > -1) selectedSizeDisplay.splice(idx, 1);
+                else selectedSizeDisplay.push(val);
+            }
+            renderFilterChips();
+            applyFiltersAndRender();
+        }
 
         function applyFiltersAndRender() {
             if (rawInventory.length === 0) return;
             const searchTerm = searchInput.value.trim().toLowerCase();
 
             filteredData = rawInventory.map(item => {
-                const salesKey =
-    item.sku + "|" + item.size;
-
-const salesQty =
-    salesMap[salesKey]
-    || 0;
+                const salesKey = item.sku + "|" + item.size;
+               const salesQty =
+    salesMap[salesKey] || 0;
                 const calcWos = salesQty > 0 ? (item.stock / salesQty) : (item.stock === 0 ? 0 : 999);
                 return { 
                     ...item, 
@@ -932,45 +681,15 @@ const salesQty =
                 };
             }).filter(item => {
                 const matchesSearch = !searchTerm || item.name.toLowerCase().includes(searchTerm) || item.sku.toLowerCase().includes(searchTerm);
-             const matchesBrand =
-    selectedBrand.length === 0
-    || selectedBrand.includes(
-         item.brand
-       );
-              const matchesBiz =
-    selectedBiz.length === 0
-    || selectedBiz.includes(
-         item.category2
-       );
-
-         const matchesGender =
-    selectedGender.length === 0
-    || selectedGender.includes(
-         item.gender
-       );
-          const matchesSize =
-    selectedSizeDisplay.length === 0
-    || selectedSizeDisplay.includes(
-        item.sizeDisplay
-    )
-    || selectedSizeDisplay.includes(
-        item.size
-    );
-
+                const matchesBrand = selectedBrand.length === 0 || selectedBrand.includes(item.brand);
+                const matchesBiz = selectedBiz.length === 0 || selectedBiz.includes(item.category2);
+                const matchesGender = selectedGender.length === 0 || selectedGender.includes(item.gender);
+                const matchesSize = selectedSizeDisplay.length === 0 || selectedSizeDisplay.includes(item.sizeDisplay) || selectedSizeDisplay.includes(item.size);
                 const matchesHeat = !isHighHeatOnly || item.isHighHeat;
                 const matchesWosWarning = !isWosWarningOnly || (item.sales > 0 && item.wos <= 2.0);
-                const matchesPosMissing =
-    !isPosMissingOnly
-    || !item.hasPosBarcode;
+                const matchesPosMissing = !isPosMissingOnly || !item.hasPosBarcode;
 
-               return matchesSearch
-&& matchesBrand
-&& matchesBiz
-&& matchesGender
-&& matchesSize
-&& matchesHeat
-&& matchesWosWarning
-&& matchesPosMissing;
+                return matchesSearch && matchesBrand && matchesBiz && matchesGender && matchesSize && matchesHeat && matchesWosWarning && matchesPosMissing;
             });
 
             filteredData.sort((a, b) => {
@@ -1006,176 +725,208 @@ const salesQty =
             metricTotalStock.textContent = filteredData.reduce((acc, cur) => acc + cur.stock, 0).toLocaleString();
             metricTotalSales.textContent = filteredData.reduce((acc, cur) => acc + cur.sales, 0).toLocaleString();
             metricHighHeat.textContent = filteredData.filter(i => i.isHighHeat).length.toLocaleString();
-            resultCount.textContent = filteredData.length.toLocaleString();
 
             if (filteredData.length === 0) {
                 gridView.innerHTML = `<div class="col-span-full bg-white p-12 text-center text-gray-400 rounded-lg border border-gray-200">조건에 부합하는 보유 상품이 없습니다.</div>`;
-                inventoryTbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-gray-400">조건에 부합하는 상품이 없습니다.</td></tr>`;
+                inventoryTbody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-gray-400">조건에 부합하는 상품이 없습니다.</td></tr>`;
+                resultCount.textContent = '0';
+                detailCount.textContent = '0';
                 return;
             }
 
-const groupedData = Object.values(
+            // SKU & 상품별 통합 그룹핑
+            const groupedMap = {};
+            filteredData.forEach(item => {
+                const groupKey = item.sku || (item.name + '_' + item.brand);
+                if (!groupedMap[groupKey]) {
+                    groupedMap[groupKey] = {
+                        ...item,
+                        groupKey: groupKey,
+                        totalStock: 0,
+                        totalSales: 0,
+                        hasAnyPosMissing: false,
+                        sizeList: []
+                    };
+                }
+                groupedMap[groupKey].totalStock += item.stock;
+                groupedMap[groupKey].totalSales += item.sales;
+                if (!item.hasPosBarcode) {
+                    groupedMap[groupKey].hasAnyPosMissing = true;
+                }
 
-    filteredData.reduce((acc, item) => {
+                groupedMap[groupKey].sizeList.push({
+                    size: item.sizeDisplay || item.size || 'FREE',
+                    rawSize: item.size,
+                    stock: item.stock,
+                    sales: item.sales,
+                    wos: item.wos,
+                    hasPosBarcode: item.hasPosBarcode
+                });
+            });
 
-        if (!acc[item.sku]) {
+            const groupedData = Object.values(groupedMap);
 
-            acc[item.sku] = {
-                ...item,
-                totalStock: 0,
-                totalSales: 0,
-                sizeList: []
-            };
-        }
+            // 그룹 데이터 WOS & 정렬 재계산
+            groupedData.forEach(group => {
+                group.wos = group.totalSales > 0 ? (group.totalStock / group.totalSales) : (group.totalStock === 0 ? 0 : 999);
+                group.isHighHeat = group.totalSales >= HIGH_HEAT_THRESHOLD;
+                group.sizeList.sort((a, b) => {
+                    const numA = parseInt(String(a.rawSize || a.size).replace(/[^0-9]/g, ''), 10) || 0;
+                    const numB = parseInt(String(b.rawSize || b.size).replace(/[^0-9]/g, ''), 10) || 0;
+                    if (numA && numB) return numA - numB;
+                    return String(a.size).localeCompare(String(b.size));
+                });
+            });
 
-        acc[item.sku].totalStock += item.stock;
-        acc[item.sku].totalSales += item.sales;
+            groupedData.sort((a, b) => {
+                if (sortBy === 'sales_desc') return b.totalSales - a.totalSales || b.totalStock - a.totalStock;
+                if (sortBy === 'wos_asc') return a.wos - b.wos;
+                if (sortBy === 'stock_desc') return b.totalStock - a.totalStock;
+                if (sortBy === 'name_asc') return (a.sku || a.name).localeCompare((b.sku || b.name), 'ko');
+                return 0;
+            });
 
-        acc[item.sku].sizeList.push({
-            size: item.sizeDisplay,
-            stock: item.stock,
-            sales: item.sales
-        });
+            resultCount.textContent = groupedData.length.toLocaleString();
+            detailCount.textContent = filteredData.length.toLocaleString();
 
-        return acc;
+            // 1. Grid View (단일 통합 카드 + 클릭 시 사이즈별 상세 펼침)
+            gridView.innerHTML = groupedData.map((item, index) => {
+                const safeId = 'card_' + (item.sku ? item.sku.replace(/[^a-zA-Z0-9_-]/g, '_') : index);
+                const googleSearchUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent((item.sku || '') + ' ' + (item.name || ''))}`;
+                const wosHtml = getWosBadgeHtml(item.totalStock, item.totalSales, item.wos);
 
-    }, {})
-);
+                const imageArea = item.imageUrl
+                    ? `<img src="${item.imageUrl}" class="w-full h-36 object-cover rounded-t-lg" alt="${item.name}">`
+                    : `<div class="w-full h-36 bg-gray-100 rounded-t-lg flex flex-col items-center justify-center p-3 text-center border-b border-gray-100">
+                        <i class="fa-solid fa-shirt text-2xl text-gray-300 mb-2"></i>
+                        <span class="text-[10px] text-gray-400 font-medium">이미지 미등록</span>
+                        <a href="${googleSearchUrl}" target="_blank" onclick="event.stopPropagation();" class="mt-2 text-[10px] bg-gray-200 text-gray-700 px-2 py-0.5 rounded hover:bg-gray-300 transition flex items-center gap-1 font-semibold">
+                            <i class="fa-solid fa-magnifying-glass text-[9px]"></i>구글 검색
+                        </a>
+                       </div>`;
 
-console.log(
-    "groupedData sample",
-    groupedData[0]
-);
-            
-            gridView.innerHTML = filteredData.map(item => {
-const googleSearchUrl = `
-<a href="https://www.google.com/search?tbm=isch&q=${encodeURIComponent(item.sku + ' ' + item.name)}"
-   target="_blank"
-   rel="noopener noreferrer"
-   class="text-[10px] bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded hover:bg-gray-300 transition">
+                const sizeBadgesHtml = item.sizeList.map(s => {
+                    const isSoldOut = s.stock === 0;
+                    return `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${isSoldOut ? 'bg-gray-100 text-gray-400 line-through' : 'bg-gray-100 text-gray-800 border border-gray-200'}">
+                        ${s.size}
+                    </span>`;
+                }).join(' ');
 
-   구글 🔍
+                const sizeRowsHtml = item.sizeList.map(s => `
+                    <div class="flex items-center justify-between py-1.5 px-2 rounded bg-white border border-gray-100 hover:border-gray-300 transition text-xs">
+                        <div class="flex items-center gap-1.5">
+                            <span class="font-bold text-gray-900">${s.size}</span>
+                            ${!s.hasPosBarcode ? '<span class="text-[9px] bg-red-100 text-red-600 px-1 py-0.2 rounded font-bold">POS 미등록</span>' : ''}
+                        </div>
+                        <div class="flex items-center gap-4 text-right">
+                            <div>
+                                <span class="text-[9px] text-gray-400 block">재고</span>
+                                <span class="font-bold ${s.stock === 0 ? 'text-red-500' : 'text-gray-900'}">${s.stock.toLocaleString()} EA</span>
+                            </div>
+                            <div class="w-12 text-right">
+                                <span class="text-[9px] text-gray-400 block">판매</span>
+                                <span class="font-extrabold ${s.sales > 0 ? 'text-blue-600' : 'text-gray-400'}">${s.sales.toLocaleString()} EA</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
 
-</a>`;
-                
-                const wosHtml = getWosBadgeHtml(item.stock, item.sales, item.wos);
-const imageArea = item.imageUrl
-    ? `
-        ${item.imageUrl}
-    `
-    : `
-        <div class="w-full h-24 bg-gray-100 rounded-t-lg flex flex-col items-center justify-center p-3 text-center border-b border-gray-100">
-
-            <i class="fa-solid fa-shirt text-xl text-gray-300 mb-2"></i>
-
-            <span class="text-[10px] text-gray-400">
-                이미지 미등록
-            </span>
-
-            <div class="flex gap-1 mt-2">
-                ${googleSearchUrl}
-            </div>
-
-        </div>
-    `;
                 return `
-                <div
-    class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col justify-between hover:shadow-md transition cursor-pointer"
-    onclick="toggleCardDetail('${item.sku}_${item.size}')">
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col justify-between hover:shadow-md transition cursor-pointer group"
+                     onclick="toggleCardDetail('${safeId}')">
                     <div>
-                       <div class="relative">
-    ${imageArea}
+                        <div class="relative">
+                            ${imageArea}
+                            ${item.isHighHeat ? '<span class="absolute top-2 left-2 heat-badge text-[10px] px-2 py-0.5 rounded shadow">🔥 HIGH HEAT</span>' : ''}
+                            ${item.hasAnyPosMissing ? '<span class="absolute bottom-2 right-2 bg-black/80 text-white text-[9px] px-1.5 py-0.5 rounded font-bold shadow">POS 미등록 포함</span>' : ''}
+                        </div>
 
-    ${item.isHighHeat
-        ? '<span class="absolute top-2 left-2 heat-badge text-[10px] px-2 py-0.5 rounded shadow">🔥 HIGH HEAT</span>'
-        : ''
-    }
-
-    ${
-        !item.hasPosBarcode
-        ? `
-        <span class="absolute bottom-2 right-2 bg-black text-white text-[10px] px-2 py-1 rounded font-bold shadow">
-            POS 미등록
-        </span>
-        `
-        : ''
-    }
-
-</div>
-                        <div class="p-3 space-y-1.5">
+                        <div class="p-3.5 space-y-2">
                             <div class="flex justify-between items-center">
                                 <span class="musinsa-badge">${item.brand}</span>
                                 <span class="text-[10px] text-gray-500 font-semibold">${item.gender || '공용'}</span>
                             </div>
-                            <p class="font-bold text-xs text-gray-900 line-clamp-2 leading-snug">${item.name}</p>
-                            <div class="flex justify-between items-center text-[11px] font-mono text-gray-500">
-                                <span class="font-bold">${item.sku}</span>
-                                <span class="bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded text-[10px] font-semibold">${item.sizeDisplay || 'FREE'}</span>
+
+                            <div>
+                                <p class="font-bold text-sm text-gray-900 leading-snug line-clamp-1">${item.name}</p>
+                                <p class="font-mono text-xs text-gray-500 font-bold mt-0.5">${item.sku || '-'}</p>
                             </div>
+
+                            <div class="pt-1">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-[10px] font-bold text-gray-500">보유 사이즈 (${item.sizeList.length})</span>
+                                    <span class="text-[9px] text-blue-600 font-semibold group-hover:underline flex items-center gap-0.5">
+                                        상세보기 <i id="icon_${safeId}" class="fa-solid fa-chevron-down text-[8px] transition-transform"></i>
+                                    </span>
+                                </div>
+                                <div class="flex flex-wrap gap-1">
+                                    ${sizeBadgesHtml}
+                                </div>
+                            </div>
+
                             <div class="pt-1">${wosHtml}</div>
                         </div>
                     </div>
-                    <div class="p-3 border-t border-gray-100 bg-gray-50 flex justify-between items-center text-xs">
+
+                    <div class="p-3 border-t border-gray-100 bg-gray-50/70 flex justify-between items-center text-xs">
                         <div>
-                            <p class="text-[10px] text-gray-400">매장재고(신사)</p>
-                            <p class="font-bold ${item.stock === 0 ? 'text-red-500' : 'text-gray-900'}">${item.stock.toLocaleString()} EA</p>
+                            <p class="text-[10px] text-gray-400 font-medium">매장 총 재고(신사)</p>
+                            <p class="font-black text-sm ${item.totalStock === 0 ? 'text-red-500' : 'text-gray-900'}">${item.totalStock.toLocaleString()} EA</p>
                         </div>
                         <div class="text-right">
-                            <p class="text-[10px] text-gray-400">주간판매</p>
-                            <p class="font-extrabold ${item.sales > 0 ? 'text-blue-600' : 'text-gray-400'}">${item.sales.toLocaleString()} EA</p>
+                            <p class="text-[10px] text-gray-400 font-medium">주간 총 판매량</p>
+                            <p class="font-black text-sm ${item.totalSales > 0 ? 'text-blue-600' : 'text-gray-400'}">${item.totalSales.toLocaleString()} EA</p>
                         </div>
+                    </div>
 
-<div
-    id="detail_${item.sku}_${item.size}"
-    class="hidden px-4 py-3 border-t bg-gray-50 text-xs text-gray-600">
-
-    <div>품번 : ${item.sku}</div>
-    <div>규격 : ${item.size}</div>
-    <div>재고 : ${item.stock} EA</div>
-    <div>판매 : ${item.sales} EA</div>
-
-    <div>
-        POS :
-        ${item.hasPosBarcode ? '등록' : '미등록'}
-    </div>
-
-</div>
-
+                    <div id="${safeId}" class="hidden p-3 bg-gray-50 border-t border-gray-200 space-y-1.5" onclick="event.stopPropagation();">
+                        <div class="flex items-center justify-between pb-1 border-b border-gray-200">
+                            <span class="text-[11px] font-black text-gray-700">📋 사이즈별 재고 & 판매 현황</span>
+                            <span class="text-[10px] text-gray-400">총 ${item.sizeList.length}개 규격</span>
+                        </div>
+                        <div class="space-y-1 max-h-48 overflow-y-auto pr-0.5">
+                            ${sizeRowsHtml}
+                        </div>
                     </div>
                 </div>
                 `;
             }).join('');
 
+            // 2. Table View (단일 행 전체 목록)
             inventoryTbody.innerHTML = filteredData.map(item => {
                 const wosHtml = getWosBadgeHtml(item.stock, item.sales, item.wos);
                 return `
                 <tr class="hover:bg-gray-50 border-b border-gray-100">
                     <td class="p-3">${item.isHighHeat ? '<span class="heat-badge text-xs px-2 py-0.5 rounded mr-1">🔥 HIGH HEAT</span>' : ''}${wosHtml}</td>
-                    ${
-!item.hasPosBarcode
-?
-`
-<span
-class="absolute bottom-2 right-2 bg-black text-white text-[10px] px-2 py-1 rounded font-bold shadow">
-POS 미등록
-</span>
-`
-:
-''
-}
                     <td class="p-3 font-mono font-bold">${item.sku}</td>
                     <td class="p-3 font-medium">${item.name}</td>
                     <td class="p-3 font-bold text-gray-800">${item.sizeDisplay || '-'}</td>
                     <td class="p-3"><span class="musinsa-badge">${item.brand}</span></td>
                     <td class="p-3 text-gray-600">${item.category2 || '-'}</td>
                     <td class="p-3 text-gray-600">${item.gender || '-'}</td>
+                    <td class="p-3">${!item.hasPosBarcode ? '<span class="bg-black text-white text-[10px] px-1.5 py-0.5 rounded font-bold">POS 미등록</span>' : '<span class="text-green-600 text-xs font-semibold">등록</span>'}</td>
                     <td class="p-3 text-right font-bold ${item.stock === 0 ? 'text-red-500' : ''}">${item.stock.toLocaleString()} EA</td>
                     <td class="p-3 text-right font-extrabold ${item.sales > 0 ? 'text-blue-600' : 'text-gray-400'}">${item.sales.toLocaleString()} EA</td>
                 </tr>
                 `;
             }).join('');
 
-            statusIndicator.innerHTML = `<i class="fa-solid fa-circle-check text-green-400 mr-1"></i>보유재고 전체 조회중 (${filteredData.length}건)`;
+            statusIndicator.innerHTML = `✅ 데이터 연동 완료 (${groupedData.length}개 상품 / ${filteredData.length}개 규격)`;
+        }
+
+        function toggleCardDetail(safeId) {
+            const detailEl = document.getElementById(safeId);
+            const iconEl = document.getElementById('icon_' + safeId);
+            if (!detailEl) return;
+
+            const isHidden = detailEl.classList.contains('hidden');
+            if (isHidden) {
+                detailEl.classList.remove('hidden');
+                if (iconEl) iconEl.classList.add('rotate-180');
+            } else {
+                detailEl.classList.add('hidden');
+                if (iconEl) iconEl.classList.remove('rotate-180');
+            }
         }
 
         viewGridBtn.addEventListener('click', () => {
@@ -1214,6 +965,7 @@ POS 미등록
                 "브랜드": item.brand,
                 "BIZ": item.category2,
                 "성별": item.gender,
+                "POS등록": item.hasPosBarcode ? "등록" : "미등록",
                 "매장재고(신사동)": item.stock,
                 "주간판매량": item.sales
             }));
@@ -1243,220 +995,90 @@ POS 미등록
             applyFiltersAndRender();
         });
 
-if (togglePosMissing) {
-
-    togglePosMissing
-        .addEventListener(
-            'click',
-            () => {
-
-                isPosMissingOnly =
-                    !isPosMissingOnly;
-
-                togglePosMissing
-                    .classList.toggle(
-                        'bg-black'
-                    );
-
-                togglePosMissing
-                    .classList.toggle(
-                        'text-white'
-                    );
-
+        if (togglePosMissing) {
+            togglePosMissing.addEventListener('click', () => {
+                isPosMissingOnly = !isPosMissingOnly;
+                togglePosMissing.classList.toggle('bg-black');
+                togglePosMissing.classList.toggle('text-white');
                 applyFiltersAndRender();
-            }
-        );
-}
-        
+            });
+        }
+
         resetFiltersBtn.addEventListener('click', () => {
             searchInput.value = '';
-            selectedBrand = '';
-            selectedBiz = '';
-            selectedGender = '';
-            selectedSizeDisplay = '';
+            selectedBrand = [];
+            selectedBiz = [];
+            selectedGender = [];
+            selectedSizeDisplay = [];
             isHighHeatOnly = false;
             isWosWarningOnly = false;
+            isPosMissingOnly = false;
             sortBy = 'sales_desc';
             sortBySelect.value = 'sales_desc';
             toggleHighHeat.classList.remove('bg-red-600', 'text-white');
             toggleWosWarning.classList.remove('bg-amber-600', 'text-white');
+            if (togglePosMissing) togglePosMissing.classList.remove('bg-black', 'text-white');
             renderFilterChips();
             applyFiltersAndRender();
         });
 
-        const clearFilterBtn =
-    document.getElementById(
-        'clearFilterBtn'
-    );
-
-if (clearFilterBtn) {
-
-    clearFilterBtn.addEventListener(
-        'click',
-        () => {
-
-          selectedBrand = '';
-selectedBiz = '';
-selectedGender = '';
-selectedSizeDisplay = '';
-
-isHighHeatOnly = false;
-isWosWarningOnly = false;
-
-isPosMissingOnly = false; // 추가
-
-toggleHighHeat.classList.remove(
-    'bg-red-600',
-    'text-white'
-);
-
-toggleWosWarning.classList.remove(
-    'bg-amber-600',
-    'text-white'
-);
-
-            if (togglePosMissing) {
-
-    togglePosMissing.classList.remove(
-        'bg-black',
-        'text-white'
-    );
-}
-            
-            renderFilterChips();
-            applyFiltersAndRender();
+        if (clearFilterBtn) {
+            clearFilterBtn.addEventListener('click', () => {
+                selectedBrand = [];
+                selectedBiz = [];
+                selectedGender = [];
+                selectedSizeDisplay = [];
+                isHighHeatOnly = false;
+                isWosWarningOnly = false;
+                isPosMissingOnly = false;
+                toggleHighHeat.classList.remove('bg-red-600', 'text-white');
+                toggleWosWarning.classList.remove('bg-amber-600', 'text-white');
+                if (togglePosMissing) togglePosMissing.classList.remove('bg-black', 'text-white');
+                renderFilterChips();
+                applyFiltersAndRender();
+            });
         }
-    );
-}
 
-async function loadCsvData() {
+        async function loadCsvData() {
+            try {
+                const inventoryRes = await fetch('./inventory.csv');
+                const salesRes = await fetch('./sales.csv');
+                const inventoryCsv = await inventoryRes.text();
+                const salesCsv = await salesRes.text();
 
-    try {
+                const inventoryWorkbook = XLSX.read(inventoryCsv, { type: "string" });
+                const inventorySheet = inventoryWorkbook.Sheets[inventoryWorkbook.SheetNames[0]];
+                const inventoryRows = parseExcelUniversal(inventorySheet);
 
-        const inventoryRes =
-            await fetch('./inventory.csv');
+                const salesWorkbook = XLSX.read(salesCsv, { type: "string" });
+                const salesSheet = salesWorkbook.Sheets[salesWorkbook.SheetNames[0]];
+                const salesRows = parseExcelUniversal(salesSheet);
 
-        const salesRes =
-            await fetch('./sales.csv');
-
-        const inventoryCsv =
-            await inventoryRes.text();
-
-        const salesCsv =
-            await salesRes.text();
-
-       const inventoryWorkbook =
-    XLSX.read(
-        inventoryCsv,
-        { type: "string" }
-    );
-
-const inventorySheet =
-    inventoryWorkbook.Sheets[
-        inventoryWorkbook.SheetNames[0]
-    ];
-
-const inventoryRows =
-    parseExcelUniversal(
-        inventorySheet
-    );
-
-     const salesWorkbook =
-    XLSX.read(
-        salesCsv,
-        { type: "string" }
-    );
-
-const salesSheet =
-    salesWorkbook.Sheets[
-        salesWorkbook.SheetNames[0]
-    ];
-
-const salesRows =
-    parseExcelUniversal(
-        salesSheet
-    );
-
-        processInventoryData(
-            inventoryRows
-        );
-
-        processSalesData(
-            salesRows
-        );
-
-console.log(
-"inventory sample",
-inventoryRows[0]
-);
-
-console.log(
-"sales sample",
-salesRows[0]
-
-);
-        
-        statusIndicator.innerHTML =
-            '✅ 저장소 데이터 로딩 완료';
-
-    } catch(err) {
-
-        console.error(err);
-
-        statusIndicator.innerHTML =
-            '❌ CSV 로딩 실패';
-    }
-}
+                processInventoryData(inventoryRows);
+                processSalesData(salesRows);
+                
+                statusIndicator.innerHTML = '✅ 저장소 데이터 로딩 완료';
+            } catch(err) {
+                console.error(err);
+                statusIndicator.innerHTML = '❌ CSV 로딩 실패';
+            }
+        }
 
         loadCsvData();
 
-async function updateLastModified() {
-
-    try {
-
-        const response =
-            await fetch(
-                "./inventory.csv",
-                {
-                    method: "HEAD"
+        async function updateLastModified() {
+            try {
+                const response = await fetch("./inventory.csv", { method: "HEAD" });
+                const modified = response.headers.get("last-modified");
+                if (modified && lastUpdated) {
+                    lastUpdated.innerHTML = "업데이트: " + new Date(modified).toLocaleString("ko-KR");
                 }
-            );
-
-        const modified =
-            response.headers.get(
-                "last-modified"
-            );
-
-        if(modified){
-
-            document
-                .getElementById(
-                    "lastUpdated"
-                ).innerHTML =
-                "업데이트: " +
-                new Date(modified)
-                .toLocaleString("ko-KR");
+            } catch(e) {
+                console.error(e);
+            }
         }
 
-    } catch(e){
-        console.error(e);
-    }
-}
-
-updateLastModified();
-
-function toggleCardDetail(id){
-
-    const el =
-        document.getElementById(
-            'detail_' + id
-        );
-
-    if(!el) return;
-
-    el.classList.toggle('hidden');
-}
-
-</script>
+        updateLastModified();
+    </script>
 </body>
 </html>
