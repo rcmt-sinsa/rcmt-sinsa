@@ -1183,18 +1183,6 @@ const imageArea = item.imageUrl
                 return `
                 <tr class="hover:bg-gray-50 border-b border-gray-100">
                     <td class="p-3">${item.isHighHeat ? '<span class="heat-badge text-xs px-2 py-0.5 rounded mr-1">🔥 HIGH HEAT</span>' : ''}${wosHtml}</td>
-                    ${
-!item.hasPosBarcode
-?
-`
-<span
-class="absolute bottom-2 right-2 bg-black text-white text-[10px] px-2 py-1 rounded font-bold shadow">
-POS 미등록
-</span>
-`
-:
-''
-}
                     <td class="p-3 font-mono font-bold">${item.sku}</td>
                     <td class="p-3 font-medium">${item.name}</td>
                     <td class="p-3 font-bold text-gray-800">${item.sizeDisplay || '-'}</td>
