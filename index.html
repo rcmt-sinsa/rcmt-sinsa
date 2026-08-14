@@ -1056,12 +1056,10 @@ console.log(
 );
             
            gridView.innerHTML = groupedData.map(item => {
-const googleSearchUrl = `
-<a href="https://www.google.com/search?tbm=isch&q=${encodeURIComponent + ' ' + item.name)}   rel="noopener noreferrer"
-   class="text-[10px] bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded hover:bg-gray-300 transition">
-   구글 🔍
-</a>`;
-
+const googleSearchUrl =
+    'https://www.google.com/search?tbm=isch&q=' +
+    encodeURIComponent(item.sku + ' ' + item.name);
+               
 const calcWos =
     item.totalSales > 0
         ? item.totalStock / item.totalSales
@@ -1088,7 +1086,10 @@ const imageArea = item.imageUrl
             </span>
 
             <div class="flex gap-1 mt-2">
-                ${googleSearchUrl}
+                <a href="${googleSearchUrl}"
+   target="_blank"
+   rel="noopener noreferrer"
+   class="text-[10px] bg-gray-200 text-gray-700 px-1.
             </div>
 
         </div>
