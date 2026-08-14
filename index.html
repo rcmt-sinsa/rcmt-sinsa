@@ -93,7 +93,7 @@
             <div class="border-t border-gray-100 pt-4 space-y-4">
                 <div class="flex flex-wrap items-center gap-2 pb-2 border-b border-gray-100">
                     <button id="toggleHighHeat" class="px-3 py-1.5 rounded text-xs font-bold border border-red-300 text-red-600 hover:bg-red-50 transition flex items-center">
-                        <i class="fa-solid fa-fire mr-1"></i> HIGH HEAT 품목만 보기 (주간 4개 이상)
+                        <i class="fa-solid fa-fire mr-1"></i> HIGH HEAT 품목만 보기 (주간 3개 이상)
                     </button>
                     <button id="toggleWosWarning" class="px-3 py-1.5 rounded text-xs font-bold border border-amber-300 text-amber-800 hover:bg-amber-50 transition flex items-center">
                         <i class="fa-solid fa-triangle-exclamation mr-1"></i> 🚨 1~2주 내 품절 위험 (WOS)
@@ -168,7 +168,7 @@
                     </div>
                 </div>
 
-                <!-- 5. 필터 전체 초기화 (맨 아래 위치) -->
+                <!-- 5. 필터 전체 초기화 -->
                 <div class="pt-4 border-t border-gray-100 flex justify-end">
                     <button id="clearFilterBtn" class="px-4 py-2 rounded-md border border-gray-300 bg-gray-50 hover:bg-gray-100 text-xs font-bold text-gray-700 transition flex items-center shadow-sm">
                         <i class="fa-solid fa-filter-circle-xmark mr-1.5 text-gray-500"></i>필터 전체 초기화
@@ -248,7 +248,7 @@
         let isPosMissingOnly = false;
         let viewMode = 'grid';
         let sortBy = 'sales_desc';
-        const HIGH_HEAT_THRESHOLD = 4; // SKU 전체 판매량 4개 이상 기준
+        const HIGH_HEAT_THRESHOLD = 3; // SKU 전체 주간 판매량 3개 이상 기준
 
         let selectedBrand = [];
         let selectedBiz = [];
@@ -322,7 +322,6 @@
             return false;
         }
 
-        // 나이키 남성/공용 220~330mm 변환 테이블
         const mensShoeMap = {
             220: "US4, EU36", 225: "US4.5, EU36.5", 230: "US5, EU37.5", 235: "US5.5, EU38",
             240: "US6, EU38.5", 245: "US6.5, EU39", 250: "US7, EU40", 255: "US7.5, EU40.5",
@@ -332,7 +331,6 @@
             320: "US14, EU48.5", 330: "US15, EU49.5"
         };
 
-        // 나이키 여성 220~300mm 변환 테이블
         const womensShoeMap = {
             220: "US5, EU35.5", 225: "US5.5, EU36", 230: "US6, EU36.5", 235: "US6.5, EU37.5",
             240: "US7, EU38", 245: "US7.5, EU38.5", 250: "US8, EU39", 255: "US8.5, EU40",
@@ -356,36 +354,30 @@
         function getApparelSizeOrder(sizeStr) {
             const s = String(sizeStr || '').trim().toUpperCase();
 
-            // 1. 단일 숫자 (1, 2, 3, 4, 5)
             if (/^[1-9]$/.test(s)) {
                 return 100 + parseInt(s, 10);
             }
 
-            // 2. 알파벳 기본 사이즈
             const alphaMap = {
                 'XXS': 201, 'XS': 202, 'S': 203, 'M': 204, 'L': 205,
                 'XL': 206, 'XXL': 207, '2XL': 208, '3XL': 209, '4XL': 210
             };
             if (alphaMap[s]) return alphaMap[s];
 
-            // 3. 슬래시 복합 사이즈
             const slashMap = {
                 'XS/S': 301, 'S/M': 302, 'M/L': 303, 'L/XL': 304, 'XL/XXL': 305
             };
             if (slashMap[s]) return slashMap[s];
 
-            // 4. 수치형 치수 사이즈 (80~130)
             const num = parseInt(s.replace(/[^0-9]/g, ''), 10);
             if (num >= 70 && num <= 150 && /^\d+$/.test(s)) {
                 return 400 + num;
             }
 
-            // 5. T 사이즈 (T1, T2, T3)
             if (/^T[0-9]$/.test(s)) {
                 return 600 + parseInt(s.replace('T', ''), 10);
             }
 
-            // 6. 프리/원사이즈
             const osMap = {
                 'OSFW': 701, 'OSFM': 702, 'OSFA': 703, 'ONE SIZE': 704, '1SIZE': 704, 'FREE': 705, 'O/S': 706
             };
@@ -801,7 +793,7 @@
                     ...item, 
                     sales: sizeSales, 
                     wos: calcWos,
-                    isHighHeat: skuTotalSales >= HIGH_HEAT_THRESHOLD // SKU 합산 4개 이상
+                    isHighHeat: skuTotalSales >= HIGH_HEAT_THRESHOLD // SKU 합산 3개 이상
                 };
             }).filter(item => {
                 const matchesSearch = !searchTerm || item.name.toLowerCase().includes(searchTerm) || item.sku.toLowerCase().includes(searchTerm);
@@ -895,7 +887,7 @@
             // 그룹 데이터 WOS & 사이즈 정렬 (신발 mm순 / 의류 요청순)
             groupedData.forEach(group => {
                 group.wos = group.totalSales > 0 ? (group.totalStock / group.totalSales) : (group.totalStock === 0 ? 0 : 999);
-                group.isHighHeat = group.totalSales >= HIGH_HEAT_THRESHOLD; // SKU 합산 판매량 4개 이상
+                group.isHighHeat = group.totalSales >= HIGH_HEAT_THRESHOLD; // SKU 합산 판매량 3개 이상
                 
                 group.sizeList.sort((a, b) => {
                     const isShoeA = a.isShoe || isShoeSize(a.rawSize);
