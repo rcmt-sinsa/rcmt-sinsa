@@ -93,7 +93,7 @@
             <div class="border-t border-gray-100 pt-4 space-y-4">
                 <div class="flex flex-wrap items-center gap-2 pb-2 border-b border-gray-100">
                     <button id="toggleHighHeat" class="px-3 py-1.5 rounded text-xs font-bold border border-red-300 text-red-600 hover:bg-red-50 transition flex items-center">
-                        <i class="fa-solid fa-fire mr-1"></i> HIGH HEAT 품목만 보기
+                        <i class="fa-solid fa-fire mr-1"></i> HIGH HEAT 품목만 보기 (주간 4개 이상)
                     </button>
                     <button id="toggleWosWarning" class="px-3 py-1.5 rounded text-xs font-bold border border-amber-300 text-amber-800 hover:bg-amber-50 transition flex items-center">
                         <i class="fa-solid fa-triangle-exclamation mr-1"></i> 🚨 1~2주 내 품절 위험 (WOS)
@@ -132,12 +132,6 @@
                         <span class="text-xs text-gray-400">데이터 로딩 중...</span>
                     </div>
                 </div>
-
-                <div class="pt-3 border-t border-gray-100">
-                    <button id="clearFilterBtn" class="px-3 py-1.5 rounded border border-gray-300 bg-white hover:bg-gray-100 text-xs font-bold text-gray-700 transition">
-                        <i class="fa-solid fa-filter-circle-xmark mr-1"></i>필터 전체 초기화
-                    </button>
-                </div>
                 
                 <!-- 4. Size Filter Section -->
                 <div class="border-t border-gray-100 pt-3">
@@ -146,22 +140,21 @@
                     </label>
                     
                     <div class="space-y-3 text-[11px]">
-                        <!-- 신발 사이즈 (남 -> 여 -> 유니섹스 정렬) -->
+                        <!-- 신발 사이즈 (남성/공용 -> 여성 정렬) -->
                         <div id="shoeSizeSection" class="hidden">
                             <div class="flex items-center flex-wrap gap-2 mb-1.5">
                                 <span class="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
                                     👟 신발 (나이키 US/EU 변환)
                                 </span>
                                 <span class="text-[10px] text-gray-500 font-medium">
-                                    정렬: <span class="text-gray-700 font-bold bg-white px-1 py-0.2 rounded border border-gray-300">♂ 남성(흰색)</span>
-                                    <span class="text-rose-700 font-bold bg-rose-50 px-1 py-0.2 rounded border border-rose-200 ml-1">♀ 여성(핑크)</span>
-                                    <span class="text-purple-700 font-bold bg-purple-50 px-1 py-0.2 rounded border border-purple-200 ml-1">⚥ 공용(퍼플)</span>
+                                    구분: <span class="text-gray-700 font-bold bg-white px-1.5 py-0.2 rounded border border-gray-300">♂ 남성/공용(흰색)</span>
+                                    <span class="text-rose-700 font-bold bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200 ml-1">♀ 여성(핑크)</span>
                                 </span>
                             </div>
                             <div id="shoeSizeContainer" class="flex flex-wrap gap-1 mt-1"></div>
                         </div>
 
-                        <!-- 의류 및 기타 사이즈 -->
+                        <!-- 의류 및 용품 사이즈 -->
                         <div id="apparelSizeSection" class="hidden">
                             <span class="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 mr-1">
                                 👕 의류 및 용품
@@ -173,6 +166,13 @@
                             데이터 로딩 시 사이즈 목록이 나타납니다.
                         </div>
                     </div>
+                </div>
+
+                <!-- 5. 필터 전체 초기화 (맨 아래 위치) -->
+                <div class="pt-4 border-t border-gray-100 flex justify-end">
+                    <button id="clearFilterBtn" class="px-4 py-2 rounded-md border border-gray-300 bg-gray-50 hover:bg-gray-100 text-xs font-bold text-gray-700 transition flex items-center shadow-sm">
+                        <i class="fa-solid fa-filter-circle-xmark mr-1.5 text-gray-500"></i>필터 전체 초기화
+                    </button>
                 </div>
             </div>
         </section>
@@ -248,7 +248,7 @@
         let isPosMissingOnly = false;
         let viewMode = 'grid';
         let sortBy = 'sales_desc';
-        const HIGH_HEAT_THRESHOLD = 5;
+        const HIGH_HEAT_THRESHOLD = 4; // SKU 전체 판매량 4개 이상 기준
 
         let selectedBrand = [];
         let selectedBiz = [];
@@ -309,7 +309,6 @@
             return 'men';
         }
 
-        // 순수 신발 밀리미터(210~330mm) 규격만 엄격히 판별 (1SIZE, FREE, OSFM, 의류 치수 등 제외)
         function isShoeSize(rawSize) {
             if (!rawSize) return false;
             const s = String(rawSize).trim().toUpperCase();
@@ -323,7 +322,7 @@
             return false;
         }
 
-        // 나이키 남성/공용 220~330mm 완벽 대응 맵
+        // 나이키 남성/공용 220~330mm 변환 테이블
         const mensShoeMap = {
             220: "US4, EU36", 225: "US4.5, EU36.5", 230: "US5, EU37.5", 235: "US5.5, EU38",
             240: "US6, EU38.5", 245: "US6.5, EU39", 250: "US7, EU40", 255: "US7.5, EU40.5",
@@ -333,7 +332,7 @@
             320: "US14, EU48.5", 330: "US15, EU49.5"
         };
 
-        // 나이키 여성 220~300mm 완벽 대응 맵
+        // 나이키 여성 220~300mm 변환 테이블
         const womensShoeMap = {
             220: "US5, EU35.5", 225: "US5.5, EU36", 230: "US6, EU36.5", 235: "US6.5, EU37.5",
             240: "US7, EU38", 245: "US7.5, EU38.5", 250: "US8, EU39", 255: "US8.5, EU40",
@@ -354,7 +353,6 @@
             return conversionMap[num] ? `${num} (${conversionMap[num]})` : `${num}`;
         }
 
-        // 의류 및 기타 사이즈 정렬 규칙
         function getApparelSizeOrder(sizeStr) {
             const s = String(sizeStr || '').trim().toUpperCase();
 
@@ -539,7 +537,6 @@
                 const rawImg = imgKey ? String(row[imgKey] || '').trim() : '';
                 const rawPosBarcode = posBarcodeKey ? String(row[posBarcodeKey] || '').trim() : '';
 
-                // 순수 210~330mm 신발 규격 여부 확인
                 const isShoe = isShoeSize(rawSize);
                 const formattedSize = isShoe ? formatShoeSizeDisplay(rawSize, rawGender) : rawSize;
 
@@ -606,7 +603,7 @@
                 const salesKey = sku + "|" + size;
                 if (sku) {
                     salesMap[salesKey] = (salesMap[salesKey] || 0) + qty;
-                    salesMap[sku] = (salesMap[sku] || 0) + qty;
+                    salesMap[sku] = (salesMap[sku] || 0) + qty; // SKU 전체 누적 판매량
                 }
             });
 
@@ -628,12 +625,15 @@
 
                 if (item.sizeDisplay) {
                     if (item.isShoe) {
-                        if (!shoeSizesMap.has(item.sizeDisplay)) {
-                            shoeSizesMap.set(item.sizeDisplay, {
+                        // 공용/유니섹스는 필터 칩에서 남성/공용 표준(men)으로 통합
+                        const filterGender = item.genderCat === 'women' ? 'women' : 'men';
+                        const filterKey = filterGender + '_' + item.sizeDisplay;
+                        
+                        if (!shoeSizesMap.has(filterKey)) {
+                            shoeSizesMap.set(filterKey, {
                                 sizeDisplay: item.sizeDisplay,
                                 rawSize: item.size,
-                                genderCat: item.genderCat,
-                                gender: item.gender
+                                filterGender: filterGender
                             });
                         }
                     } else {
@@ -677,14 +677,13 @@
 
             document.getElementById('sizeEmptyText').classList.add('hidden');
 
-            // 1. Shoe sizes (남성 -> 여성 -> 유니섹스 정렬)
+            // 1. Shoe sizes (남성/공용 흰색 -> 여성 핑크 정렬)
             const shoeSizeList = Array.from(shoeSizesMap.values());
             shoeSizeList.sort((a, b) => {
-                // 성별 순위: 남성(1) -> 여성(2) -> 공용/유니섹스(3)
-                const genderOrder = { 'men': 1, 'women': 2, 'unisex': 3 };
-                const gA = genderOrder[a.genderCat] || 4;
-                const gB = genderOrder[b.genderCat] || 4;
-                if (gA !== gB) return gA - gB;
+                const gOrder = { 'men': 1, 'women': 2 };
+                if (gOrder[a.filterGender] !== gOrder[b.filterGender]) {
+                    return gOrder[a.filterGender] - gOrder[b.filterGender];
+                }
 
                 const numA = parseInt(String(a.rawSize || a.sizeDisplay).replace(/[^0-9]/g, ''), 10) || 0;
                 const numB = parseInt(String(b.rawSize || b.sizeDisplay).replace(/[^0-9]/g, ''), 10) || 0;
@@ -704,18 +703,13 @@
                     let chipStyle = '';
                     let genderBadge = '';
 
-                    if (sObj.genderCat === 'women') {
+                    if (sObj.filterGender === 'women') {
                         genderBadge = '<span class="text-[9px] font-bold mr-1 text-rose-500">♀</span>';
                         chipStyle = isActive 
                             ? 'bg-rose-600 text-white border-rose-600 active' 
                             : 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100';
-                    } else if (sObj.genderCat === 'unisex') {
-                        genderBadge = '<span class="text-[9px] font-bold mr-1 text-purple-500">⚥</span>';
-                        chipStyle = isActive 
-                            ? 'bg-purple-600 text-white border-purple-600 active' 
-                            : 'bg-purple-50 text-purple-800 border-purple-200 hover:bg-purple-100';
                     } else {
-                        // Men
+                        // 남성 및 공용 통합 (흰색 칩)
                         genderBadge = '<span class="text-[9px] font-bold mr-1 text-gray-500">♂</span>';
                         chipStyle = isActive 
                             ? 'bg-black text-white border-black active' 
@@ -800,13 +794,14 @@
 
             filteredData = rawInventory.map(item => {
                 const salesKey = item.sku + "|" + item.size;
-                const salesQty = salesMap[salesKey] || 0;
-                const calcWos = salesQty > 0 ? (item.stock / salesQty) : (item.stock === 0 ? 0 : 999);
+                const sizeSales = salesMap[salesKey] || 0;
+                const skuTotalSales = salesMap[item.sku] || 0; // SKU 전체 누적 판매량
+                const calcWos = sizeSales > 0 ? (item.stock / sizeSales) : (item.stock === 0 ? 0 : 999);
                 return { 
                     ...item, 
-                    sales: salesQty, 
+                    sales: sizeSales, 
                     wos: calcWos,
-                    isHighHeat: salesQty >= HIGH_HEAT_THRESHOLD 
+                    isHighHeat: skuTotalSales >= HIGH_HEAT_THRESHOLD // SKU 합산 4개 이상
                 };
             }).filter(item => {
                 const matchesSearch = !searchTerm || item.name.toLowerCase().includes(searchTerm) || item.sku.toLowerCase().includes(searchTerm);
@@ -853,13 +848,13 @@
             metricTotalItems.textContent = filteredData.length.toLocaleString();
             metricTotalStock.textContent = filteredData.reduce((acc, cur) => acc + cur.stock, 0).toLocaleString();
             metricTotalSales.textContent = filteredData.reduce((acc, cur) => acc + cur.sales, 0).toLocaleString();
-            metricHighHeat.textContent = filteredData.filter(i => i.isHighHeat).length.toLocaleString();
 
             if (filteredData.length === 0) {
                 gridView.innerHTML = `<div class="col-span-full bg-white p-12 text-center text-gray-400 rounded-lg border border-gray-200">조건에 부합하는 보유 상품이 없습니다.</div>`;
                 inventoryTbody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-gray-400">조건에 부합하는 상품이 없습니다.</td></tr>`;
                 resultCount.textContent = '0';
                 detailCount.textContent = '0';
+                metricHighHeat.textContent = '0';
                 return;
             }
 
@@ -900,7 +895,7 @@
             // 그룹 데이터 WOS & 사이즈 정렬 (신발 mm순 / 의류 요청순)
             groupedData.forEach(group => {
                 group.wos = group.totalSales > 0 ? (group.totalStock / group.totalSales) : (group.totalStock === 0 ? 0 : 999);
-                group.isHighHeat = group.totalSales >= HIGH_HEAT_THRESHOLD;
+                group.isHighHeat = group.totalSales >= HIGH_HEAT_THRESHOLD; // SKU 합산 판매량 4개 이상
                 
                 group.sizeList.sort((a, b) => {
                     const isShoeA = a.isShoe || isShoeSize(a.rawSize);
@@ -924,6 +919,7 @@
                 return 0;
             });
 
+            metricHighHeat.textContent = groupedData.filter(i => i.isHighHeat).length.toLocaleString();
             resultCount.textContent = groupedData.length.toLocaleString();
             detailCount.textContent = filteredData.length.toLocaleString();
 
@@ -943,14 +939,17 @@
                         </a>
                        </div>`;
 
+                // 카드 뷰 사이즈 배지: 공용(퍼플), 여성(핑크), 남성(화이트)
                 const sizeBadgesHtml = item.sizeList.map(s => {
                     const isSoldOut = s.stock === 0;
                     let badgeColor = 'bg-gray-100 text-gray-800 border-gray-200';
                     
-                    if (s.isShoe) {
-                        if (s.genderCat === 'women') badgeColor = 'bg-rose-50 text-rose-700 border-rose-200';
-                        else if (s.genderCat === 'unisex') badgeColor = 'bg-purple-50 text-purple-700 border-purple-200';
-                        else badgeColor = 'bg-white text-gray-800 border-gray-300';
+                    if (s.genderCat === 'unisex') {
+                        badgeColor = 'bg-purple-50 text-purple-700 border-purple-200';
+                    } else if (s.genderCat === 'women') {
+                        badgeColor = 'bg-rose-50 text-rose-700 border-rose-200';
+                    } else {
+                        badgeColor = 'bg-white text-gray-800 border-gray-300';
                     }
 
                     return `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${isSoldOut ? 'bg-gray-100 text-gray-400 line-through' : badgeColor + ' border'}">
