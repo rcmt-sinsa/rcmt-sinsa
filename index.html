@@ -973,12 +973,21 @@ const salesQty =
 && matchesPosMissing;
             });
 
-           filteredData.sort((a, b) => {
-                if (sortBy === 'sales_desc') return b.sales - a.sales
-    || b.stock - a.stock;
-           if (sortBy === 'wos_asc')
-    return a.wos - b.wos;
-                if (sortBy === 'stock_desc') return b.stock - a.stock;
+           groupedData.sort((a, b) => {
+                if (sortBy === 'sales_desc') return b.totalSales - a.totalSales
+    || b.totalStock - a.totalStock;
+                if (sortBy === 'wos_asc') const wosA =
+    a.totalSales > 0
+        ? a.totalStock / a.totalSales
+        : 999;
+
+const wosB =
+    b.totalSales > 0
+        ? b.totalStock / b.totalSales
+        : 999;
+
+return wosA - wosB;
+                if (sortBy === 'stock_desc') return b.totalStock - a.totalStock;
                 if (sortBy === 'name_asc') return a.name.localeCompare(b.name, 'ko');
                 return 0;
             });
@@ -1045,19 +1054,6 @@ const groupedData = Object.values(
 );
 
 console.log(
-    "group count",
-    filteredData.length,
-    groupedData.length
-);
-
-console.log(
-    "groupedData sample",
-    groupedData[0]
-);
-
-gridView.innerHTML = groupedData.map(item => {
-
-console.log(
     "groupedData sample",
     groupedData[0]
 );
@@ -1106,7 +1102,7 @@ const imageArea = item.imageUrl
                 return `
                 <div
     class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col justify-between hover:shadow-md transition cursor-pointer"
-    onclick="toggleCardDetail('${item.sku}')">
+    onclick="toggleCardDetail('${item.sku}_${item.size}')">
                     <div>
                        <div class="relative">
     ${imageArea}
@@ -1156,13 +1152,13 @@ const imageArea = item.imageUrl
                             <p class="text-[10px] text-gray-400">주간판매</p>
                             <p class="font-extrabold ${item.sales > 0 ? 'text-blue-600' : 'text-gray-400'}">${item.totalSales.toLocaleString()} EA</p>
                         </div>
+
 <div
-    id="detail_${item.sku}"
+    id="detail_${item.sku}_${item.size}"
     class="hidden px-4 py-3 border-t bg-gray-50 text-xs text-gray-600">
 
     <div>품번 : ${item.sku}</div>
-    <div>규격 :
-${item.sizeList.map(x => x.size).join(' / ')}</div>
+    <div>규격 : ${item.size}</div>
     <div>재고 : ${item.stock} EA</div>
     <div>판매 : ${item.sales} EA</div>
 
@@ -1183,6 +1179,18 @@ ${item.sizeList.map(x => x.size).join(' / ')}</div>
                 return `
                 <tr class="hover:bg-gray-50 border-b border-gray-100">
                     <td class="p-3">${item.isHighHeat ? '<span class="heat-badge text-xs px-2 py-0.5 rounded mr-1">🔥 HIGH HEAT</span>' : ''}${wosHtml}</td>
+                    ${
+!item.hasPosBarcode
+?
+`
+<span
+class="absolute bottom-2 right-2 bg-black text-white text-[10px] px-2 py-1 rounded font-bold shadow">
+POS 미등록
+</span>
+`
+:
+''
+}
                     <td class="p-3 font-mono font-bold">${item.sku}</td>
                     <td class="p-3 font-medium">${item.name}</td>
                     <td class="p-3 font-bold text-gray-800">${item.sizeDisplay || '-'}</td>
@@ -1195,8 +1203,8 @@ ${item.sizeList.map(x => x.size).join(' / ')}</div>
                 `;
             }).join('');
 
-statusIndicator.innerHTML =
-    'SKU 조회중 (' + groupedData.length + ')';
+            statusIndicator.innerHTML = `<i class="fa-solid fa-circle-check text-green-400 mr-1"></i>보유재고 전체 조회중 (${filteredData.length}건)`;
+        }
 
         viewGridBtn.addEventListener('click', () => {
             viewMode = 'grid';
