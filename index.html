@@ -976,17 +976,20 @@ const salesQty =
            groupedData.sort((a, b) => {
                 if (sortBy === 'sales_desc') return b.totalSales - a.totalSales
     || b.totalStock - a.totalStock;
-                if (sortBy === 'wos_asc') const wosA =
-    a.totalSales > 0
-        ? a.totalStock / a.totalSales
-        : 999;
+                if (sortBy === 'wos_asc') {
 
-const wosB =
-    b.totalSales > 0
-        ? b.totalStock / b.totalSales
-        : 999;
+    const wosA =
+        a.totalSales > 0
+            ? a.totalStock / a.totalSales
+            : 999;
 
-return wosA - wosB;
+    const wosB =
+        b.totalSales > 0
+            ? b.totalStock / b.totalSales
+            : 999;
+
+    return wosA - wosB;
+}
                 if (sortBy === 'stock_desc') return b.totalStock - a.totalStock;
                 if (sortBy === 'name_asc') return a.name.localeCompare(b.name, 'ko');
                 return 0;
