@@ -1076,28 +1076,27 @@ const wosHtml =
         item.totalSales,
         calcWos
     );
-
-const imageArea **item.imageUrl
+const imageAre**= item.imageUrl
     ? `
-        <im**            src="${item.imageUrl}**div class****full h-24 bg-gray-100 rounded-t-l**flex flex-col items-center justif**center p-3 text-center border-b b**der-gray-100">
+        <**g
+            src="${item.imageUr** <div class="w-full h-24 bg-gray-100 rounded-t-lg flex flex-col items-center justify-center p-3 text-center border-b border-gray-100">
 
-            <i cl**s="fa-solid fa-shirt text-xl text**ray-300 mb-2"></i>
+            <i class="fa-solid fa-shirt text-xl text-gray-300 mb-2"></i>
 
-            <**an class="text-[10px] text-gray-4**">
+            <span class="text-[10px] text-gray-400">
                 이미지 미등록
-      **    </span>
+            </span>
 
-            <div cla**="flex gap-1 mt-2">
-             ** <a href="${googleSearchUrl}"
-   **              target="_blank"
-   **        </div>
+            <div class="flex gap-1 mt-2">
+                <a href="${googleSearchUrl}"
+                   target="_blank"
+                 v>
 
         </div>
-  **`;
+    `;
 ``**
                 return `
-                <div
-    class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col justify-between hover:shadow-md transition cursor-pointer"
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col justify-between hover:shadow-md transition cursor-pointer"
     onclick="toggleCardDetail('${item.sku}')">
                     <div>
                        <div class="relative">
