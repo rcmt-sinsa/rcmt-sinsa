@@ -973,24 +973,12 @@ const salesQty =
 && matchesPosMissing;
             });
 
-           groupedData.sort((a, b) => {
-                if (sortBy === 'sales_desc') return b.totalSales - a.totalSales
-    || b.totalStock - a.totalStock;
-                if (sortBy === 'wos_asc') {
-
-    const wosA =
-        a.totalSales > 0
-            ? a.totalStock / a.totalSales
-            : 999;
-
-    const wosB =
-        b.totalSales > 0
-            ? b.totalStock / b.totalSales
-            : 999;
-
-    return wosA - wosB;
-}
-                if (sortBy === 'stock_desc') return b.totalStock - a.totalStock;
+           filteredData.sort((a, b) => {
+                if (sortBy === 'sales_desc') return b.sales - a.sales
+    || b.stock - a.stock;
+           if (sortBy === 'wos_asc')
+    return a.wos - b.wos;
+                if (sortBy === 'stock_desc') return b.stock - a.stock;
                 if (sortBy === 'name_asc') return a.name.localeCompare(b.name, 'ko');
                 return 0;
             });
