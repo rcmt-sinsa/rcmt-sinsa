@@ -1014,6 +1014,39 @@ const salesQty =
                 return;
             }
 
+const groupedData = Object.values(
+
+    filteredData.reduce((acc, item) => {
+
+        if (!acc[item.sku]) {
+
+            acc[item.sku] = {
+                ...item,
+                totalStock: 0,
+                totalSales: 0,
+                sizeList: []
+            };
+        }
+
+        acc[item.sku].totalStock += item.stock;
+        acc[item.sku].totalSales += item.sales;
+
+        acc[item.sku].sizeList.push({
+            size: item.sizeDisplay,
+            stock: item.stock,
+            sales: item.sales
+        });
+
+        return acc;
+
+    }, {})
+);
+
+console.log(
+    "groupedData sample",
+    groupedData[0]
+);
+            
             gridView.innerHTML = filteredData.map(item => {
 const googleSearchUrl = `
 <a href="https://www.google.com/search?tbm=isch&q=${encodeURIComponent(item.sku + ' ' + item.name)}"
