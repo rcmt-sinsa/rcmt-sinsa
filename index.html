@@ -7,6 +7,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase 실시간 클라우드 DB 라이브러리 -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
     <style>
         .musinsa-badge { background-color: #000; color: #fff; font-weight: 700; font-size: 0.7rem; padding: 2px 6px; border-radius: 2px; }
         .heat-badge { background-color: #ff3333; color: #fff; font-weight: 800; }
@@ -37,11 +42,15 @@
                 <span class="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded hidden sm:inline-block">스마트 재고 & HIGH HEAT</span>
             </div>
 
-            <div class="flex items-center space-x-2 text-xs">
+            <div class="flex items-center space-x-3 text-xs">
+                <div id="cloudIndicator" class="text-xs text-blue-400 font-semibold flex items-center gap-1">
+                    <i class="fa-solid fa-cloud"></i>
+                    <span>클라우드 동기화 중...</span>
+                </div>
                 <div id="statusIndicator" class="text-xs text-green-400 ml-1">
                     ☁️ GitHub 저장소 자동 연동
                 </div>
-                <div id="lastUpdated" class="text-xs text-gray-400 ml-3">
+                <div id="lastUpdated" class="text-xs text-gray-400 ml-2">
                     업데이트 확인중...
                 </div>
             </div>
@@ -259,25 +268,57 @@
     </main>
 
     <script>
+        // ==========================================
+        // 1. Firebase 실시간 클라우드 DB 연동 설정
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyCvislKvr3cfUMaA9eCjfy19BH7xX0NPDc",
+            authDomain: "rcmt-sinsa.firebaseapp.com",
+            databaseURL: "https://rcmt-sinsa-default-rtdb.firebaseio.com",
+            projectId: "rcmt-sinsa",
+            storageBucket: "rcmt-sinsa.firebasestorage.app",
+            messagingSenderId: "99845267875",
+            appId: "1:99845267875:web:a14c6d8f7c488df6ef7a16"
+        };
+
+        let db = null;
+        let isFirebaseActive = false;
+        let dpMap = {};
+
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.database();
+            isFirebaseActive = true;
+
+            // 실시간 리스너: 다른 사람이 DP를 클릭하는 즉시 모든 기기에 0.1초 만에 자동 반영
+            db.ref('rcmt_dp_status').on('value', (snapshot) => {
+                dpMap = snapshot.val() || {};
+                const cloudEl = document.getElementById('cloudIndicator');
+                if (cloudEl) cloudEl.innerHTML = '<span class="text-emerald-400 font-bold">🟢 실시간 클라우드 연동 완료</span>';
+                applyFiltersAndRender();
+            });
+        } catch (e) {
+            console.warn("Firebase 연결 실패, 로컬 저장소로 작동합니다:", e);
+            try {
+                dpMap = JSON.parse(localStorage.getItem('rcmt_dp_status') || '{}');
+            } catch (err) {
+                dpMap = {};
+            }
+            const cloudEl = document.getElementById('cloudIndicator');
+            if (cloudEl) cloudEl.innerHTML = '<span class="text-amber-400">⚠️ 로컬 단독 모드</span>';
+        }
+
         let rawInventory = [];
         let salesMap = {};
         let filteredData = [];
         let isHighHeatOnly = false;
         let isWosWarningOnly = false;
         let isPosMissingOnly = false;
-        let isDpOnly = false;         // DP만 보기
-        let isDpMissingOnly = false;  // 미진열만 보기
+        let isDpOnly = false;
+        let isDpMissingOnly = false;
         let viewMode = 'grid';
         let sortBy = 'sales_desc';
         const HIGH_HEAT_THRESHOLD = 3; // SKU 전체 주간 판매량 3개 이상 기준
-
-        // 브라우저 로컬 저장소에서 DP(진열) 상태 불러오기
-        let dpMap = {};
-        try {
-            dpMap = JSON.parse(localStorage.getItem('rcmt_dp_status') || '{}');
-        } catch (e) {
-            dpMap = {};
-        }
 
         let selectedBrand = [];
         let selectedBiz = [];
@@ -324,17 +365,24 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // DP(진열) 상태 토글 및 localStorage 저장
+        // DP(진열) 상태 토글 (Firebase 실시간 클라우드 DB 저장)
         function toggleDpStatus(sku, event) {
             if (event) event.stopPropagation();
             if (!sku) return;
-            dpMap[sku] = !dpMap[sku];
-            try {
-                localStorage.setItem('rcmt_dp_status', JSON.stringify(dpMap));
-            } catch (e) {
-                console.warn("localStorage save error:", e);
+
+            const safeSkuKey = String(sku).replace(/[.#$[\]]/g, '_');
+            const nextState = !dpMap[sku] && !dpMap[safeSkuKey];
+            dpMap[sku] = nextState;
+            dpMap[safeSkuKey] = nextState;
+
+            if (isFirebaseActive && db) {
+                db.ref('rcmt_dp_status/' + safeSkuKey).set(nextState);
+            } else {
+                try {
+                    localStorage.setItem('rcmt_dp_status', JSON.stringify(dpMap));
+                } catch (e) {}
+                applyFiltersAndRender();
             }
-            applyFiltersAndRender();
         }
 
         // 소비자가격 정규화 (ERP의 100배 스케일 오류 예: 8,900,000 -> 89,000 자동 보정)
@@ -861,7 +909,10 @@
                 const sizeSales = salesMap[salesKey] || 0;
                 const skuTotalSales = salesMap[item.sku] || 0; // SKU 전체 누적 판매량
                 const calcWos = sizeSales > 0 ? (item.stock / sizeSales) : (item.stock === 0 ? 0 : 999);
-                const isDp = !!dpMap[item.sku];
+                
+                const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
+                const isDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
+
                 return { 
                     ...item, 
                     sales: sizeSales, 
@@ -930,6 +981,9 @@
             const groupedMap = {};
             filteredData.forEach(item => {
                 const groupKey = item.sku || (item.name + '_' + item.brand);
+                const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
+                const isItemDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
+
                 if (!groupedMap[groupKey]) {
                     groupedMap[groupKey] = {
                         ...item,
@@ -937,7 +991,7 @@
                         totalStock: 0,
                         totalSales: 0,
                         hasAnyPosMissing: false,
-                        isDp: !!dpMap[item.sku],
+                        isDp: isItemDp,
                         sizeList: []
                     };
                 }
@@ -968,12 +1022,15 @@
                 if (!cleanName) return;
                 if (!nameColorMap[cleanName]) nameColorMap[cleanName] = new Map();
                 
+                const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
+                const isItemDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
+
                 if (!nameColorMap[cleanName].has(item.sku)) {
                     nameColorMap[cleanName].set(item.sku, {
                         sku: item.sku,
                         name: item.name,
                         stock: 0,
-                        isDp: !!dpMap[item.sku]
+                        isDp: isItemDp
                     });
                 }
                 nameColorMap[cleanName].get(item.sku).stock += item.stock;
@@ -1015,7 +1072,9 @@
                 const safeId = 'card_' + (item.sku ? item.sku.replace(/[^a-zA-Z0-9_-]/g, '_') : index);
                 const googleSearchUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent((item.sku || '') + ' ' + (item.name || ''))}`;
                 const wosHtml = getWosBadgeHtml(item.totalStock, item.totalSales, item.wos);
-                const isItemDp = !!dpMap[item.sku];
+                
+                const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
+                const isItemDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
 
                 // 아더 컬러 목록 추출
                 const cleanName = String(item.name || '').trim().toLowerCase();
@@ -1172,7 +1231,8 @@
             // 2. Table View (표 형태)
             inventoryTbody.innerHTML = filteredData.map(item => {
                 const wosHtml = getWosBadgeHtml(item.stock, item.sales, item.wos);
-                const isItemDp = !!dpMap[item.sku];
+                const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
+                const isItemDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
                 const dpTableBtn = `<button onclick="toggleDpStatus('${item.sku}', event)" class="px-2 py-0.5 rounded text-[10px] font-bold transition ${isItemDp ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200'}">${isItemDp ? 'DP 완료' : '미진열'}</button>`;
                 
                 return `
@@ -1238,21 +1298,26 @@
                 alert("내보낼 데이터가 없습니다.");
                 return;
             }
-            const exportRows = rows.map(item => ({
-                "상태": item.isHighHeat ? "HIGH HEAT" : (item.stock === 0 ? "품절" : "일반"),
-                "진열상태(DP)": dpMap[item.sku] ? "DP 완료" : "미진열",
-                "WOS(주)": item.sales > 0 ? (item.stock / item.sales).toFixed(1) : "-",
-                "품번(SKU)": item.sku,
-                "품명": item.name,
-                "소비자가": item.price > 0 ? item.price : "-",
-                "규격(사이즈)": item.sizeDisplay || item.size,
-                "브랜드": item.brand,
-                "BIZ": item.category2,
-                "성별": item.gender,
-                "POS등록": item.hasPosBarcode ? "등록" : "미등록",
-                "매장재고(신사동)": item.stock,
-                "주간판매량": item.sales
-            }));
+            const exportRows = rows.map(item => {
+                const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
+                const isItemDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
+
+                return {
+                    "상태": item.isHighHeat ? "HIGH HEAT" : (item.stock === 0 ? "품절" : "일반"),
+                    "진열상태(DP)": isItemDp ? "DP 완료" : "미진열",
+                    "WOS(주)": item.sales > 0 ? (item.stock / item.sales).toFixed(1) : "-",
+                    "품번(SKU)": item.sku,
+                    "품명": item.name,
+                    "소비자가": item.price > 0 ? item.price : "-",
+                    "규격(사이즈)": item.sizeDisplay || item.size,
+                    "브랜드": item.brand,
+                    "BIZ": item.category2,
+                    "성별": item.gender,
+                    "POS등록": item.hasPosBarcode ? "등록" : "미등록",
+                    "매장재고(신사동)": item.stock,
+                    "주간판매량": item.sales
+                };
+            });
 
             const worksheet = XLSX.utils.json_to_sheet(exportRows);
             const workbook = XLSX.utils.book_new();
@@ -1267,13 +1332,19 @@
 
         // 2. DP(진열) 리스트 엑셀
         exportDpExcelBtn.addEventListener('click', () => {
-            const dpRows = rawInventory.filter(item => !!dpMap[item.sku]);
+            const dpRows = rawInventory.filter(item => {
+                const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
+                return !!(dpMap[item.sku] || dpMap[safeSkuKey]);
+            });
             downloadExcel(dpRows, "진열_DP품목리스트");
         });
 
         // 3. 미진열(DP 미등록) 리스트 엑셀
         exportUnDpExcelBtn.addEventListener('click', () => {
-            const unDpRows = rawInventory.filter(item => !dpMap[item.sku]);
+            const unDpRows = rawInventory.filter(item => {
+                const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
+                return !dpMap[item.sku] && !dpMap[safeSkuKey];
+            });
             downloadExcel(unDpRows, "미진열_품목리스트");
         });
 
