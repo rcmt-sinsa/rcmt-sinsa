@@ -73,20 +73,28 @@
         <!-- Search & Filter Panel -->
         <section class="bg-white rounded-lg p-5 shadow-sm border border-gray-200 space-y-4">
             <!-- Search Bar + Buttons -->
-            <div class="flex flex-col sm:flex-row gap-2">
+            <div class="flex flex-col lg:flex-row gap-2">
                 <div class="relative flex-1">
                     <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-gray-400"></i>
                     <input type="text" id="searchInput" placeholder="제품명(품명) 또는 품번 입력 후 검색 버튼을 누르세요..." class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-black">
                 </div>
-                <button id="searchBtn" class="bg-black hover:bg-gray-800 text-white px-5 py-2.5 rounded-md text-sm font-bold transition flex items-center justify-center">
-                    <i class="fa-solid fa-magnifying-glass mr-1.5"></i>검색
-                </button>
-                <button id="resetFiltersBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-2.5 rounded-md text-xs font-semibold transition flex items-center justify-center border border-gray-200">
-                    <i class="fa-solid fa-rotate-right mr-1"></i>초기화
-                </button>
-                <button id="exportExcelBtn" class="bg-green-700 hover:bg-green-800 text-white px-3 py-2.5 rounded-md text-xs font-bold transition flex items-center justify-center">
-                    <i class="fa-solid fa-file-excel mr-1"></i>엑셀 내보내기
-                </button>
+                <div class="flex flex-wrap gap-1.5">
+                    <button id="searchBtn" class="bg-black hover:bg-gray-800 text-white px-4 py-2.5 rounded-md text-sm font-bold transition flex items-center justify-center">
+                        <i class="fa-solid fa-magnifying-glass mr-1.5"></i>검색
+                    </button>
+                    <button id="resetFiltersBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-2.5 rounded-md text-xs font-semibold transition flex items-center justify-center border border-gray-200">
+                        <i class="fa-solid fa-rotate-right mr-1"></i>초기화
+                    </button>
+                    <button id="exportExcelBtn" class="bg-green-700 hover:bg-green-800 text-white px-3 py-2.5 rounded-md text-xs font-bold transition flex items-center justify-center">
+                        <i class="fa-solid fa-file-excel mr-1"></i>전체 엑셀
+                    </button>
+                    <button id="exportUnDpExcelBtn" class="bg-purple-700 hover:bg-purple-800 text-white px-3 py-2.5 rounded-md text-xs font-bold transition flex items-center justify-center shadow-sm" title="현재 진열 등록되지 않은 상품들만 엑셀로 다운로드">
+                        <i class="fa-solid fa-box-open mr-1"></i>📦 미진열 엑셀
+                    </button>
+                    <button id="exportRestockExcelBtn" class="bg-amber-700 hover:bg-amber-800 text-white px-3 py-2.5 rounded-md text-xs font-bold transition flex items-center justify-center shadow-sm" title="WOS 2주 이내 품절 위험 보충 필요 리스트 다운로드">
+                        <i class="fa-solid fa-truck-ramp-box mr-1"></i>🚨 보충 발주 엑셀
+                    </button>
+                </div>
             </div>
 
             <!-- Quick Toggles -->
@@ -143,7 +151,7 @@
                     </label>
                     
                     <div class="space-y-3 text-[11px]">
-                        <!-- 신발 사이즈 (남성/공용 -> 여성 정렬) -->
+                        <!-- 신발 사이즈 -->
                         <div id="shoeSizeSection" class="hidden">
                             <div class="flex items-center flex-wrap gap-2 mb-1.5">
                                 <span class="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
@@ -280,6 +288,8 @@
         const resetFiltersBtn = document.getElementById('resetFiltersBtn');
         const clearFilterBtn = document.getElementById('clearFilterBtn');
         const exportExcelBtn = document.getElementById('exportExcelBtn');
+        const exportUnDpExcelBtn = document.getElementById('exportUnDpExcelBtn');
+        const exportRestockExcelBtn = document.getElementById('exportRestockExcelBtn');
         const sortBySelect = document.getElementById('sortBySelect');
 
         const metricsSection = document.getElementById('metricsSection');
@@ -297,6 +307,14 @@
         const viewGridBtn = document.getElementById('viewGridBtn');
         const viewTableBtn = document.getElementById('viewTableBtn');
 
+        // 특정 SKU로 즉시 검색 필터링 (아더 컬러 클릭 시 사용)
+        function filterBySku(targetSku) {
+            if (!targetSku) return;
+            searchInput.value = targetSku;
+            applyFiltersAndRender();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
         // DP(진열) 상태 토글 및 localStorage 저장
         function toggleDpStatus(sku, event) {
             if (event) event.stopPropagation();
@@ -308,6 +326,19 @@
                 console.warn("localStorage save error:", e);
             }
             applyFiltersAndRender();
+        }
+
+        // 소비자가격 정규화 (ERP의 100배 스케일 오류 예: 8,900,000 -> 89,000 자동 보정)
+        function parseAndNormalizePrice(rawPrice) {
+            if (!rawPrice) return 0;
+            const cleanStr = String(rawPrice).trim().replace(/[^0-9.]/g, '');
+            let num = parseFloat(cleanStr) || 0;
+            if (num >= 1000000 && num % 100 === 0) {
+                num = num / 100;
+            } else if (num >= 1000000) {
+                num = Math.round(num / 100);
+            }
+            return num;
         }
 
         function extractBrand(subCategoryStr) {
@@ -549,8 +580,7 @@
             const mappedRows = json.map(row => {
                 const rawSku = String(row[skuKey] || '').trim();
                 const rawName = String(row[nameKey] || '').trim();
-                const rawPriceStr = priceKey ? String(row[priceKey] || '0').replace(/[^0-9]/g, '') : '0';
-                const priceVal = parseInt(rawPriceStr, 10) || 0;
+                const priceVal = parseAndNormalizePrice(row[priceKey]);
                 const rawSubCat = subCatKey ? String(row[subCatKey] || '').trim() : '';
                 const rawCat2 = cat2Key ? String(row[cat2Key] || '').trim() : '';
                 const rawGender = genderKey ? String(row[genderKey] || '').trim() : '';
@@ -921,6 +951,24 @@
 
             const groupedData = Object.values(groupedMap);
 
+            // 전체 상품명 기반 아더 컬러(Other Colors) 맵 구축
+            const nameColorMap = {};
+            rawInventory.forEach(item => {
+                const cleanName = String(item.name || '').trim().toLowerCase();
+                if (!cleanName) return;
+                if (!nameColorMap[cleanName]) nameColorMap[cleanName] = new Map();
+                
+                if (!nameColorMap[cleanName].has(item.sku)) {
+                    nameColorMap[cleanName].set(item.sku, {
+                        sku: item.sku,
+                        name: item.name,
+                        stock: 0,
+                        isDp: !!dpMap[item.sku]
+                    });
+                }
+                nameColorMap[cleanName].get(item.sku).stock += item.stock;
+            });
+
             // 그룹 데이터 WOS & 사이즈 정렬 (신발 mm순 / 의류 요청순)
             groupedData.forEach(group => {
                 group.wos = group.totalSales > 0 ? (group.totalStock / group.totalSales) : (group.totalStock === 0 ? 0 : 999);
@@ -959,6 +1007,36 @@
                 const wosHtml = getWosBadgeHtml(item.totalStock, item.totalSales, item.wos);
                 const isItemDp = !!dpMap[item.sku];
 
+                // 아더 컬러 목록 추출
+                const cleanName = String(item.name || '').trim().toLowerCase();
+                const allVariants = nameColorMap[cleanName] ? Array.from(nameColorMap[cleanName].values()) : [];
+                const otherVariants = allVariants.filter(v => v.sku !== item.sku);
+
+                let otherColorsHtml = '';
+                if (otherVariants.length > 0) {
+                    otherColorsHtml = `
+                    <div class="pt-1.5 border-t border-gray-100">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-[10px] font-bold text-gray-600 flex items-center gap-1">
+                                <i class="fa-solid fa-palette text-indigo-500"></i>다른 컬러 (${otherVariants.length})
+                            </span>
+                            <span class="text-[9px] text-gray-400">클릭 시 해당 품번으로 조회</span>
+                        </div>
+                        <div class="flex flex-wrap gap-1">
+                            ${otherVariants.map(v => `
+                                <button onclick="event.stopPropagation(); filterBySku('${v.sku}')"
+                                        title="${v.sku} 조회 (재고: ${v.stock}개, ${v.isDp ? '진열 완료' : '미진열'})"
+                                        class="text-[9px] px-1.5 py-0.5 rounded border border-gray-200 bg-gray-50 hover:bg-black hover:text-white transition flex items-center gap-1 font-mono">
+                                    <span class="font-bold">${v.sku}</span>
+                                    <span class="text-[8px] text-gray-400 font-sans">(${v.stock}개)</span>
+                                    ${v.isDp ? '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>' : ''}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                    `;
+                }
+
                 const dpButtonHtml = isItemDp
                     ? `<button onclick="toggleDpStatus('${item.sku}', event)" title="클릭 시 미진열로 변경" class="absolute top-2 right-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-extrabold px-2 py-0.5 rounded shadow flex items-center gap-1 z-10 transition">
                         <i class="fa-solid fa-check"></i>DP 완료
@@ -977,6 +1055,7 @@
                         </a>
                        </div>`;
 
+                // 카드 뷰 사이즈 배지: 공용(퍼플), 여성(핑크), 남성(화이트)
                 const sizeBadgesHtml = item.sizeList.map(s => {
                     const isSoldOut = s.stock === 0;
                     let badgeColor = 'bg-gray-100 text-gray-800 border-gray-200';
@@ -1049,6 +1128,8 @@
                                     ${sizeBadgesHtml}
                                 </div>
                             </div>
+
+                            ${otherColorsHtml}
 
                             <div class="pt-1">${wosHtml}</div>
                         </div>
@@ -1141,13 +1222,13 @@
             applyFiltersAndRender();
         });
 
-        exportExcelBtn.addEventListener('click', () => {
-            if (filteredData.length === 0) {
+        // 엑셀 내보내기 공통 헬퍼
+        function downloadExcel(rows, fileName) {
+            if (!rows || rows.length === 0) {
                 alert("내보낼 데이터가 없습니다.");
                 return;
             }
-
-            const exportRows = filteredData.map(item => ({
+            const exportRows = rows.map(item => ({
                 "상태": item.isHighHeat ? "HIGH HEAT" : (item.stock === 0 ? "품절" : "일반"),
                 "진열상태(DP)": dpMap[item.sku] ? "DP 완료" : "미진열",
                 "WOS(주)": item.sales > 0 ? (item.stock / item.sales).toFixed(1) : "-",
@@ -1165,8 +1246,31 @@
 
             const worksheet = XLSX.utils.json_to_sheet(exportRows);
             const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "재고조회결과");
-            XLSX.writeFile(workbook, `재고조회결과_${new Date().toISOString().slice(0,10)}.xlsx`);
+            XLSX.utils.book_append_sheet(workbook, worksheet, "재고데이터");
+            XLSX.writeFile(workbook, `${fileName}_${new Date().toISOString().slice(0,10)}.xlsx`);
+        }
+
+        // 1. 전체 조회 결과 엑셀
+        exportExcelBtn.addEventListener('click', () => {
+            downloadExcel(filteredData, "재고조회결과_전체");
+        });
+
+        // 2. 미진열(DP 미등록) 리스트 엑셀
+        exportUnDpExcelBtn.addEventListener('click', () => {
+            const unDpRows = rawInventory.filter(item => !dpMap[item.sku]);
+            downloadExcel(unDpRows, "미진열_품목리스트");
+        });
+
+        // 3. 보충 발주 추천(WOS 2주 이내) 엑셀
+        exportRestockExcelBtn.addEventListener('click', () => {
+            const restockRows = rawInventory.map(item => {
+                const salesKey = item.sku + "|" + item.size;
+                const sizeSales = salesMap[salesKey] || 0;
+                const calcWos = sizeSales > 0 ? (item.stock / sizeSales) : (item.stock === 0 ? 0 : 999);
+                return { ...item, sales: sizeSales, wos: calcWos };
+            }).filter(item => item.sales > 0 && item.wos <= 2.0);
+
+            downloadExcel(restockRows, "보충발주추천_WOS임박");
         });
 
         searchBtn.addEventListener('click', applyFiltersAndRender);
