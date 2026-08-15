@@ -124,6 +124,9 @@
                     <button id="toggleDpOnly" class="px-3 py-1.5 rounded text-xs font-bold border border-emerald-400 text-emerald-700 hover:bg-emerald-50 transition flex items-center">
                         <i class="fa-solid fa-check mr-1"></i> ✨ DP(진열) 품목만 보기
                     </button>
+                    <button id="toggleDpLowStock" class="px-3 py-1.5 rounded text-xs font-bold border border-red-400 text-red-700 hover:bg-red-50 transition flex items-center shadow-sm" title="진열 등록되었으나 매장 재고가 2개 이하인 품절 위험 상품만 필터링">
+                        <i class="fa-solid fa-triangle-exclamation mr-1 text-red-600 animate-pulse"></i> 🚨 DP 재고부족 (2개 이하)만 보기
+                    </button>
                     <button id="toggleDpMissing" class="px-3 py-1.5 rounded text-xs font-bold border border-purple-400 text-purple-700 hover:bg-purple-50 transition flex items-center">
                         <i class="fa-solid fa-box-open mr-1"></i> 📦 미진열(DP 미등록)만 보기
                     </button>
@@ -290,7 +293,7 @@
             db = firebase.database();
             isFirebaseActive = true;
 
-            // [자동 마이그레이션] 기존 기기에 저장되어 있던 로컬 DP 내역이 있다면 파이어베이스로 자동 백업/업로드
+            // [자동 마이그레이션] 기존 로컬 DP 내역을 파이어베이스로 1회 자동 업로드
             try {
                 const localSaved = JSON.parse(localStorage.getItem('rcmt_dp_status') || '{}');
                 if (localSaved && Object.keys(localSaved).length > 0) {
@@ -305,7 +308,7 @@
                 console.warn("Migration warning:", migErr);
             }
 
-            // 실시간 리스너: 다른 사람이 DP를 클릭하는 즉시 모든 기기에 0.1초 만에 자동 반영
+            // 실시간 리스너
             db.ref('rcmt_dp_status').on('value', (snapshot) => {
                 dpMap = snapshot.val() || {};
                 const cloudEl = document.getElementById('cloudIndicator');
@@ -329,8 +332,9 @@
         let isHighHeatOnly = false;
         let isWosWarningOnly = false;
         let isPosMissingOnly = false;
-        let isDpOnly = false;
-        let isDpMissingOnly = false;
+        let isDpOnly = false;          // DP만 보기
+        let isDpLowStockOnly = false;  // DP 재고부족(2개 이하)만 보기
+        let isDpMissingOnly = false;   // 미진열만 보기
         let viewMode = 'grid';
         let sortBy = 'sales_desc';
         const HIGH_HEAT_THRESHOLD = 3; // SKU 전체 주간 판매량 3개 이상 기준
@@ -348,6 +352,7 @@
         const toggleWosWarning = document.getElementById('toggleWosWarning');
         const togglePosMissing = document.getElementById('togglePosMissing');
         const toggleDpOnly = document.getElementById('toggleDpOnly');
+        const toggleDpLowStock = document.getElementById('toggleDpLowStock');
         const toggleDpMissing = document.getElementById('toggleDpMissing');
         const resetFiltersBtn = document.getElementById('resetFiltersBtn');
         const clearFilterBtn = document.getElementById('clearFilterBtn');
@@ -372,7 +377,6 @@
         const viewGridBtn = document.getElementById('viewGridBtn');
         const viewTableBtn = document.getElementById('viewTableBtn');
 
-        // 특정 SKU로 즉시 검색 필터링 (아더 컬러 클릭 시 사용)
         function filterBySku(targetSku) {
             if (!targetSku) return;
             searchInput.value = targetSku;
@@ -380,7 +384,7 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // DP(진열) 상태 토글 (Firebase 실시간 클라우드 DB 저장)
+        // DP(진열) 상태 토글 (Firebase 실시간 저장)
         function toggleDpStatus(sku, event) {
             if (event) event.stopPropagation();
             if (!sku) return;
@@ -400,7 +404,6 @@
             }
         }
 
-        // 소비자가격 정규화 (ERP의 100배 스케일 오류 예: 8,900,000 -> 89,000 자동 보정)
         function parseAndNormalizePrice(rawPrice) {
             if (!rawPrice) return 0;
             const cleanStr = String(rawPrice).trim().replace(/[^0-9.]/g, '');
@@ -732,7 +735,7 @@
                 const salesKey = sku + "|" + size;
                 if (sku) {
                     salesMap[salesKey] = (salesMap[salesKey] || 0) + qty;
-                    salesMap[sku] = (salesMap[sku] || 0) + qty; // SKU 전체 누적 판매량
+                    salesMap[sku] = (salesMap[sku] || 0) + qty;
                 }
             });
 
@@ -922,7 +925,7 @@
             filteredData = rawInventory.map(item => {
                 const salesKey = item.sku + "|" + item.size;
                 const sizeSales = salesMap[salesKey] || 0;
-                const skuTotalSales = salesMap[item.sku] || 0; // SKU 전체 누적 판매량
+                const skuTotalSales = salesMap[item.sku] || 0;
                 const calcWos = sizeSales > 0 ? (item.stock / sizeSales) : (item.stock === 0 ? 0 : 999);
                 
                 const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
@@ -944,10 +947,11 @@
                 const matchesHeat = !isHighHeatOnly || item.isHighHeat;
                 const matchesWosWarning = !isWosWarningOnly || (item.sales > 0 && item.wos <= 2.0);
                 const matchesPosMissing = !isPosMissingOnly || !item.hasPosBarcode;
-                const matchesDpOnly = !isDpOnly || item.isDp;              // DP만 보기
-                const matchesDpMissing = !isDpMissingOnly || !item.isDp;  // 미진열만 보기
+                const matchesDpOnly = !isDpOnly || item.isDp;
+                const matchesDpLowStock = !isDpLowStockOnly || (item.isDp && item.stock <= 2); // DP 재고부족 2개 이하
+                const matchesDpMissing = !isDpMissingOnly || !item.isDp;
 
-                return matchesSearch && matchesBrand && matchesBiz && matchesGender && matchesSize && matchesHeat && matchesWosWarning && matchesPosMissing && matchesDpOnly && matchesDpMissing;
+                return matchesSearch && matchesBrand && matchesBiz && matchesGender && matchesSize && matchesHeat && matchesWosWarning && matchesPosMissing && matchesDpOnly && matchesDpLowStock && matchesDpMissing;
             });
 
             filteredData.sort((a, b) => {
@@ -1121,13 +1125,26 @@
                     `;
                 }
 
-                const dpButtonHtml = isItemDp
-                    ? `<button onclick="toggleDpStatus('${item.sku}', event)" title="클릭 시 미진열로 변경" class="absolute top-2 right-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-extrabold px-2 py-0.5 rounded shadow flex items-center gap-1 z-10 transition">
-                        <i class="fa-solid fa-check"></i>DP 완료
-                       </button>`
-                    : `<button onclick="toggleDpStatus('${item.sku}', event)" title="클릭 시 진열(DP) 완료로 변경" class="absolute top-2 right-2 bg-black/60 hover:bg-black text-white text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1 z-10 transition">
+                // DP 버튼: 진열 등록되었는데 재고가 2개 이하인 경우 '🚨 빨간불(경고 배지)' 표시
+                let dpButtonHtml = '';
+                if (isItemDp) {
+                    if (item.totalStock <= 2) {
+                        dpButtonHtml = `
+                        <button onclick="toggleDpStatus('${item.sku}', event)" title="진열품이나 재고가 2개 이하입니다! (클릭 시 미진열로 변경)" class="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white text-[10px] font-black px-2 py-0.5 rounded shadow flex items-center gap-1 z-10 animate-pulse border border-red-300">
+                            <i class="fa-solid fa-triangle-exclamation"></i>🚨 DP 재고부족 (${item.totalStock}개)
+                        </button>`;
+                    } else {
+                        dpButtonHtml = `
+                        <button onclick="toggleDpStatus('${item.sku}', event)" title="클릭 시 미진열로 변경" class="absolute top-2 right-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-extrabold px-2 py-0.5 rounded shadow flex items-center gap-1 z-10 transition">
+                            <i class="fa-solid fa-check"></i>DP 완료
+                        </button>`;
+                    }
+                } else {
+                    dpButtonHtml = `
+                    <button onclick="toggleDpStatus('${item.sku}', event)" title="클릭 시 진열(DP) 완료로 변경" class="absolute top-2 right-2 bg-black/60 hover:bg-black text-white text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1 z-10 transition">
                         <i class="fa-solid fa-plus"></i>미진열 (DP 등록)
-                       </button>`;
+                    </button>`;
+                }
 
                 const imageArea = item.imageUrl
                     ? `<img src="${item.imageUrl}" class="w-full h-36 object-cover rounded-t-lg" alt="${item.name}">`
@@ -1139,7 +1156,7 @@
                         </a>
                        </div>`;
 
-                // 카드 뷰 사이즈 배지: 공용(퍼플), 여성(핑크), 남성(화이트)
+                // 카드 뷰 사이즈 배지
                 const sizeBadgesHtml = item.sizeList.map(s => {
                     const isSoldOut = s.stock === 0;
                     let badgeColor = 'bg-gray-100 text-gray-800 border-gray-200';
@@ -1222,7 +1239,7 @@
                     <div class="p-3 border-t border-gray-100 bg-gray-50/70 flex justify-between items-center text-xs">
                         <div>
                             <p class="text-[10px] text-gray-400 font-medium">매장 총 재고(신사)</p>
-                            <p class="font-black text-sm ${item.totalStock === 0 ? 'text-red-500' : 'text-gray-900'}">${item.totalStock.toLocaleString()} EA</p>
+                            <p class="font-black text-sm ${item.totalStock <= 2 && isItemDp ? 'text-red-600 font-black' : (item.totalStock === 0 ? 'text-red-500' : 'text-gray-900')}">${item.totalStock.toLocaleString()} EA ${item.totalStock <= 2 && isItemDp ? '⚠️' : ''}</p>
                         </div>
                         <div class="text-right">
                             <p class="text-[10px] text-gray-400 font-medium">주간 총 판매량</p>
@@ -1248,7 +1265,17 @@
                 const wosHtml = getWosBadgeHtml(item.stock, item.sales, item.wos);
                 const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
                 const isItemDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
-                const dpTableBtn = `<button onclick="toggleDpStatus('${item.sku}', event)" class="px-2 py-0.5 rounded text-[10px] font-bold transition ${isItemDp ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200'}">${isItemDp ? 'DP 완료' : '미진열'}</button>`;
+                
+                let dpTableBtn = '';
+                if (isItemDp) {
+                    if (item.stock <= 2) {
+                        dpTableBtn = `<button onclick="toggleDpStatus('${item.sku}', event)" class="px-2 py-0.5 rounded text-[10px] font-black bg-red-100 text-red-700 border border-red-300 hover:bg-red-200 transition flex items-center gap-1 mx-auto"><span class="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></span>DP 위험 (${item.stock}EA)</button>`;
+                    } else {
+                        dpTableBtn = `<button onclick="toggleDpStatus('${item.sku}', event)" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-300 hover:bg-emerald-200 transition">DP 완료</button>`;
+                    }
+                } else {
+                    dpTableBtn = `<button onclick="toggleDpStatus('${item.sku}', event)" class="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200">미진열</button>`;
+                }
                 
                 return `
                 <tr class="hover:bg-gray-50 border-b border-gray-100">
@@ -1319,7 +1346,7 @@
 
                 return {
                     "상태": item.isHighHeat ? "HIGH HEAT" : (item.stock === 0 ? "품절" : "일반"),
-                    "진열상태(DP)": isItemDp ? "DP 완료" : "미진열",
+                    "진열상태(DP)": isItemDp ? (item.stock <= 2 ? "DP 재고부족" : "DP 완료") : "미진열",
                     "WOS(주)": item.sales > 0 ? (item.stock / item.sales).toFixed(1) : "-",
                     "품번(SKU)": item.sku,
                     "품명": item.name,
@@ -1406,9 +1433,11 @@
         if (toggleDpOnly) {
             toggleDpOnly.addEventListener('click', () => {
                 isDpOnly = !isDpOnly;
-                if (isDpOnly && isDpMissingOnly) {
+                if (isDpOnly) {
                     isDpMissingOnly = false;
-                    toggleDpMissing.classList.remove('bg-purple-600', 'text-white');
+                    isDpLowStockOnly = false;
+                    if (toggleDpMissing) toggleDpMissing.classList.remove('bg-purple-600', 'text-white');
+                    if (toggleDpLowStock) toggleDpLowStock.classList.remove('bg-red-600', 'text-white');
                 }
                 toggleDpOnly.classList.toggle('bg-emerald-600');
                 toggleDpOnly.classList.toggle('text-white');
@@ -1416,12 +1445,27 @@
             });
         }
 
+        if (toggleDpLowStock) {
+            toggleDpLowStock.addEventListener('click', () => {
+                isDpLowStockOnly = !isDpLowStockOnly;
+                if (isDpLowStockOnly) {
+                    isDpMissingOnly = false;
+                    if (toggleDpMissing) toggleDpMissing.classList.remove('bg-purple-600', 'text-white');
+                }
+                toggleDpLowStock.classList.toggle('bg-red-600');
+                toggleDpLowStock.classList.toggle('text-white');
+                applyFiltersAndRender();
+            });
+        }
+
         if (toggleDpMissing) {
             toggleDpMissing.addEventListener('click', () => {
                 isDpMissingOnly = !isDpMissingOnly;
-                if (isDpMissingOnly && isDpOnly) {
+                if (isDpMissingOnly) {
                     isDpOnly = false;
-                    toggleDpOnly.classList.remove('bg-emerald-600', 'text-white');
+                    isDpLowStockOnly = false;
+                    if (toggleDpOnly) toggleDpOnly.classList.remove('bg-emerald-600', 'text-white');
+                    if (toggleDpLowStock) toggleDpLowStock.classList.remove('bg-red-600', 'text-white');
                 }
                 toggleDpMissing.classList.toggle('bg-purple-600');
                 toggleDpMissing.classList.toggle('text-white');
@@ -1439,6 +1483,7 @@
             isWosWarningOnly = false;
             isPosMissingOnly = false;
             isDpOnly = false;
+            isDpLowStockOnly = false;
             isDpMissingOnly = false;
             sortBy = 'sales_desc';
             sortBySelect.value = 'sales_desc';
@@ -1446,6 +1491,7 @@
             toggleWosWarning.classList.remove('bg-amber-600', 'text-white');
             if (togglePosMissing) togglePosMissing.classList.remove('bg-black', 'text-white');
             if (toggleDpOnly) toggleDpOnly.classList.remove('bg-emerald-600', 'text-white');
+            if (toggleDpLowStock) toggleDpLowStock.classList.remove('bg-red-600', 'text-white');
             if (toggleDpMissing) toggleDpMissing.classList.remove('bg-purple-600', 'text-white');
             renderFilterChips();
             applyFiltersAndRender();
@@ -1461,11 +1507,13 @@
                 isWosWarningOnly = false;
                 isPosMissingOnly = false;
                 isDpOnly = false;
+                isDpLowStockOnly = false;
                 isDpMissingOnly = false;
                 toggleHighHeat.classList.remove('bg-red-600', 'text-white');
                 toggleWosWarning.classList.remove('bg-amber-600', 'text-white');
                 if (togglePosMissing) togglePosMissing.classList.remove('bg-black', 'text-white');
                 if (toggleDpOnly) toggleDpOnly.classList.remove('bg-emerald-600', 'text-white');
+                if (toggleDpLowStock) toggleDpLowStock.classList.remove('bg-red-600', 'text-white');
                 if (toggleDpMissing) toggleDpMissing.classList.remove('bg-purple-600', 'text-white');
                 renderFilterChips();
                 applyFiltersAndRender();
