@@ -290,6 +290,21 @@
             db = firebase.database();
             isFirebaseActive = true;
 
+            // [자동 마이그레이션] 기존 기기에 저장되어 있던 로컬 DP 내역이 있다면 파이어베이스로 자동 백업/업로드
+            try {
+                const localSaved = JSON.parse(localStorage.getItem('rcmt_dp_status') || '{}');
+                if (localSaved && Object.keys(localSaved).length > 0) {
+                    Object.keys(localSaved).forEach(sku => {
+                        if (localSaved[sku]) {
+                            const safeSkuKey = String(sku).replace(/[.#$[\]]/g, '_');
+                            db.ref('rcmt_dp_status/' + safeSkuKey).set(true);
+                        }
+                    });
+                }
+            } catch (migErr) {
+                console.warn("Migration warning:", migErr);
+            }
+
             // 실시간 리스너: 다른 사람이 DP를 클릭하는 즉시 모든 기기에 0.1초 만에 자동 반영
             db.ref('rcmt_dp_status').on('value', (snapshot) => {
                 dpMap = snapshot.val() || {};
