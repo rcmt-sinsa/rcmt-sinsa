@@ -88,6 +88,9 @@
                     <button id="exportExcelBtn" class="bg-green-700 hover:bg-green-800 text-white px-3 py-2.5 rounded-md text-xs font-bold transition flex items-center justify-center">
                         <i class="fa-solid fa-file-excel mr-1"></i>전체 엑셀
                     </button>
+                    <button id="exportDpExcelBtn" class="bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-2.5 rounded-md text-xs font-bold transition flex items-center justify-center shadow-sm" title="현재 진열 등록된(DP) 상품들만 엑셀로 다운로드">
+                        <i class="fa-solid fa-check-double mr-1"></i>✨ DP 엑셀
+                    </button>
                     <button id="exportUnDpExcelBtn" class="bg-purple-700 hover:bg-purple-800 text-white px-3 py-2.5 rounded-md text-xs font-bold transition flex items-center justify-center shadow-sm" title="현재 진열 등록되지 않은 상품들만 엑셀로 다운로드">
                         <i class="fa-solid fa-box-open mr-1"></i>📦 미진열 엑셀
                     </button>
@@ -108,6 +111,9 @@
                     </button>
                     <button id="togglePosMissing" class="px-3 py-1.5 rounded text-xs font-bold border border-black text-black hover:bg-gray-100 transition flex items-center">
                         <i class="fa-solid fa-barcode mr-1"></i> POS 미등록만 보기
+                    </button>
+                    <button id="toggleDpOnly" class="px-3 py-1.5 rounded text-xs font-bold border border-emerald-400 text-emerald-700 hover:bg-emerald-50 transition flex items-center">
+                        <i class="fa-solid fa-check mr-1"></i> ✨ DP(진열) 품목만 보기
                     </button>
                     <button id="toggleDpMissing" class="px-3 py-1.5 rounded text-xs font-bold border border-purple-400 text-purple-700 hover:bg-purple-50 transition flex items-center">
                         <i class="fa-solid fa-box-open mr-1"></i> 📦 미진열(DP 미등록)만 보기
@@ -259,7 +265,8 @@
         let isHighHeatOnly = false;
         let isWosWarningOnly = false;
         let isPosMissingOnly = false;
-        let isDpMissingOnly = false;
+        let isDpOnly = false;         // DP만 보기
+        let isDpMissingOnly = false;  // 미진열만 보기
         let viewMode = 'grid';
         let sortBy = 'sales_desc';
         const HIGH_HEAT_THRESHOLD = 3; // SKU 전체 주간 판매량 3개 이상 기준
@@ -284,10 +291,12 @@
         const toggleHighHeat = document.getElementById('toggleHighHeat');
         const toggleWosWarning = document.getElementById('toggleWosWarning');
         const togglePosMissing = document.getElementById('togglePosMissing');
+        const toggleDpOnly = document.getElementById('toggleDpOnly');
         const toggleDpMissing = document.getElementById('toggleDpMissing');
         const resetFiltersBtn = document.getElementById('resetFiltersBtn');
         const clearFilterBtn = document.getElementById('clearFilterBtn');
         const exportExcelBtn = document.getElementById('exportExcelBtn');
+        const exportDpExcelBtn = document.getElementById('exportDpExcelBtn');
         const exportUnDpExcelBtn = document.getElementById('exportUnDpExcelBtn');
         const exportRestockExcelBtn = document.getElementById('exportRestockExcelBtn');
         const sortBySelect = document.getElementById('sortBySelect');
@@ -869,9 +878,10 @@
                 const matchesHeat = !isHighHeatOnly || item.isHighHeat;
                 const matchesWosWarning = !isWosWarningOnly || (item.sales > 0 && item.wos <= 2.0);
                 const matchesPosMissing = !isPosMissingOnly || !item.hasPosBarcode;
-                const matchesDpMissing = !isDpMissingOnly || !item.isDp; // 미진열만 보기
+                const matchesDpOnly = !isDpOnly || item.isDp;              // DP만 보기
+                const matchesDpMissing = !isDpMissingOnly || !item.isDp;  // 미진열만 보기
 
-                return matchesSearch && matchesBrand && matchesBiz && matchesGender && matchesSize && matchesHeat && matchesWosWarning && matchesPosMissing && matchesDpMissing;
+                return matchesSearch && matchesBrand && matchesBiz && matchesGender && matchesSize && matchesHeat && matchesWosWarning && matchesPosMissing && matchesDpOnly && matchesDpMissing;
             });
 
             filteredData.sort((a, b) => {
@@ -1255,13 +1265,19 @@
             downloadExcel(filteredData, "재고조회결과_전체");
         });
 
-        // 2. 미진열(DP 미등록) 리스트 엑셀
+        // 2. DP(진열) 리스트 엑셀
+        exportDpExcelBtn.addEventListener('click', () => {
+            const dpRows = rawInventory.filter(item => !!dpMap[item.sku]);
+            downloadExcel(dpRows, "진열_DP품목리스트");
+        });
+
+        // 3. 미진열(DP 미등록) 리스트 엑셀
         exportUnDpExcelBtn.addEventListener('click', () => {
             const unDpRows = rawInventory.filter(item => !dpMap[item.sku]);
             downloadExcel(unDpRows, "미진열_품목리스트");
         });
 
-        // 3. 보충 발주 추천(WOS 2주 이내) 엑셀
+        // 4. 보충 발주 추천(WOS 2주 이내) 엑셀
         exportRestockExcelBtn.addEventListener('click', () => {
             const restockRows = rawInventory.map(item => {
                 const salesKey = item.sku + "|" + item.size;
@@ -1301,9 +1317,26 @@
             });
         }
 
+        if (toggleDpOnly) {
+            toggleDpOnly.addEventListener('click', () => {
+                isDpOnly = !isDpOnly;
+                if (isDpOnly && isDpMissingOnly) {
+                    isDpMissingOnly = false;
+                    toggleDpMissing.classList.remove('bg-purple-600', 'text-white');
+                }
+                toggleDpOnly.classList.toggle('bg-emerald-600');
+                toggleDpOnly.classList.toggle('text-white');
+                applyFiltersAndRender();
+            });
+        }
+
         if (toggleDpMissing) {
             toggleDpMissing.addEventListener('click', () => {
                 isDpMissingOnly = !isDpMissingOnly;
+                if (isDpMissingOnly && isDpOnly) {
+                    isDpOnly = false;
+                    toggleDpOnly.classList.remove('bg-emerald-600', 'text-white');
+                }
                 toggleDpMissing.classList.toggle('bg-purple-600');
                 toggleDpMissing.classList.toggle('text-white');
                 applyFiltersAndRender();
@@ -1319,12 +1352,14 @@
             isHighHeatOnly = false;
             isWosWarningOnly = false;
             isPosMissingOnly = false;
+            isDpOnly = false;
             isDpMissingOnly = false;
             sortBy = 'sales_desc';
             sortBySelect.value = 'sales_desc';
             toggleHighHeat.classList.remove('bg-red-600', 'text-white');
             toggleWosWarning.classList.remove('bg-amber-600', 'text-white');
             if (togglePosMissing) togglePosMissing.classList.remove('bg-black', 'text-white');
+            if (toggleDpOnly) toggleDpOnly.classList.remove('bg-emerald-600', 'text-white');
             if (toggleDpMissing) toggleDpMissing.classList.remove('bg-purple-600', 'text-white');
             renderFilterChips();
             applyFiltersAndRender();
@@ -1339,10 +1374,12 @@
                 isHighHeatOnly = false;
                 isWosWarningOnly = false;
                 isPosMissingOnly = false;
+                isDpOnly = false;
                 isDpMissingOnly = false;
                 toggleHighHeat.classList.remove('bg-red-600', 'text-white');
                 toggleWosWarning.classList.remove('bg-amber-600', 'text-white');
                 if (togglePosMissing) togglePosMissing.classList.remove('bg-black', 'text-white');
+                if (toggleDpOnly) toggleDpOnly.classList.remove('bg-emerald-600', 'text-white');
                 if (toggleDpMissing) toggleDpMissing.classList.remove('bg-purple-600', 'text-white');
                 renderFilterChips();
                 applyFiltersAndRender();
