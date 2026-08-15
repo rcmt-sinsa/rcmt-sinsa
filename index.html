@@ -101,6 +101,9 @@
                     <button id="togglePosMissing" class="px-3 py-1.5 rounded text-xs font-bold border border-black text-black hover:bg-gray-100 transition flex items-center">
                         <i class="fa-solid fa-barcode mr-1"></i> POS 미등록만 보기
                     </button>
+                    <button id="toggleDpMissing" class="px-3 py-1.5 rounded text-xs font-bold border border-purple-400 text-purple-700 hover:bg-purple-50 transition flex items-center">
+                        <i class="fa-solid fa-box-open mr-1"></i> 📦 미진열(DP 미등록)만 보기
+                    </button>
                 </div>
 
                 <!-- 1. Brand Filter Chips -->
@@ -168,7 +171,7 @@
                     </div>
                 </div>
 
-                <!-- 5. 필터 전체 초기화 -->
+                <!-- 5. 필터 전체 초기화 (최하단) -->
                 <div class="pt-4 border-t border-gray-100 flex justify-end">
                     <button id="clearFilterBtn" class="px-4 py-2 rounded-md border border-gray-300 bg-gray-50 hover:bg-gray-100 text-xs font-bold text-gray-700 transition flex items-center shadow-sm">
                         <i class="fa-solid fa-filter-circle-xmark mr-1.5 text-gray-500"></i>필터 전체 초기화
@@ -219,9 +222,11 @@
                         <thead class="bg-gray-100 text-gray-700 font-bold uppercase border-b border-gray-200">
                             <tr>
                                 <th class="p-3">상태 / WOS</th>
+                                <th class="p-3 text-center">진열(DP)</th>
                                 <th class="p-3">품번 (SKU)</th>
                                 <th class="p-3">품명 (상품명)</th>
                                 <th class="p-3">규격 (사이즈)</th>
+                                <th class="p-3 text-right">소비자가</th>
                                 <th class="p-3">브랜드</th>
                                 <th class="p-3">BIZ</th>
                                 <th class="p-3">성별</th>
@@ -246,9 +251,18 @@
         let isHighHeatOnly = false;
         let isWosWarningOnly = false;
         let isPosMissingOnly = false;
+        let isDpMissingOnly = false;
         let viewMode = 'grid';
         let sortBy = 'sales_desc';
         const HIGH_HEAT_THRESHOLD = 3; // SKU 전체 주간 판매량 3개 이상 기준
+
+        // 브라우저 로컬 저장소에서 DP(진열) 상태 불러오기
+        let dpMap = {};
+        try {
+            dpMap = JSON.parse(localStorage.getItem('rcmt_dp_status') || '{}');
+        } catch (e) {
+            dpMap = {};
+        }
 
         let selectedBrand = [];
         let selectedBiz = [];
@@ -262,6 +276,7 @@
         const toggleHighHeat = document.getElementById('toggleHighHeat');
         const toggleWosWarning = document.getElementById('toggleWosWarning');
         const togglePosMissing = document.getElementById('togglePosMissing');
+        const toggleDpMissing = document.getElementById('toggleDpMissing');
         const resetFiltersBtn = document.getElementById('resetFiltersBtn');
         const clearFilterBtn = document.getElementById('clearFilterBtn');
         const exportExcelBtn = document.getElementById('exportExcelBtn');
@@ -281,6 +296,19 @@
 
         const viewGridBtn = document.getElementById('viewGridBtn');
         const viewTableBtn = document.getElementById('viewTableBtn');
+
+        // DP(진열) 상태 토글 및 localStorage 저장
+        function toggleDpStatus(sku, event) {
+            if (event) event.stopPropagation();
+            if (!sku) return;
+            dpMap[sku] = !dpMap[sku];
+            try {
+                localStorage.setItem('rcmt_dp_status', JSON.stringify(dpMap));
+            } catch (e) {
+                console.warn("localStorage save error:", e);
+            }
+            applyFiltersAndRender();
+        }
 
         function extractBrand(subCategoryStr) {
             if (!subCategoryStr) return '기타';
@@ -507,6 +535,7 @@
 
             const skuKey = keys.find(k => k.trim() === '품번') || keys.find(k => k.includes('품번') || k.toLowerCase().includes('sku') || k.includes('코드')) || keys[0];
             const nameKey = keys.find(k => k.trim() === '품명') || keys.find(k => k.includes('품명')) || keys.find(k => k.includes('상품명')) || (keys.length > 1 ? keys : keys[0]) || '';
+            const priceKey = keys.find(k => k.trim() === '소비자가') || keys.find(k => k.includes('소비자가') || k.includes('소비자') || k.includes('판매가') || k.includes('정가') || k.toLowerCase().includes('price')) || '';
             const subCatKey = keys.find(k => k.includes('품목소분류') || k.includes('소분류') || k.includes('브랜드')) || '';
             const cat2Key = keys.find(k => k.includes('카테고리2') || k.includes('카테고리 2') || k.includes('중분류') || k.toLowerCase().includes('biz')) || '';
             const genderKey = keys.find(k => k.trim() === '성별') || keys.find(k => k.includes('성별')) || '';
@@ -520,6 +549,8 @@
             const mappedRows = json.map(row => {
                 const rawSku = String(row[skuKey] || '').trim();
                 const rawName = String(row[nameKey] || '').trim();
+                const rawPriceStr = priceKey ? String(row[priceKey] || '0').replace(/[^0-9]/g, '') : '0';
+                const priceVal = parseInt(rawPriceStr, 10) || 0;
                 const rawSubCat = subCatKey ? String(row[subCatKey] || '').trim() : '';
                 const rawCat2 = cat2Key ? String(row[cat2Key] || '').trim() : '';
                 const rawGender = genderKey ? String(row[genderKey] || '').trim() : '';
@@ -535,6 +566,7 @@
                 return {
                     sku: rawSku,
                     name: rawName,
+                    price: priceVal,
                     brand: extractBrand(rawSubCat),
                     category2: rawCat2,
                     gender: rawGender,
@@ -565,6 +597,9 @@
                     }
                     if (!inventorySumMap[itemKey].imageUrl && item.imageUrl) {
                         inventorySumMap[itemKey].imageUrl = item.imageUrl;
+                    }
+                    if (!inventorySumMap[itemKey].price && item.price) {
+                        inventorySumMap[itemKey].price = item.price;
                     }
                 }
             });
@@ -617,7 +652,6 @@
 
                 if (item.sizeDisplay) {
                     if (item.isShoe) {
-                        // 공용/유니섹스는 필터 칩에서 남성/공용 표준(men)으로 통합
                         const filterGender = item.genderCat === 'women' ? 'women' : 'men';
                         const filterKey = filterGender + '_' + item.sizeDisplay;
                         
@@ -701,7 +735,6 @@
                             ? 'bg-rose-600 text-white border-rose-600 active' 
                             : 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100';
                     } else {
-                        // 남성 및 공용 통합 (흰색 칩)
                         genderBadge = '<span class="text-[9px] font-bold mr-1 text-gray-500">♂</span>';
                         chipStyle = isActive 
                             ? 'bg-black text-white border-black active' 
@@ -789,11 +822,13 @@
                 const sizeSales = salesMap[salesKey] || 0;
                 const skuTotalSales = salesMap[item.sku] || 0; // SKU 전체 누적 판매량
                 const calcWos = sizeSales > 0 ? (item.stock / sizeSales) : (item.stock === 0 ? 0 : 999);
+                const isDp = !!dpMap[item.sku];
                 return { 
                     ...item, 
                     sales: sizeSales, 
                     wos: calcWos,
-                    isHighHeat: skuTotalSales >= HIGH_HEAT_THRESHOLD // SKU 합산 3개 이상
+                    isDp: isDp,
+                    isHighHeat: skuTotalSales >= HIGH_HEAT_THRESHOLD
                 };
             }).filter(item => {
                 const matchesSearch = !searchTerm || item.name.toLowerCase().includes(searchTerm) || item.sku.toLowerCase().includes(searchTerm);
@@ -804,8 +839,9 @@
                 const matchesHeat = !isHighHeatOnly || item.isHighHeat;
                 const matchesWosWarning = !isWosWarningOnly || (item.sales > 0 && item.wos <= 2.0);
                 const matchesPosMissing = !isPosMissingOnly || !item.hasPosBarcode;
+                const matchesDpMissing = !isDpMissingOnly || !item.isDp; // 미진열만 보기
 
-                return matchesSearch && matchesBrand && matchesBiz && matchesGender && matchesSize && matchesHeat && matchesWosWarning && matchesPosMissing;
+                return matchesSearch && matchesBrand && matchesBiz && matchesGender && matchesSize && matchesHeat && matchesWosWarning && matchesPosMissing && matchesDpMissing;
             });
 
             filteredData.sort((a, b) => {
@@ -843,7 +879,7 @@
 
             if (filteredData.length === 0) {
                 gridView.innerHTML = `<div class="col-span-full bg-white p-12 text-center text-gray-400 rounded-lg border border-gray-200">조건에 부합하는 보유 상품이 없습니다.</div>`;
-                inventoryTbody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-gray-400">조건에 부합하는 상품이 없습니다.</td></tr>`;
+                inventoryTbody.innerHTML = `<tr><td colspan="12" class="p-8 text-center text-gray-400">조건에 부합하는 상품이 없습니다.</td></tr>`;
                 resultCount.textContent = '0';
                 detailCount.textContent = '0';
                 metricHighHeat.textContent = '0';
@@ -861,6 +897,7 @@
                         totalStock: 0,
                         totalSales: 0,
                         hasAnyPosMissing: false,
+                        isDp: !!dpMap[item.sku],
                         sizeList: []
                     };
                 }
@@ -887,7 +924,7 @@
             // 그룹 데이터 WOS & 사이즈 정렬 (신발 mm순 / 의류 요청순)
             groupedData.forEach(group => {
                 group.wos = group.totalSales > 0 ? (group.totalStock / group.totalSales) : (group.totalStock === 0 ? 0 : 999);
-                group.isHighHeat = group.totalSales >= HIGH_HEAT_THRESHOLD; // SKU 합산 판매량 3개 이상
+                group.isHighHeat = group.totalSales >= HIGH_HEAT_THRESHOLD;
                 
                 group.sizeList.sort((a, b) => {
                     const isShoeA = a.isShoe || isShoeSize(a.rawSize);
@@ -920,6 +957,15 @@
                 const safeId = 'card_' + (item.sku ? item.sku.replace(/[^a-zA-Z0-9_-]/g, '_') : index);
                 const googleSearchUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent((item.sku || '') + ' ' + (item.name || ''))}`;
                 const wosHtml = getWosBadgeHtml(item.totalStock, item.totalSales, item.wos);
+                const isItemDp = !!dpMap[item.sku];
+
+                const dpButtonHtml = isItemDp
+                    ? `<button onclick="toggleDpStatus('${item.sku}', event)" title="클릭 시 미진열로 변경" class="absolute top-2 right-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-extrabold px-2 py-0.5 rounded shadow flex items-center gap-1 z-10 transition">
+                        <i class="fa-solid fa-check"></i>DP 완료
+                       </button>`
+                    : `<button onclick="toggleDpStatus('${item.sku}', event)" title="클릭 시 진열(DP) 완료로 변경" class="absolute top-2 right-2 bg-black/60 hover:bg-black text-white text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1 z-10 transition">
+                        <i class="fa-solid fa-plus"></i>미진열 (DP 등록)
+                       </button>`;
 
                 const imageArea = item.imageUrl
                     ? `<img src="${item.imageUrl}" class="w-full h-36 object-cover rounded-t-lg" alt="${item.name}">`
@@ -931,7 +977,6 @@
                         </a>
                        </div>`;
 
-                // 카드 뷰 사이즈 배지: 공용(퍼플), 여성(핑크), 남성(화이트)
                 const sizeBadgesHtml = item.sizeList.map(s => {
                     const isSoldOut = s.stock === 0;
                     let badgeColor = 'bg-gray-100 text-gray-800 border-gray-200';
@@ -974,7 +1019,8 @@
                     <div>
                         <div class="relative">
                             ${imageArea}
-                            ${item.isHighHeat ? '<span class="absolute top-2 left-2 heat-badge text-[10px] px-2 py-0.5 rounded shadow">🔥 HIGH HEAT</span>' : ''}
+                            ${item.isHighHeat ? '<span class="absolute top-2 left-2 heat-badge text-[10px] px-2 py-0.5 rounded shadow z-10">🔥 HIGH HEAT</span>' : ''}
+                            ${dpButtonHtml}
                             ${item.hasAnyPosMissing ? '<span class="absolute bottom-2 right-2 bg-black/80 text-white text-[9px] px-1.5 py-0.5 rounded font-bold shadow">POS 미등록 포함</span>' : ''}
                         </div>
 
@@ -984,9 +1030,12 @@
                                 <span class="text-[10px] text-gray-500 font-semibold">${item.gender || '공용'}</span>
                             </div>
 
-                            <div>
-                                <p class="font-bold text-sm text-gray-900 leading-snug line-clamp-1">${item.name}</p>
-                                <p class="font-mono text-xs text-gray-500 font-bold mt-0.5">${item.sku || '-'}</p>
+                            <div class="flex justify-between items-start gap-1">
+                                <div class="flex-1">
+                                    <p class="font-bold text-sm text-gray-900 leading-snug line-clamp-1">${item.name}</p>
+                                    <p class="font-mono text-xs text-gray-500 font-bold mt-0.5">${item.sku || '-'}</p>
+                                </div>
+                                ${item.price > 0 ? `<div class="text-right whitespace-nowrap"><p class="font-black text-sm text-gray-900">₩${item.price.toLocaleString()}</p></div>` : ''}
                             </div>
 
                             <div class="pt-1">
@@ -1032,12 +1081,17 @@
             // 2. Table View (표 형태)
             inventoryTbody.innerHTML = filteredData.map(item => {
                 const wosHtml = getWosBadgeHtml(item.stock, item.sales, item.wos);
+                const isItemDp = !!dpMap[item.sku];
+                const dpTableBtn = `<button onclick="toggleDpStatus('${item.sku}', event)" class="px-2 py-0.5 rounded text-[10px] font-bold transition ${isItemDp ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200'}">${isItemDp ? 'DP 완료' : '미진열'}</button>`;
+                
                 return `
                 <tr class="hover:bg-gray-50 border-b border-gray-100">
                     <td class="p-3">${item.isHighHeat ? '<span class="heat-badge text-xs px-2 py-0.5 rounded mr-1">🔥 HIGH HEAT</span>' : ''}${wosHtml}</td>
+                    <td class="p-3 text-center">${dpTableBtn}</td>
                     <td class="p-3 font-mono font-bold">${item.sku}</td>
                     <td class="p-3 font-medium">${item.name}</td>
                     <td class="p-3 font-bold text-gray-800">${item.sizeDisplay || '-'}</td>
+                    <td class="p-3 text-right font-bold text-gray-800">${item.price > 0 ? '₩' + item.price.toLocaleString() : '-'}</td>
                     <td class="p-3"><span class="musinsa-badge">${item.brand}</span></td>
                     <td class="p-3 text-gray-600">${item.category2 || '-'}</td>
                     <td class="p-3 text-gray-600">${item.gender || '-'}</td>
@@ -1095,9 +1149,11 @@
 
             const exportRows = filteredData.map(item => ({
                 "상태": item.isHighHeat ? "HIGH HEAT" : (item.stock === 0 ? "품절" : "일반"),
+                "진열상태(DP)": dpMap[item.sku] ? "DP 완료" : "미진열",
                 "WOS(주)": item.sales > 0 ? (item.stock / item.sales).toFixed(1) : "-",
                 "품번(SKU)": item.sku,
                 "품명": item.name,
+                "소비자가": item.price > 0 ? item.price : "-",
                 "규격(사이즈)": item.sizeDisplay || item.size,
                 "브랜드": item.brand,
                 "BIZ": item.category2,
@@ -1141,6 +1197,15 @@
             });
         }
 
+        if (toggleDpMissing) {
+            toggleDpMissing.addEventListener('click', () => {
+                isDpMissingOnly = !isDpMissingOnly;
+                toggleDpMissing.classList.toggle('bg-purple-600');
+                toggleDpMissing.classList.toggle('text-white');
+                applyFiltersAndRender();
+            });
+        }
+
         resetFiltersBtn.addEventListener('click', () => {
             searchInput.value = '';
             selectedBrand = [];
@@ -1150,11 +1215,13 @@
             isHighHeatOnly = false;
             isWosWarningOnly = false;
             isPosMissingOnly = false;
+            isDpMissingOnly = false;
             sortBy = 'sales_desc';
             sortBySelect.value = 'sales_desc';
             toggleHighHeat.classList.remove('bg-red-600', 'text-white');
             toggleWosWarning.classList.remove('bg-amber-600', 'text-white');
             if (togglePosMissing) togglePosMissing.classList.remove('bg-black', 'text-white');
+            if (toggleDpMissing) toggleDpMissing.classList.remove('bg-purple-600', 'text-white');
             renderFilterChips();
             applyFiltersAndRender();
         });
@@ -1168,9 +1235,11 @@
                 isHighHeatOnly = false;
                 isWosWarningOnly = false;
                 isPosMissingOnly = false;
+                isDpMissingOnly = false;
                 toggleHighHeat.classList.remove('bg-red-600', 'text-white');
                 toggleWosWarning.classList.remove('bg-amber-600', 'text-white');
                 if (togglePosMissing) togglePosMissing.classList.remove('bg-black', 'text-white');
+                if (toggleDpMissing) toggleDpMissing.classList.remove('bg-purple-600', 'text-white');
                 renderFilterChips();
                 applyFiltersAndRender();
             });
