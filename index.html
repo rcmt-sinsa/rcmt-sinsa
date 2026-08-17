@@ -219,7 +219,8 @@
                         <option value="sales_desc">주간 판매량 높은순 🔥</option>
                         <option value="wos_asc">WOS 소진 임박순 🚨</option>
                         <option value="stock_desc">매장 재고 많은순 📦</option>
-                        <option value="name_asc">상품명 순 (가나다)</option>
+                        <option value="name_asc">제품명 순 (가나다) 🔤</option>
+                        <option value="sku_asc">품번 순 (SKU순) 🏷️</option>
                     </select>
                 </div>
 
@@ -948,17 +949,19 @@
                 const matchesWosWarning = !isWosWarningOnly || (item.sales > 0 && item.wos <= 2.0);
                 const matchesPosMissing = !isPosMissingOnly || !item.hasPosBarcode;
                 const matchesDpOnly = !isDpOnly || item.isDp;
-                const matchesDpLowStock = !isDpLowStockOnly || (item.isDp && item.stock <= 2); // DP 재고부족 2개 이하
+                const matchesDpLowStock = !isDpLowStockOnly || (item.isDp && item.stock <= 2);
                 const matchesDpMissing = !isDpMissingOnly || !item.isDp;
 
                 return matchesSearch && matchesBrand && matchesBiz && matchesGender && matchesSize && matchesHeat && matchesWosWarning && matchesPosMissing && matchesDpOnly && matchesDpLowStock && matchesDpMissing;
             });
 
+            // 표 형태 정렬
             filteredData.sort((a, b) => {
                 if (sortBy === 'sales_desc') return b.sales - a.sales || b.stock - a.stock;
                 if (sortBy === 'wos_asc') return a.wos - b.wos;
                 if (sortBy === 'stock_desc') return b.stock - a.stock;
-                if (sortBy === 'name_asc') return a.name.localeCompare(b.name, 'ko');
+                if (sortBy === 'name_asc') return a.name.localeCompare(b.name, 'ko') || (a.sku || '').localeCompare(b.sku || '', 'ko');
+                if (sortBy === 'sku_asc') return (a.sku || a.name).localeCompare((b.sku || b.name), 'ko');
                 return 0;
             });
 
@@ -1055,7 +1058,7 @@
                 nameColorMap[cleanName].get(item.sku).stock += item.stock;
             });
 
-            // 그룹 데이터 WOS & 사이즈 정렬 (신발 mm순 / 의류 요청순)
+            // 그룹 데이터 WOS & 사이즈 정렬
             groupedData.forEach(group => {
                 group.wos = group.totalSales > 0 ? (group.totalStock / group.totalSales) : (group.totalStock === 0 ? 0 : 999);
                 group.isHighHeat = group.totalSales >= HIGH_HEAT_THRESHOLD;
@@ -1074,11 +1077,13 @@
                 });
             });
 
+            // 카드 뷰 정렬 (제품명 순 vs 품번 순 분리)
             groupedData.sort((a, b) => {
                 if (sortBy === 'sales_desc') return b.totalSales - a.totalSales || b.totalStock - a.totalStock;
                 if (sortBy === 'wos_asc') return a.wos - b.wos;
                 if (sortBy === 'stock_desc') return b.totalStock - a.totalStock;
-                if (sortBy === 'name_asc') return (a.sku || a.name).localeCompare((b.sku || b.name), 'ko');
+                if (sortBy === 'name_asc') return a.name.localeCompare(b.name, 'ko') || (a.sku || '').localeCompare(b.sku || '', 'ko');
+                if (sortBy === 'sku_asc') return (a.sku || a.name).localeCompare((b.sku || b.name), 'ko');
                 return 0;
             });
 
