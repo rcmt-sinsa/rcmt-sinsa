@@ -1525,44 +1525,55 @@
             });
         }
 
-        async function loadCsvData() {
-            try {
-                const inventoryRes = await fetch('./inventory.csv');
-                const salesRes = await fetch('./sales.csv');
-                const inventoryCsv = await inventoryRes.text();
-                const salesCsv = await salesRes.text();
+ // CSV 데이터 로딩 함수 수정
+async function loadCsvData() {
+    try {
+        // 캐시 방지를 위한 고유 타임스탬프 생성
+        const cacheBuster = `?t=${new Date().getTime()}`;
+        const fetchOptions = { cache: 'no-store' };
 
-                const inventoryWorkbook = XLSX.read(inventoryCsv, { type: "string" });
-                const inventorySheet = inventoryWorkbook.Sheets[inventoryWorkbook.SheetNames[0]];
-                const inventoryRows = parseExcelUniversal(inventorySheet);
+        const [inventoryRes, salesRes] = await Promise.all([
+            fetch(`./inventory.csv${cacheBuster}`, fetchOptions),
+            fetch(`./sales.csv${cacheBuster}`, fetchOptions)
+        ]);
 
-                const salesWorkbook = XLSX.read(salesCsv, { type: "string" });
-                const salesSheet = salesWorkbook.Sheets[salesWorkbook.SheetNames[0]];
-                const salesRows = parseExcelUniversal(salesSheet);
+        const inventoryCsv = await inventoryRes.text();
+        const salesCsv = await salesRes.text();
 
-                processInventoryData(inventoryRows);
-                processSalesData(salesRows);
-                
-                statusIndicator.innerHTML = '✅ 저장소 데이터 로딩 완료';
-            } catch(err) {
-                console.error(err);
-                statusIndicator.innerHTML = '❌ CSV 로딩 실패';
-            }
+        const inventoryWorkbook = XLSX.read(inventoryCsv, { type: "string" });
+        const inventorySheet = inventoryWorkbook.Sheets[inventoryWorkbook.SheetNames[0]];
+        const inventoryRows = parseExcelUniversal(inventorySheet);
+
+        const salesWorkbook = XLSX.read(salesCsv, { type: "string" });
+        const salesSheet = salesWorkbook.Sheets[salesWorkbook.SheetNames[0]];
+        const salesRows = parseExcelUniversal(salesSheet);
+
+        processInventoryData(inventoryRows);
+        processSalesData(salesRows);
+        
+        statusIndicator.innerHTML = '✅ 저장소 데이터 로딩 완료';
+    } catch(err) {
+        console.error(err);
+        statusIndicator.innerHTML = '❌ CSV 로딩 실패';
+    }
+}
+
+// 수정일자 확인 함수 수정
+async function updateLastModified() {
+    try {
+        const cacheBuster = `?t=${new Date().getTime()}`;
+        const response = await fetch(`./inventory.csv${cacheBuster}`, { 
+            method: "HEAD", 
+            cache: 'no-store' 
+        });
+        const modified = response.headers.get("last-modified");
+        if (modified && lastUpdated) {
+            lastUpdated.innerHTML = "업데이트: " + new Date(modified).toLocaleString("ko-KR");
         }
-
-        loadCsvData();
-
-        async function updateLastModified() {
-            try {
-                const response = await fetch("./inventory.csv", { method: "HEAD" });
-                const modified = response.headers.get("last-modified");
-                if (modified && lastUpdated) {
-                    lastUpdated.innerHTML = "업데이트: " + new Date(modified).toLocaleString("ko-KR");
-                }
-            } catch(e) {
-                console.error(e);
-            }
-        }
+    } catch(e) {
+        console.error(e);
+    }
+}
 
         updateLastModified();
     </script>
