@@ -336,6 +336,7 @@
         let globalNameColorMap = {}; // 다른 컬러 목록 1회 사전 저장용
         let salesMap = {};
         let filteredData = [];
+        let groupedData = [];
         let isHighHeatOnly = false;
         let isWosWarningOnly = false;
         let isPosMissingOnly = false;
@@ -959,15 +960,18 @@
             applyFiltersAndRender();
         }
 
+        // ==========================================
+        // 2. 핵심 필터링 및 풀 뷰(Full View) 보존 로직
+        // ==========================================
         function applyFiltersAndRender() {
             if (rawInventory.length === 0) return;
             const searchTerm = searchInput.value.trim().toLowerCase();
 
-            filteredData = rawInventory.map(item => {
+            // 1) 전체 원본 규격 데이터에 판매량, WOS, DP 상태 계산 부여
+            const enrichedInventory = rawInventory.map(item => {
                 const salesKey = item.sku + "|" + item.size;
                 const sizeSales = salesMap[salesKey] || 0;
                 const skuTotalSales = salesMap[item.sku] || 0;
-                // WOS는 신사 매장 재고 및 주간 판매량 기준
                 const calcWos = sizeSales > 0 ? (item.stock / sizeSales) : (item.stock === 0 ? 0 : 999);
                 
                 const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
@@ -980,23 +984,110 @@
                     isDp: isDp,
                     isHighHeat: skuTotalSales >= HIGH_HEAT_THRESHOLD
                 };
-            }).filter(item => {
-                const matchesSearch = !searchTerm || item.name.toLowerCase().includes(searchTerm) || item.sku.toLowerCase().includes(searchTerm);
-                const matchesBrand = selectedBrand.length === 0 || selectedBrand.includes(item.brand);
-                const matchesBiz = selectedBiz.length === 0 || selectedBiz.includes(item.category2);
-                const matchesGender = selectedGender.length === 0 || selectedGender.includes(item.gender);
-                const matchesSize = selectedSizeDisplay.length === 0 || selectedSizeDisplay.includes(item.sizeDisplay) || selectedSizeDisplay.includes(item.size);
-                const matchesHeat = !isHighHeatOnly || item.isHighHeat;
-                const matchesWosWarning = !isWosWarningOnly || (item.sales > 0 && item.wos <= 2.0);
-                const matchesPosMissing = !isPosMissingOnly || !item.hasPosBarcode;
-                const matchesDpOnly = !isDpOnly || item.isDp;
-                const matchesDpLowStock = !isDpLowStockOnly || (item.isDp && item.stock <= 2);
-                const matchesDpMissing = !isDpMissingOnly || !item.isDp;
-
-                return matchesSearch && matchesBrand && matchesBiz && matchesGender && matchesSize && matchesHeat && matchesWosWarning && matchesPosMissing && matchesDpOnly && matchesDpLowStock && matchesDpMissing;
             });
 
-            // 표 형태 정렬 (신사 재고 및 판매량 기준)
+            // 2) 전체 상품(SKU) 단위로 1차 그룹핑 (모든 보유 규격 목록 통합)
+            const allGroupsMap = {};
+            enrichedInventory.forEach(item => {
+                const groupKey = item.sku || (item.name + '_' + item.brand);
+                const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
+                const isItemDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
+
+                if (!allGroupsMap[groupKey]) {
+                    allGroupsMap[groupKey] = {
+                        ...item,
+                        groupKey: groupKey,
+                        totalStock: 0,
+                        totalBusanStock: 0,
+                        totalSales: 0,
+                        hasAnyPosMissing: false,
+                        isDp: isItemDp,
+                        items: [],
+                        sizeList: []
+                    };
+                }
+
+                allGroupsMap[groupKey].totalStock += item.stock;
+                allGroupsMap[groupKey].totalBusanStock += (item.busanStock || 0);
+                allGroupsMap[groupKey].totalSales += item.sales;
+                if (!item.hasPosBarcode) {
+                    allGroupsMap[groupKey].hasAnyPosMissing = true;
+                }
+
+                allGroupsMap[groupKey].items.push(item);
+                allGroupsMap[groupKey].sizeList.push({
+                    size: item.sizeDisplay || item.size || 'FREE',
+                    rawSize: item.size,
+                    isShoe: item.isShoe,
+                    genderCat: item.genderCat,
+                    stock: item.stock,
+                    busanStock: item.busanStock || 0,
+                    sales: item.sales,
+                    wos: item.wos,
+                    hasPosBarcode: item.hasPosBarcode
+                });
+            });
+
+            // 3) 각 상품 그룹의 WOS, HIGH HEAT 계산 및 사이즈 정렬
+            const allGroups = Object.values(allGroupsMap);
+            allGroups.forEach(group => {
+                group.wos = group.totalSales > 0 ? (group.totalStock / group.totalSales) : (group.totalStock === 0 ? 0 : 999);
+                group.isHighHeat = group.totalSales >= HIGH_HEAT_THRESHOLD;
+
+                group.sizeList.sort((a, b) => {
+                    const isShoeA = a.isShoe || isShoeSize(a.rawSize);
+                    const isShoeB = b.isShoe || isShoeSize(b.rawSize);
+
+                    if (isShoeA && isShoeB) {
+                        const numA = parseInt(String(a.rawSize || a.size).replace(/[^0-9]/g, ''), 10) || 0;
+                        const numB = parseInt(String(b.rawSize || b.size).replace(/[^0-9]/g, ''), 10) || 0;
+                        if (numA !== numB) return numA - numB;
+                    }
+
+                    return compareApparelSizes(a.rawSize || a.size, b.rawSize || b.size);
+                });
+            });
+
+            // 4) 필터 검사 (사이즈 필터 선택 시 해당 사이즈를 보유한 상품을 매칭하여 '전체 사이즈' 보존)
+            groupedData = allGroups.filter(group => {
+                const matchesSearch = !searchTerm || group.name.toLowerCase().includes(searchTerm) || (group.sku && group.sku.toLowerCase().includes(searchTerm));
+                const matchesBrand = selectedBrand.length === 0 || selectedBrand.includes(group.brand);
+                const matchesBiz = selectedBiz.length === 0 || selectedBiz.includes(group.category2);
+                const matchesGender = selectedGender.length === 0 || selectedGender.includes(group.gender);
+                
+                // 해당 상품이 보유한 사이즈 목록 중 선택된 사이즈가 하나라도 포함되어 있는지 확인
+                const matchesSize = selectedSizeDisplay.length === 0 || group.items.some(item => 
+                    selectedSizeDisplay.includes(item.sizeDisplay) || selectedSizeDisplay.includes(item.size)
+                );
+
+                const matchesHeat = !isHighHeatOnly || group.isHighHeat;
+                const matchesWosWarning = !isWosWarningOnly || group.items.some(item => item.sales > 0 && item.wos <= 2.0);
+                const matchesPosMissing = !isPosMissingOnly || group.hasAnyPosMissing;
+                const matchesDpOnly = !isDpOnly || group.isDp;
+                const matchesDpLowStock = !isDpLowStockOnly || (group.isDp && group.totalStock <= 2);
+                const matchesDpMissing = !isDpMissingOnly || !group.isDp;
+
+                return matchesSearch && matchesBrand && matchesBiz && matchesGender && 
+                       matchesSize && matchesHeat && matchesWosWarning && matchesPosMissing && 
+                       matchesDpOnly && matchesDpLowStock && matchesDpMissing;
+            });
+
+            // 5) 매칭된 상품들의 모든 사이즈 규격을 filteredData로 구성 (표 뷰 및 엑셀 다운로드용)
+            filteredData = [];
+            groupedData.forEach(group => {
+                filteredData.push(...group.items);
+            });
+
+            // 6) 카드 및 표 형태 정렬
+            groupedData.sort((a, b) => {
+                if (sortBy === 'sales_desc') return b.totalSales - a.totalSales || b.totalStock - a.totalStock;
+                if (sortBy === 'wos_asc') return a.wos - b.wos;
+                if (sortBy === 'stock_desc') return b.totalStock - a.totalStock;
+                if (sortBy === 'name_asc') return a.name.localeCompare(b.name, 'ko') || (a.sku || '').localeCompare(b.sku || '', 'ko');
+                if (sortBy === 'sku_asc') return (a.sku || a.name).localeCompare((b.sku || b.name), 'ko');
+                return 0;
+            });
+
             filteredData.sort((a, b) => {
                 if (sortBy === 'sales_desc') return b.sales - a.sales || b.stock - a.stock;
                 if (sortBy === 'wos_asc') return a.wos - b.wos;
@@ -1027,102 +1118,28 @@
 
         function renderResults() {
             metricsSection.classList.remove('hidden');
-            metricTotalItems.textContent = filteredData.length.toLocaleString();
+            metricTotalItems.textContent = groupedData.length.toLocaleString();
             metricTotalStock.textContent = filteredData.reduce((acc, cur) => acc + cur.stock, 0).toLocaleString();
             if (metricTotalBusanStock) {
                 metricTotalBusanStock.textContent = filteredData.reduce((acc, cur) => acc + (cur.busanStock || 0), 0).toLocaleString();
             }
             metricTotalSales.textContent = filteredData.reduce((acc, cur) => acc + cur.sales, 0).toLocaleString();
+            metricHighHeat.textContent = groupedData.filter(i => i.isHighHeat).length.toLocaleString();
+            resultCount.textContent = groupedData.length.toLocaleString();
+            detailCount.textContent = filteredData.length.toLocaleString();
 
-            if (filteredData.length === 0) {
+            if (groupedData.length === 0) {
                 if (viewMode === 'grid') {
                     gridView.innerHTML = `<div class="col-span-full bg-white p-12 text-center text-gray-400 rounded-lg border border-gray-200">조건에 부합하는 보유 상품이 없습니다.</div>`;
                 } else {
                     inventoryTbody.innerHTML = `<tr><td colspan="13" class="p-8 text-center text-gray-400">조건에 부합하는 상품이 없습니다.</td></tr>`;
                 }
-                resultCount.textContent = '0';
-                detailCount.textContent = '0';
-                metricHighHeat.textContent = '0';
                 return;
             }
 
-            // SKU & 상품별 통합 그룹핑
-            const groupedMap = {};
-            filteredData.forEach(item => {
-                const groupKey = item.sku || (item.name + '_' + item.brand);
-                const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
-                const isItemDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
-
-                if (!groupedMap[groupKey]) {
-                    groupedMap[groupKey] = {
-                        ...item,
-                        groupKey: groupKey,
-                        totalStock: 0,
-                        totalBusanStock: 0,
-                        totalSales: 0,
-                        hasAnyPosMissing: false,
-                        isDp: isItemDp,
-                        sizeList: []
-                    };
-                }
-                groupedMap[groupKey].totalStock += item.stock;
-                groupedMap[groupKey].totalBusanStock += (item.busanStock || 0);
-                groupedMap[groupKey].totalSales += item.sales;
-                if (!item.hasPosBarcode) {
-                    groupedMap[groupKey].hasAnyPosMissing = true;
-                }
-
-                groupedMap[groupKey].sizeList.push({
-                    size: item.sizeDisplay || item.size || 'FREE',
-                    rawSize: item.size,
-                    isShoe: item.isShoe,
-                    genderCat: item.genderCat,
-                    stock: item.stock,
-                    busanStock: item.busanStock || 0,
-                    sales: item.sales,
-                    wos: item.wos,
-                    hasPosBarcode: item.hasPosBarcode
-                });
-            });
-
-            const groupedData = Object.values(groupedMap);
-
-            // 그룹 데이터 WOS & 사이즈 정렬 (신사 재고 기준)
-            groupedData.forEach(group => {
-                group.wos = group.totalSales > 0 ? (group.totalStock / group.totalSales) : (group.totalStock === 0 ? 0 : 999);
-                group.isHighHeat = group.totalSales >= HIGH_HEAT_THRESHOLD;
-                
-                group.sizeList.sort((a, b) => {
-                    const isShoeA = a.isShoe || isShoeSize(a.rawSize);
-                    const isShoeB = b.isShoe || isShoeSize(b.rawSize);
-
-                    if (isShoeA && isShoeB) {
-                        const numA = parseInt(String(a.rawSize || a.size).replace(/[^0-9]/g, ''), 10) || 0;
-                        const numB = parseInt(String(b.rawSize || b.size).replace(/[^0-9]/g, ''), 10) || 0;
-                        if (numA !== numB) return numA - numB;
-                    }
-
-                    return compareApparelSizes(a.rawSize || a.size, b.rawSize || b.size);
-                });
-            });
-
-            // 카드 뷰 정렬 (신사 기준)
-            groupedData.sort((a, b) => {
-                if (sortBy === 'sales_desc') return b.totalSales - a.totalSales || b.totalStock - a.totalStock;
-                if (sortBy === 'wos_asc') return a.wos - b.wos;
-                if (sortBy === 'stock_desc') return b.totalStock - a.totalStock;
-                if (sortBy === 'name_asc') return a.name.localeCompare(b.name, 'ko') || (a.sku || '').localeCompare(b.sku || '', 'ko');
-                if (sortBy === 'sku_asc') return (a.sku || a.name).localeCompare((b.sku || b.name), 'ko');
-                return 0;
-            });
-
-            metricHighHeat.textContent = groupedData.filter(i => i.isHighHeat).length.toLocaleString();
-            resultCount.textContent = groupedData.length.toLocaleString();
-            detailCount.textContent = filteredData.length.toLocaleString();
-
             // 현재 활성화된 뷰(Grid vs Table) 렌더링
             if (viewMode === 'grid') {
-                // 1. Grid View (카드형)
+                // 1. Grid View (카드형 - 풀 사이즈 뷰)
                 gridView.innerHTML = groupedData.map((item, index) => {
                     const safeId = 'card_' + (item.sku ? item.sku.replace(/[^a-zA-Z0-9_-]/g, '_') : index);
                     const googleSearchUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent((item.sku || '') + ' ' + (item.name || ''))}`;
@@ -1196,11 +1213,12 @@
                             </a>
                            </div>`;
 
-                    // 카드 뷰 사이즈 배지
+                    // 카드 뷰 전체 사이즈 배지 (선택된 사이즈는 ring으로 세련되게 강조)
                     const sizeBadgesHtml = item.sizeList.map(s => {
                         const isSoldOut = s.stock === 0;
+                        const isSelected = selectedSizeDisplay.length > 0 && (selectedSizeDisplay.includes(s.size) || selectedSizeDisplay.includes(s.rawSize));
+
                         let badgeColor = 'bg-gray-100 text-gray-800 border-gray-200';
-                        
                         if (s.genderCat === 'unisex') {
                             badgeColor = 'bg-purple-50 text-purple-700 border-purple-200';
                         } else if (s.genderCat === 'women') {
@@ -1209,16 +1227,23 @@
                             badgeColor = 'bg-white text-gray-800 border-gray-300';
                         }
 
-                        return `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${isSoldOut ? 'bg-gray-100 text-gray-400 line-through' : badgeColor + ' border'}">
+                        const selectedStyle = isSelected ? 'ring-2 ring-black font-extrabold shadow-sm' : '';
+
+                        return `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${isSoldOut ? 'bg-gray-100 text-gray-400 line-through' : badgeColor + ' border'} ${selectedStyle}">
                             ${s.size}
                         </span>`;
                     }).join(' ');
 
                     // 상세 규격별 신사 재고, 판매량, 해운대 재고 표시
-                    const sizeRowsHtml = item.sizeList.map(s => `
-                        <div class="flex items-center justify-between py-1.5 px-2 rounded bg-white border border-gray-100 hover:border-gray-300 transition text-xs">
+                    const sizeRowsHtml = item.sizeList.map(s => {
+                        const isSelected = selectedSizeDisplay.length > 0 && (selectedSizeDisplay.includes(s.size) || selectedSizeDisplay.includes(s.rawSize));
+                        const highlightRow = isSelected ? 'bg-amber-50/60 border-amber-300' : 'bg-white border-gray-100 hover:border-gray-300';
+
+                        return `
+                        <div class="flex items-center justify-between py-1.5 px-2 rounded ${highlightRow} border transition text-xs">
                             <div class="flex items-center gap-1.5 min-w-0">
                                 <span class="font-bold text-gray-900 truncate">${s.size}</span>
+                                ${isSelected ? '<span class="text-[9px] bg-black text-white px-1 py-0.2 rounded font-bold whitespace-nowrap">선택</span>' : ''}
                                 ${!s.hasPosBarcode ? '<span class="text-[9px] bg-red-100 text-red-600 px-1 py-0.2 rounded font-bold whitespace-nowrap">POS 미등록</span>' : ''}
                             </div>
                             <div class="flex items-center gap-2.5 sm:gap-3 text-right">
@@ -1236,7 +1261,8 @@
                                 </div>
                             </div>
                         </div>
-                    `).join('');
+                        `;
+                    }).join('');
 
                     return `
                     <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col justify-between hover:shadow-md transition cursor-pointer group"
