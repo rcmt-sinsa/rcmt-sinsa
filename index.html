@@ -136,6 +136,21 @@
                     </button>
                 </div>
 
+                <!-- 적재(창고) 위치 필터 칩스 -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-2">
+                        <i class="fa-solid fa-warehouse text-gray-400 mr-1"></i>적재(창고) 위치
+                    </label>
+                    <div id="locationChipContainer" class="flex flex-wrap gap-1.5">
+                        <button class="chip-btn active" onclick="selectLocation('')"><i class="fa-solid fa-boxes-stacked mr-1.5"></i>전체 위치</button>
+                        <button class="chip-btn" onclick="selectLocation('B1')"><i class="fa-solid fa-location-dot text-indigo-500 mr-1.5"></i>B1</button>
+                        <button class="chip-btn" onclick="selectLocation('1층')"><i class="fa-solid fa-location-dot text-blue-500 mr-1.5"></i>1층</button>
+                        <button class="chip-btn" onclick="selectLocation('3층')"><i class="fa-solid fa-location-dot text-emerald-500 mr-1.5"></i>3층</button>
+                        <button class="chip-btn" onclick="selectLocation('4층')"><i class="fa-solid fa-location-dot text-amber-500 mr-1.5"></i>4층</button>
+                        <button class="chip-btn" onclick="selectLocation('NONE')"><i class="fa-solid fa-circle-question text-gray-400 mr-1.5"></i>위치 미지정</button>
+                    </div>
+                </div>
+
                 <!-- 1. Brand Filter Chips -->
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-2">
@@ -254,6 +269,7 @@
                             <tr>
                                 <th class="p-3">상태 / WOS</th>
                                 <th class="p-3 text-center">진열(DP)</th>
+                                <th class="p-3 text-center">적재 위치</th>
                                 <th class="p-3">품번 (SKU)</th>
                                 <th class="p-3">품명 (상품명)</th>
                                 <th class="p-3">규격 (사이즈)</th>
@@ -293,6 +309,7 @@
         let db = null;
         let isFirebaseActive = false;
         let dpMap = {};
+        let locationMap = {}; // 적재 위치 맵 { SKU: 'B1' | '1층' | '3층' | '4층' }
 
         try {
             firebase.initializeApp(firebaseConfig);
@@ -311,41 +328,66 @@
                     });
                 }
             } catch (migErr) {
-                console.warn("Migration warning:", migErr);
+                console.warn("DP Migration warning:", migErr);
             }
 
-            // 실시간 리스너
+            // [자동 마이그레이션] 기존 로컬 위치 내역을 파이어베이스로 1회 자동 업로드
+            try {
+                const localLocSaved = JSON.parse(localStorage.getItem('rcmt_location') || '{}');
+                if (localLocSaved && Object.keys(localLocSaved).length > 0) {
+                    Object.keys(localLocSaved).forEach(sku => {
+                        if (localLocSaved[sku]) {
+                            const safeSkuKey = String(sku).replace(/[.#$[\]]/g, '_');
+                            db.ref('rcmt_location/' + safeSkuKey).set(localLocSaved[sku]);
+                        }
+                    });
+                }
+            } catch (locMigErr) {
+                console.warn("Location Migration warning:", locMigErr);
+            }
+
+            // DP 실시간 리스너
             db.ref('rcmt_dp_status').on('value', (snapshot) => {
                 dpMap = snapshot.val() || {};
                 const cloudEl = document.getElementById('cloudIndicator');
                 if (cloudEl) cloudEl.innerHTML = '<span class="text-emerald-400 font-bold">🟢 실시간 클라우드 연동 완료</span>';
                 applyFiltersAndRender();
             });
+
+            // 적재 위치 실시간 리스너
+            db.ref('rcmt_location').on('value', (snapshot) => {
+                locationMap = snapshot.val() || {};
+                applyFiltersAndRender();
+            });
+
         } catch (e) {
             console.warn("Firebase 연결 실패, 로컬 저장소로 작동합니다:", e);
             try {
                 dpMap = JSON.parse(localStorage.getItem('rcmt_dp_status') || '{}');
+                locationMap = JSON.parse(localStorage.getItem('rcmt_location') || '{}');
             } catch (err) {
                 dpMap = {};
+                locationMap = {};
             }
             const cloudEl = document.getElementById('cloudIndicator');
             if (cloudEl) cloudEl.innerHTML = '<span class="text-amber-400">⚠️ 로컬 단독 모드</span>';
         }
 
         let rawInventory = [];
-        let globalNameColorMap = {}; // 다른 컬러 목록 1회 사전 저장용
+        let globalNameColorMap = {};
         let salesMap = {};
         let filteredData = [];
         let groupedData = [];
         let isHighHeatOnly = false;
         let isWosWarningOnly = false;
         let isPosMissingOnly = false;
-        let isDpOnly = false;          // DP만 보기
-        let isDpLowStockOnly = false;  // DP 재고부족(2개 이하)만 보기
-        let isDpMissingOnly = false;   // 미진열만 보기
+        let isDpOnly = false;          
+        let isDpLowStockOnly = false;  
+        let isDpMissingOnly = false;   
+        let selectedLocation = '';     // 적재 위치 필터 ('', 'B1', '1층', '3층', '4층', 'NONE')
         let viewMode = 'grid';
         let sortBy = 'sales_desc';
-        const HIGH_HEAT_THRESHOLD = 3; // SKU 전체 주간 판매량 3개 이상 기준
+        const HIGH_HEAT_THRESHOLD = 3; 
 
         let selectedBrand = [];
         let selectedBiz = [];
@@ -408,6 +450,31 @@
             } else {
                 try {
                     localStorage.setItem('rcmt_dp_status', JSON.stringify(dpMap));
+                } catch (e) {}
+                applyFiltersAndRender();
+            }
+        }
+
+        // 적재 위치 변경 함수 (Firebase 실시간 저장)
+        function updateLocation(sku, newLoc, event) {
+            if (event) event.stopPropagation();
+            if (!sku) return;
+
+            const safeSkuKey = String(sku).replace(/[.#$[\]]/g, '_');
+            const val = String(newLoc || '').trim();
+
+            locationMap[sku] = val;
+            locationMap[safeSkuKey] = val;
+
+            if (isFirebaseActive && db) {
+                if (val) {
+                    db.ref('rcmt_location/' + safeSkuKey).set(val);
+                } else {
+                    db.ref('rcmt_location/' + safeSkuKey).remove();
+                }
+            } else {
+                try {
+                    localStorage.setItem('rcmt_location', JSON.stringify(locationMap));
                 } catch (e) {}
                 applyFiltersAndRender();
             }
@@ -700,8 +767,8 @@
                     sizeDisplay: formattedSize,
                     isShoe: isShoe,
                     genderCat: getGenderCategory(rawGender),
-                    stock: stockVal,             // 신사 매장 재고 (모든 계산의 기준)
-                    busanStock: busanStockVal,   // 해운대(부산) 매장 재고 (택배/고객응대 확인용)
+                    stock: stockVal,             
+                    busanStock: busanStockVal,   
                     imageUrl: rawImg,
                     hasPosBarcode: rawPosBarcode !== '',
                     sales: 0,
@@ -850,7 +917,7 @@
 
             document.getElementById('sizeEmptyText').classList.add('hidden');
 
-            // 1. Shoe sizes (남성/공용 흰색 -> 여성 핑크 정렬)
+            // 1. Shoe sizes
             const shoeSizeList = Array.from(shoeSizesMap.values());
             shoeSizeList.sort((a, b) => {
                 const gOrder = { 'men': 1, 'women': 2 };
@@ -960,6 +1027,25 @@
             applyFiltersAndRender();
         }
 
+        function selectLocation(val) {
+            selectedLocation = val;
+            const container = document.getElementById('locationChipContainer');
+            if (container) {
+                const buttons = container.querySelectorAll('button');
+                buttons.forEach(btn => {
+                    const onclickAttr = btn.getAttribute('onclick') || '';
+                    if (val === '' && onclickAttr.includes("selectLocation('')")) {
+                        btn.className = 'chip-btn active';
+                    } else if (val !== '' && onclickAttr.includes(`selectLocation('${val}')`)) {
+                        btn.className = 'chip-btn active';
+                    } else {
+                        btn.className = 'chip-btn';
+                    }
+                });
+            }
+            applyFiltersAndRender();
+        }
+
         // ==========================================
         // 2. 핵심 필터링 및 풀 뷰(Full View) 보존 로직
         // ==========================================
@@ -967,7 +1053,7 @@
             if (rawInventory.length === 0) return;
             const searchTerm = searchInput.value.trim().toLowerCase();
 
-            // 1) 전체 원본 규격 데이터에 판매량, WOS, DP 상태 계산 부여
+            // 1) 전체 원본 규격 데이터에 판매량, WOS, DP, 적재위치 부여
             const enrichedInventory = rawInventory.map(item => {
                 const salesKey = item.sku + "|" + item.size;
                 const sizeSales = salesMap[salesKey] || 0;
@@ -976,22 +1062,25 @@
                 
                 const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
                 const isDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
+                const loc = locationMap[item.sku] || locationMap[safeSkuKey] || '';
 
                 return { 
                     ...item, 
                     sales: sizeSales, 
                     wos: calcWos,
                     isDp: isDp,
+                    location: loc,
                     isHighHeat: skuTotalSales >= HIGH_HEAT_THRESHOLD
                 };
             });
 
-            // 2) 전체 상품(SKU) 단위로 1차 그룹핑 (모든 보유 규격 목록 통합)
+            // 2) 전체 상품(SKU) 단위로 1차 그룹핑
             const allGroupsMap = {};
             enrichedInventory.forEach(item => {
                 const groupKey = item.sku || (item.name + '_' + item.brand);
                 const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
                 const isItemDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
+                const itemLoc = locationMap[item.sku] || locationMap[safeSkuKey] || '';
 
                 if (!allGroupsMap[groupKey]) {
                     allGroupsMap[groupKey] = {
@@ -1002,6 +1091,7 @@
                         totalSales: 0,
                         hasAnyPosMissing: false,
                         isDp: isItemDp,
+                        location: itemLoc,
                         items: [],
                         sizeList: []
                     };
@@ -1048,14 +1138,13 @@
                 });
             });
 
-            // 4) 필터 검사 (사이즈 필터 선택 시 해당 사이즈를 보유한 상품을 매칭하여 '전체 사이즈' 보존)
+            // 4) 필터 검사
             groupedData = allGroups.filter(group => {
                 const matchesSearch = !searchTerm || group.name.toLowerCase().includes(searchTerm) || (group.sku && group.sku.toLowerCase().includes(searchTerm));
                 const matchesBrand = selectedBrand.length === 0 || selectedBrand.includes(group.brand);
                 const matchesBiz = selectedBiz.length === 0 || selectedBiz.includes(group.category2);
                 const matchesGender = selectedGender.length === 0 || selectedGender.includes(group.gender);
                 
-                // 해당 상품이 보유한 사이즈 목록 중 선택된 사이즈가 하나라도 포함되어 있는지 확인
                 const matchesSize = selectedSizeDisplay.length === 0 || group.items.some(item => 
                     selectedSizeDisplay.includes(item.sizeDisplay) || selectedSizeDisplay.includes(item.size)
                 );
@@ -1067,18 +1156,26 @@
                 const matchesDpLowStock = !isDpLowStockOnly || (group.isDp && group.totalStock <= 2);
                 const matchesDpMissing = !isDpMissingOnly || !group.isDp;
 
+                // 적재 위치 필터링
+                let matchesLocation = true;
+                if (selectedLocation === 'NONE') {
+                    matchesLocation = !group.location;
+                } else if (selectedLocation !== '') {
+                    matchesLocation = group.location === selectedLocation;
+                }
+
                 return matchesSearch && matchesBrand && matchesBiz && matchesGender && 
                        matchesSize && matchesHeat && matchesWosWarning && matchesPosMissing && 
-                       matchesDpOnly && matchesDpLowStock && matchesDpMissing;
+                       matchesDpOnly && matchesDpLowStock && matchesDpMissing && matchesLocation;
             });
 
-            // 5) 매칭된 상품들의 모든 사이즈 규격을 filteredData로 구성 (표 뷰 및 엑셀 다운로드용)
+            // 5) 매칭된 상품들의 모든 사이즈 규격을 filteredData로 구성
             filteredData = [];
             groupedData.forEach(group => {
                 filteredData.push(...group.items);
             });
 
-            // 6) 카드 및 표 형태 정렬
+            // 6) 정렬
             groupedData.sort((a, b) => {
                 if (sortBy === 'sales_desc') return b.totalSales - a.totalSales || b.totalStock - a.totalStock;
                 if (sortBy === 'wos_asc') return a.wos - b.wos;
@@ -1116,6 +1213,37 @@
             return `<span class="text-gray-400 text-[10px]">판매 없음</span>`;
         }
 
+        // 적재 위치 선택 UI 생성 헬퍼 (카드 우측 하단 및 테이블용)
+        function renderLocationSelectHtml(sku, currentLoc, isTable = false) {
+            const loc = currentLoc || '';
+            let bgClass = '';
+            
+            if (loc === 'B1') bgClass = 'bg-indigo-600 text-white border-indigo-700 font-bold';
+            else if (loc === '1층') bgClass = 'bg-blue-600 text-white border-blue-700 font-bold';
+            else if (loc === '3층') bgClass = 'bg-emerald-600 text-white border-emerald-700 font-bold';
+            else if (loc === '4층') bgClass = 'bg-amber-600 text-white border-amber-700 font-bold';
+            else bgClass = isTable ? 'bg-gray-100 text-gray-500 border-gray-300 font-medium' : 'bg-black/60 hover:bg-black text-white font-bold border-transparent';
+
+            const containerClass = isTable 
+                ? 'inline-block' 
+                : 'absolute bottom-2 right-2 z-10';
+
+            return `
+            <div class="${containerClass}" onclick="event.stopPropagation();">
+                <div class="relative inline-flex items-center">
+                    <select onchange="updateLocation('${sku}', this.value, event)"
+                            class="${bgClass} text-[10px] px-2 py-0.5 rounded shadow cursor-pointer border focus:outline-none transition appearance-none pr-4">
+                        <option value="" ${!loc ? 'selected' : ''} class="bg-white text-gray-900">📍 위치 미지정</option>
+                        <option value="B1" ${loc === 'B1' ? 'selected' : ''} class="bg-white text-indigo-900 font-bold">📍 B1</option>
+                        <option value="1층" ${loc === '1층' ? 'selected' : ''} class="bg-white text-blue-900 font-bold">📍 1층</option>
+                        <option value="3층" ${loc === '3층' ? 'selected' : ''} class="bg-white text-emerald-900 font-bold">📍 3층</option>
+                        <option value="4층" ${loc === '4층' ? 'selected' : ''} class="bg-white text-amber-900 font-bold">📍 4층</option>
+                    </select>
+                    <i class="fa-solid fa-chevron-down absolute right-1.5 text-[8px] pointer-events-none opacity-80 ${loc ? 'text-white' : (isTable ? 'text-gray-500' : 'text-white')}"></i>
+                </div>
+            </div>`;
+        }
+
         function renderResults() {
             metricsSection.classList.remove('hidden');
             metricTotalItems.textContent = groupedData.length.toLocaleString();
@@ -1132,14 +1260,13 @@
                 if (viewMode === 'grid') {
                     gridView.innerHTML = `<div class="col-span-full bg-white p-12 text-center text-gray-400 rounded-lg border border-gray-200">조건에 부합하는 보유 상품이 없습니다.</div>`;
                 } else {
-                    inventoryTbody.innerHTML = `<tr><td colspan="13" class="p-8 text-center text-gray-400">조건에 부합하는 상품이 없습니다.</td></tr>`;
+                    inventoryTbody.innerHTML = `<tr><td colspan="14" class="p-8 text-center text-gray-400">조건에 부합하는 상품이 없습니다.</td></tr>`;
                 }
                 return;
             }
 
-            // 현재 활성화된 뷰(Grid vs Table) 렌더링
             if (viewMode === 'grid') {
-                // 1. Grid View (카드형 - 풀 사이즈 뷰)
+                // 1. Grid View (카드형)
                 gridView.innerHTML = groupedData.map((item, index) => {
                     const safeId = 'card_' + (item.sku ? item.sku.replace(/[^a-zA-Z0-9_-]/g, '_') : index);
                     const googleSearchUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent((item.sku || '') + ' ' + (item.name || ''))}`;
@@ -1147,6 +1274,7 @@
                     
                     const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
                     const isItemDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
+                    const itemLoc = locationMap[item.sku] || locationMap[safeSkuKey] || '';
 
                     // 사전 계산된 globalNameColorMap에서 조회
                     const cleanName = String(item.name || '').trim().toLowerCase();
@@ -1182,7 +1310,7 @@
                         `;
                     }
 
-                    // DP 버튼
+                    // DP 버튼 (상단 우측)
                     let dpButtonHtml = '';
                     if (isItemDp) {
                         if (item.totalStock <= 2) {
@@ -1203,6 +1331,9 @@
                         </button>`;
                     }
 
+                    // 창고 위치 선택 UI (하단 우측)
+                    const locationSelectorHtml = renderLocationSelectHtml(item.sku, itemLoc, false);
+
                     const imageArea = item.imageUrl
                         ? `<img src="${item.imageUrl}" class="w-full h-36 object-cover rounded-t-lg" alt="${item.name}">`
                         : `<div class="w-full h-36 bg-gray-100 rounded-t-lg flex flex-col items-center justify-center p-3 text-center border-b border-gray-100">
@@ -1213,7 +1344,7 @@
                             </a>
                            </div>`;
 
-                    // 카드 뷰 전체 사이즈 배지 (선택된 사이즈는 ring으로 세련되게 강조)
+                    // 카드 뷰 전체 사이즈 배지
                     const sizeBadgesHtml = item.sizeList.map(s => {
                         const isSoldOut = s.stock === 0;
                         const isSelected = selectedSizeDisplay.length > 0 && (selectedSizeDisplay.includes(s.size) || selectedSizeDisplay.includes(s.rawSize));
@@ -1272,7 +1403,8 @@
                                 ${imageArea}
                                 ${item.isHighHeat ? '<span class="absolute top-2 left-2 heat-badge text-[10px] px-2 py-0.5 rounded shadow z-10">🔥 HIGH HEAT</span>' : ''}
                                 ${dpButtonHtml}
-                                ${item.hasAnyPosMissing ? '<span class="absolute bottom-2 right-2 bg-black/80 text-white text-[9px] px-1.5 py-0.5 rounded font-bold shadow">POS 미등록 포함</span>' : ''}
+                                ${item.hasAnyPosMissing ? '<span class="absolute bottom-2 left-2 bg-black/80 text-white text-[9px] px-1.5 py-0.5 rounded font-bold shadow z-10">POS 미등록 포함</span>' : ''}
+                                ${locationSelectorHtml}
                             </div>
 
                             <div class="p-3.5 space-y-2">
@@ -1307,7 +1439,7 @@
                             </div>
                         </div>
 
-                        <!-- 카드 하단 3단 지표 영역 (신사 재고 / 주간 판매량 / 해운대 재고) -->
+                        <!-- 카드 하단 3단 지표 영역 -->
                         <div class="p-2.5 border-t border-gray-100 bg-gray-50/70 grid grid-cols-3 gap-1 text-center text-xs">
                             <div class="text-left pl-1">
                                 <p class="text-[9px] text-gray-400 font-medium truncate">매장 총 재고(신사)</p>
@@ -1329,7 +1461,7 @@
                             </div>
                         </div>
 
-                        <!-- 카드 드롭다운 상세 (사이즈별 신사/판매/해운대 재고) -->
+                        <!-- 카드 드롭다운 상세 -->
                         <div id="${safeId}" class="hidden p-3 bg-gray-50 border-t border-gray-200 space-y-1.5" onclick="event.stopPropagation();">
                             <div class="flex items-center justify-between pb-1 border-b border-gray-200">
                                 <span class="text-[11px] font-black text-gray-700">📋 사이즈별 재고 & 판매 현황</span>
@@ -1348,6 +1480,7 @@
                     const wosHtml = getWosBadgeHtml(item.stock, item.sales, item.wos);
                     const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
                     const isItemDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
+                    const itemLoc = locationMap[item.sku] || locationMap[safeSkuKey] || '';
                     
                     let dpTableBtn = '';
                     if (isItemDp) {
@@ -1359,11 +1492,14 @@
                     } else {
                         dpTableBtn = `<button onclick="toggleDpStatus('${item.sku}', event)" class="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200">미진열</button>`;
                     }
+
+                    const tableLocSelect = renderLocationSelectHtml(item.sku, itemLoc, true);
                     
                     return `
                     <tr class="hover:bg-gray-50 border-b border-gray-100">
                         <td class="p-3">${item.isHighHeat ? '<span class="heat-badge text-xs px-2 py-0.5 rounded mr-1">🔥 HIGH HEAT</span>' : ''}${wosHtml}</td>
                         <td class="p-3 text-center">${dpTableBtn}</td>
+                        <td class="p-3 text-center">${tableLocSelect}</td>
                         <td class="p-3 font-mono font-bold">${item.sku}</td>
                         <td class="p-3 font-medium">${item.name}</td>
                         <td class="p-3 font-bold text-gray-800">${item.sizeDisplay || '-'}</td>
@@ -1430,10 +1566,12 @@
             const exportRows = rows.map(item => {
                 const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
                 const isItemDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
+                const loc = locationMap[item.sku] || locationMap[safeSkuKey] || '미지정';
 
                 return {
                     "상태": item.isHighHeat ? "HIGH HEAT" : (item.stock === 0 ? "품절" : "일반"),
                     "진열상태(DP)": isItemDp ? (item.stock <= 2 ? "DP 재고부족" : "DP 완료") : "미진열",
+                    "적재위치": loc,
                     "WOS(주)": item.sales > 0 ? (item.stock / item.sales).toFixed(1) : "-",
                     "품번(SKU)": item.sku,
                     "품명": item.name,
@@ -1567,6 +1705,7 @@
             selectedBiz = [];
             selectedGender = [];
             selectedSizeDisplay = [];
+            selectedLocation = '';
             isHighHeatOnly = false;
             isWosWarningOnly = false;
             isPosMissingOnly = false;
@@ -1581,6 +1720,7 @@
             if (toggleDpOnly) toggleDpOnly.classList.remove('bg-emerald-600', 'text-white');
             if (toggleDpLowStock) toggleDpLowStock.classList.remove('bg-red-600', 'text-white');
             if (toggleDpMissing) toggleDpMissing.classList.remove('bg-purple-600', 'text-white');
+            selectLocation('');
             renderFilterChips();
             applyFiltersAndRender();
         });
@@ -1591,6 +1731,7 @@
                 selectedBiz = [];
                 selectedGender = [];
                 selectedSizeDisplay = [];
+                selectedLocation = '';
                 isHighHeatOnly = false;
                 isWosWarningOnly = false;
                 isPosMissingOnly = false;
@@ -1603,6 +1744,7 @@
                 if (toggleDpOnly) toggleDpOnly.classList.remove('bg-emerald-600', 'text-white');
                 if (toggleDpLowStock) toggleDpLowStock.classList.remove('bg-red-600', 'text-white');
                 if (toggleDpMissing) toggleDpMissing.classList.remove('bg-purple-600', 'text-white');
+                selectLocation('');
                 renderFilterChips();
                 applyFiltersAndRender();
             });
