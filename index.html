@@ -2228,7 +2228,7 @@
             }
         }
 
-        loadCsvData();
+       loadCsvData();
 
         async function updateLastModified() {
             try {
@@ -2236,9 +2236,6 @@
                 const modified = response.headers.get("last-modified");
                 if (modified && lastUpdated) {
                     lastUpdated.innerHTML = "업데이트: " + new Date(modified).toLocaleString("ko-KR");
-                }
-            } catch(e) {
-                console Date(modified).toLocaleString("ko-KR");
                 }
             } catch(e) {
                 console.error(e);
