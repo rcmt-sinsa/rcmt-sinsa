@@ -536,44 +536,27 @@
             });
         }
 
-       // ==========================================
+// ==========================================
         // 3. 타깃 부분 갱신 (In-place DOM Updater)
         // ==========================================
-        function handleDpChange(safeSkuKey, newStatus) {
-            dpMap[safeSkuKey] = !!newStatus;
+        function handleDpChange(safeSkuKey, isDp) {
+            dpMap[safeSkuKey] = !!isDp;
             try { localStorage.setItem('rcmt_dp_status', JSON.stringify(dpMap)); } catch(e){}
 
-            // DP 관련 필터가 켜져 있는 상태라면 화면 재정렬 필요 (스크롤 한계는 유지)
-            if (isDpOnly || isDpMissingOnly || isDpLowStockOnly) {
+            if (isDpOnly || isDpLowStockOnly || isDpMissingOnly) {
                 applyFiltersAndRender(false);
                 return;
             }
 
             const group = groupedData.find(g => String(g.sku).replace(/[.#$[\]]/g, '_') === safeSkuKey);
             const sku = group ? group.sku : safeSkuKey;
-            const totalStock = group ? group.totalStock : 0;
 
-            // 1) 카드 뷰의 DP 버튼 및 재고 경고 문구만 갱신
-            const cardDpEl = document.getElementById('card_dp_container_' + safeSkuKey);
-            if (cardDpEl) {
-                cardDpEl.innerHTML = renderCardDpButtonHtml(sku, totalStock, !!newStatus);
-            }
-            const cardStockEl = document.getElementById('card_stock_metric_' + safeSkuKey);
-            if (cardStockEl && group) {
-                cardStockEl.innerHTML = `
-                    <p class="text-[9px] text-gray-400 font-medium truncate">매장 총 재고(신사)</p>
-                    <p class="font-black text-xs sm:text-sm ${totalStock <= 2 && !!newStatus ? 'text-red-600' : (totalStock === 0 ? 'text-red-500' : 'text-gray-900')}">
-                        ${totalStock.toLocaleString()} EA ${totalStock <= 2 && !!newStatus ? '<span class="text-[10px]">⚠️</span>' : ''}
-                    </p>
-                `;
-            }
-
-            // 2) 표(Table) 뷰의 DP 버튼 갱신
-            document.querySelectorAll('[data-table-dp]').forEach(el => {
-                if (el.getAttribute('data-table-dp') === safeSkuKey) {
-                    const row = el.closest('tr');
-                    const stock = row && row.dataset.stock ? parseInt(row.dataset.stock, 10) : totalStock;
-                    el.innerHTML = renderTableDpButtonHtml(sku, stock, !!newStatus);
+            // 1) 표(Table) 뷰의 DP 버튼 갱신
+            document.querySelectorAll('.table_dp_container_' + safeSkuKey).forEach(el => {
+                const row = el.closest('tr');
+                const stock = row && row.dataset.stock ? parseInt(row.dataset.stock, 10) : 0;
+                if (typeof renderTableDpButtonHtml === 'function') {
+                    el.innerHTML = renderTableDpButtonHtml(sku, stock, isDp);
                 }
             });
         }
@@ -582,7 +565,6 @@
             locationMap[safeSkuKey] = newLoc || '';
             try { localStorage.setItem('rcmt_location', JSON.stringify(locationMap)); } catch(e){}
 
-            // 특정 위치 필터가 켜져 있다면 목록 재정렬 필요 (스크롤 한계는 유지)
             if (selectedLocation !== '') {
                 applyFiltersAndRender(false);
                 return;
@@ -591,13 +573,13 @@
             const group = groupedData.find(g => String(g.sku).replace(/[.#$[\]]/g, '_') === safeSkuKey);
             const sku = group ? group.sku : safeSkuKey;
 
-            // 1) 카드 뷰의 위치 선택기만 갱신
+            // 1) 카드 뷰의 위치 선택기 갱신
             const cardLocEl = document.getElementById('card_loc_container_' + safeSkuKey);
             if (cardLocEl) {
                 cardLocEl.innerHTML = renderLocationSelectHtml(sku, newLoc, false);
             }
 
-            // 2) 표 뷰의 위치 선택기만 갱신
+            // 2) 표 뷰의 위치 선택기 갱신 (data-table-loc 속성 비교)
             document.querySelectorAll('[data-table-loc]').forEach(el => {
                 if (el.getAttribute('data-table-loc') === safeSkuKey) {
                     el.innerHTML = renderLocationSelectHtml(sku, newLoc, true);
