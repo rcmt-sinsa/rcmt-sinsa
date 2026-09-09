@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RCMT 신사 재고 & 프로모션 현황</title>
+    <title>RCMT 신사 재고 현황</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -15,8 +15,6 @@
     <style>
         .musinsa-badge { background-color: #000; color: #fff; font-weight: 700; font-size: 0.7rem; padding: 2px 6px; border-radius: 2px; }
         .heat-badge { background-color: #ff3333; color: #fff; font-weight: 800; }
-        .promo-badge-red { background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
-        .promo-badge-blue { background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
         .chip-btn {
             display: inline-flex; align-items: center; padding: 0.35rem 0.75rem; border-radius: 9999px;
             font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.15s ease-in-out;
@@ -40,7 +38,7 @@
         <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-3">
             <div class="flex items-center space-x-3">
                 <span class="text-xl font-black tracking-widest text-white">INVENTORY HUB</span>
-                <span class="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded hidden sm:inline-block">스마트 재고 & HIGH HEAT & 프로모션</span>
+                <span class="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded hidden sm:inline-block">스마트 재고 & HIGH HEAT</span>
             </div>
 
             <div class="flex items-center space-x-3 text-xs">
@@ -60,8 +58,8 @@
 
     <main class="max-w-7xl mx-auto p-4 md:p-6 space-y-5">
 
-        <!-- Summary Metrics Dashboard (6단 지표) -->
-        <section id="metricsSection" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 md:gap-4 hidden">
+        <!-- Summary Metrics Dashboard (5단 지표) -->
+        <section id="metricsSection" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-4 hidden">
             <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                 <p class="text-xs text-gray-500 font-medium">전체 품목 수 (SKU)</p>
                 <p id="metricTotalItems" class="text-2xl font-black mt-1">0</p>
@@ -79,12 +77,8 @@
                 <p id="metricTotalSales" class="text-2xl font-black mt-1 text-blue-600">0</p>
             </div>
             <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                <p class="text-xs text-gray-500 font-medium">HIGH HEAT 품목</p>
+                <p class="text-xs text-gray-500 font-medium">HIGH HEAT 품목 수</p>
                 <p id="metricHighHeat" class="text-2xl font-black mt-1 text-red-500">0</p>
-            </div>
-            <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                <p class="text-xs text-gray-500 font-medium">진행 프로모션 품목</p>
-                <p id="metricTotalPromo" class="text-2xl font-black mt-1 text-rose-600">0</p>
             </div>
         </section>
 
@@ -109,13 +103,10 @@
                         <button id="excelDropdownToggle" type="button" class="bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-2.5 rounded-md text-xs font-bold transition flex items-center justify-center shadow-sm">
                             <i class="fa-solid fa-file-excel mr-1.5"></i>엑셀 다운로드 <i class="fa-solid fa-chevron-down ml-1 text-[10px]"></i>
                         </button>
-                        <div id="excelDropdownMenu" class="hidden absolute right-0 mt-1.5 w-60 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50 divide-y divide-gray-100">
+                        <div id="excelDropdownMenu" class="hidden absolute right-0 mt-1.5 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50 divide-y divide-gray-100">
                             <div class="py-1">
                                 <button id="exportExcelBtn" class="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-gray-100 flex items-center font-medium transition">
-                                    <i class="fa-solid fa-file-lines text-green-600 mr-2.5 w-4 text-center"></i>📄 전체 재고 목록 (프로모션 포함)
-                                </button>
-                                <button id="exportPromoExcelBtn" class="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-gray-100 flex items-center font-bold text-rose-700 transition">
-                                    <i class="fa-solid fa-bolt text-rose-600 mr-2.5 w-4 text-center"></i>⚡ 진행 중 프로모션 행사 목록
+                                    <i class="fa-solid fa-file-lines text-green-600 mr-2.5 w-4 text-center"></i>📄 전체 재고 목록
                                 </button>
                                 <button id="exportDpExcelBtn" class="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-gray-100 flex items-center font-medium transition">
                                     <i class="fa-solid fa-check-double text-emerald-600 mr-2.5 w-4 text-center"></i>✨ 진열 (DP) 목록
@@ -135,9 +126,6 @@
             <!-- Quick Toggles -->
             <div class="border-t border-gray-100 pt-4 space-y-4">
                 <div class="flex flex-wrap items-center gap-2 pb-2 border-b border-gray-100">
-                    <button id="togglePromotion" class="px-3 py-1.5 rounded text-xs font-bold border border-rose-400 text-rose-700 hover:bg-rose-50 transition flex items-center shadow-sm">
-                        <i class="fa-solid fa-bolt mr-1 text-rose-500"></i> ⚡ 프로모션(행사) 상품만 보기
-                    </button>
                     <button id="toggleHighHeat" class="px-3 py-1.5 rounded text-xs font-bold border border-red-300 text-red-600 hover:bg-red-50 transition flex items-center">
                         <i class="fa-solid fa-fire mr-1"></i> HIGH HEAT 품목만 보기 (주간 3개 이상)
                     </button>
@@ -173,7 +161,7 @@
                     </div>
                 </div>
 
-                <!-- 1. Brand Filter Chips -->
+                <!-- 1. Brand Filter Chips (텍스트 표기) -->
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-2">
                         <i class="fa-solid fa-tags text-gray-400 mr-1"></i>브랜드
@@ -258,7 +246,6 @@
                     <span class="font-bold text-gray-500">정렬:</span>
                     <select id="sortBySelect" class="border border-gray-300 rounded px-2 py-1.5 bg-white text-xs font-semibold focus:outline-none focus:border-black">
                         <option value="sales_desc">주간 판매량 높은순 🔥</option>
-                        <option value="discount_desc">할인율 높은순 🏷️</option>
                         <option value="wos_asc">WOS 소진 임박순 🚨</option>
                         <option value="stock_desc">매장 재고 많은순 📦</option>
                         <option value="name_asc">제품명 순 (가나다) 🔤</option>
@@ -302,7 +289,7 @@
                                 <th class="p-3">품번 (SKU)</th>
                                 <th class="p-3">품명 (상품명)</th>
                                 <th class="p-3">규격 (사이즈)</th>
-                                <th class="p-3 text-right">가격 (정가/할인가)</th>
+                                <th class="p-3 text-right">소비자가</th>
                                 <th class="p-3">브랜드</th>
                                 <th class="p-3">BIZ</th>
                                 <th class="p-3">성별</th>
@@ -344,13 +331,6 @@
         let dpMap = {};
         let locationMap = {};
         let isInitialFirebaseLoaded = false;
-
-        function escapeAttr(str) {
-            return String(str || '').replace(/"/g, '&quot;');
-        }
-        function escapeJsStr(str) {
-            return String(str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-        }
 
         try {
             firebase.initializeApp(firebaseConfig);
@@ -400,20 +380,28 @@
 
                 applyFiltersAndRender(true);
 
-                // 실시간 리스너 등록
-                db.ref('rcmt_dp_status').on('child_changed', (snap) => handleDpChange(snap.key, snap.val()));
+                // 🌟 이후 발생하는 변경사항은 타깃 요소만 DOM 부분 갱신 (화면 리셋 방지)
+                db.ref('rcmt_dp_status').on('child_changed', (snap) => {
+                    handleDpChange(snap.key, snap.val());
+                });
                 db.ref('rcmt_dp_status').on('child_added', (snap) => {
                     if (!isInitialFirebaseLoaded) return;
                     handleDpChange(snap.key, snap.val());
                 });
-                db.ref('rcmt_dp_status').on('child_removed', (snap) => handleDpChange(snap.key, false));
+                db.ref('rcmt_dp_status').on('child_removed', (snap) => {
+                    handleDpChange(snap.key, false);
+                });
 
-                db.ref('rcmt_location').on('child_changed', (snap) => handleLocationChange(snap.key, snap.val()));
+                db.ref('rcmt_location').on('child_changed', (snap) => {
+                    handleLocationChange(snap.key, snap.val());
+                });
                 db.ref('rcmt_location').on('child_added', (snap) => {
                     if (!isInitialFirebaseLoaded) return;
                     handleLocationChange(snap.key, snap.val());
                 });
-                db.ref('rcmt_location').on('child_removed', (snap) => handleLocationChange(snap.key, ''));
+                db.ref('rcmt_location').on('child_removed', (snap) => {
+                    handleLocationChange(snap.key, '');
+                });
             }).catch(e => {
                 console.warn("Firebase 초기화 에러:", e);
             });
@@ -435,14 +423,10 @@
         // 2. 상태 관리 및 열려있는 상세 창 추적
         // ==========================================
         let rawInventory = [];
-        let rawPromotions = [];
-        let activePromoMap = {};
         let globalNameColorMap = {};
         let salesMap = {};
         let filteredData = [];
         let groupedData = [];
-
-        let isPromotionOnly = false;
         let isHighHeatOnly = false;
         let isWosWarningOnly = false;
         let isPosMissingOnly = false;
@@ -459,8 +443,10 @@
         let selectedGender = [];
         let selectedSizeDisplay = [];
 
+        // 🌟 열려있는 카드 상세(아코디언) ID 추적 Set
         const openCardDetailIds = new Set();
 
+        // 분할 렌더링 페이지 크기
         const GRID_PAGE_SIZE = 32;
         const TABLE_PAGE_SIZE = 50;
         let currentGridLimit = GRID_PAGE_SIZE;
@@ -470,7 +456,6 @@
         const lastUpdated = document.getElementById('lastUpdated');
         const searchInput = document.getElementById('searchInput');
         const searchBtn = document.getElementById('searchBtn');
-        const togglePromotion = document.getElementById('togglePromotion');
         const toggleHighHeat = document.getElementById('toggleHighHeat');
         const toggleWosWarning = document.getElementById('toggleWosWarning');
         const togglePosMissing = document.getElementById('togglePosMissing');
@@ -485,7 +470,6 @@
         const excelDropdownToggle = document.getElementById('excelDropdownToggle');
         const excelDropdownMenu = document.getElementById('excelDropdownMenu');
         const exportExcelBtn = document.getElementById('exportExcelBtn');
-        const exportPromoExcelBtn = document.getElementById('exportPromoExcelBtn');
         const exportDpExcelBtn = document.getElementById('exportDpExcelBtn');
         const exportUnDpExcelBtn = document.getElementById('exportUnDpExcelBtn');
         const exportRestockExcelBtn = document.getElementById('exportRestockExcelBtn');
@@ -496,7 +480,6 @@
         const metricTotalBusanStock = document.getElementById('metricTotalBusanStock');
         const metricTotalSales = document.getElementById('metricTotalSales');
         const metricHighHeat = document.getElementById('metricHighHeat');
-        const metricTotalPromo = document.getElementById('metricTotalPromo');
 
         const gridView = document.getElementById('gridView');
         const gridSentinel = document.getElementById('gridSentinel');
@@ -517,12 +500,13 @@
         }
 
         // ==========================================
-        // 3. 타깃 부분 갱신 (Data-Attribute 기반)
+        // 3. 타깃 부분 갱신 (In-place DOM Updater)
         // ==========================================
         function handleDpChange(safeSkuKey, newStatus) {
             dpMap[safeSkuKey] = !!newStatus;
             try { localStorage.setItem('rcmt_dp_status', JSON.stringify(dpMap)); } catch(e){}
 
+            // DP 관련 필터가 켜져 있는 상태라면 화면 재정렬 필요 (스크롤 한계는 유지)
             if (isDpOnly || isDpMissingOnly || isDpLowStockOnly) {
                 applyFiltersAndRender(false);
                 return;
@@ -532,34 +516,26 @@
             const sku = group ? group.sku : safeSkuKey;
             const totalStock = group ? group.totalStock : 0;
 
-            // 1) 카드 뷰의 DP 버튼 및 재고 경고 문구 갱신
-            document.querySelectorAll('[data-card-dp]').forEach(el => {
-                const elSku = el.getAttribute('data-card-dp');
-                if (elSku === sku || String(elSku).replace(/[.#$[\]]/g, '_') === safeSkuKey) {
-                    el.innerHTML = renderCardDpButtonHtml(elSku, totalStock, !!newStatus);
-                }
-            });
-
-            document.querySelectorAll('[data-card-stock]').forEach(el => {
-                const elSku = el.getAttribute('data-card-stock');
-                if (elSku === sku || String(elSku).replace(/[.#$[\]]/g, '_') === safeSkuKey) {
-                    el.innerHTML = `
-                        <p class="text-[9px] text-gray-400 font-medium truncate">매장 총 재고(신사)</p>
-                        <p class="font-black text-xs sm:text-sm ${totalStock <= 2 && !!newStatus ? 'text-red-600' : (totalStock === 0 ? 'text-red-500' : 'text-gray-900')}">
-                            ${totalStock.toLocaleString()} EA ${totalStock <= 2 && !!newStatus ? '<span class="text-[10px]">⚠️</span>' : ''}
-                        </p>
-                    `;
-                }
-            });
+            // 1) 카드 뷰의 DP 버튼 및 재고 경고 문구만 갱신
+            const cardDpEl = document.getElementById('card_dp_container_' + safeSkuKey);
+            if (cardDpEl) {
+                cardDpEl.innerHTML = renderCardDpButtonHtml(sku, totalStock, !!newStatus);
+            }
+            const cardStockEl = document.getElementById('card_stock_metric_' + safeSkuKey);
+            if (cardStockEl && group) {
+                cardStockEl.innerHTML = `
+                    <p class="text-[9px] text-gray-400 font-medium truncate">매장 총 재고(신사)</p>
+                    <p class="font-black text-xs sm:text-sm ${totalStock <= 2 && !!newStatus ? 'text-red-600' : (totalStock === 0 ? 'text-red-500' : 'text-gray-900')}">
+                        ${totalStock.toLocaleString()} EA ${totalStock <= 2 && !!newStatus ? '<span class="text-[10px]">⚠️</span>' : ''}
+                    </p>
+                `;
+            }
 
             // 2) 표(Table) 뷰의 DP 버튼 갱신
-            document.querySelectorAll('[data-table-dp]').forEach(el => {
-                const elSku = el.getAttribute('data-table-dp');
-                if (elSku === sku || String(elSku).replace(/[.#$[\]]/g, '_') === safeSkuKey) {
-                    const row = el.closest('tr');
-                    const stock = row && row.dataset.stock ? parseInt(row.dataset.stock, 10) : totalStock;
-                    el.innerHTML = renderTableDpButtonHtml(elSku, stock, !!newStatus);
-                }
+            document.querySelectorAll('.table_dp_container_' + safeSkuKey).forEach(el => {
+                const row = el.closest('tr');
+                const stock = row && row.dataset.stock ? parseInt(row.dataset.stock, 10) : totalStock;
+                el.innerHTML = renderTableDpButtonHtml(sku, stock, !!newStatus);
             });
         }
 
@@ -567,6 +543,7 @@
             locationMap[safeSkuKey] = newLoc || '';
             try { localStorage.setItem('rcmt_location', JSON.stringify(locationMap)); } catch(e){}
 
+            // 특정 위치 필터가 켜져 있다면 목록 재정렬 필요 (스크롤 한계는 유지)
             if (selectedLocation !== '') {
                 applyFiltersAndRender(false);
                 return;
@@ -575,23 +552,19 @@
             const group = groupedData.find(g => String(g.sku).replace(/[.#$[\]]/g, '_') === safeSkuKey);
             const sku = group ? group.sku : safeSkuKey;
 
-            // 1) 카드 뷰 위치 선택기 갱신
-            document.querySelectorAll('[data-card-loc]').forEach(el => {
-                const elSku = el.getAttribute('data-card-loc');
-                if (elSku === sku || String(elSku).replace(/[.#$[\]]/g, '_') === safeSkuKey) {
-                    el.innerHTML = renderLocationSelectHtml(elSku, newLoc, false);
-                }
-            });
+            // 1) 카드 뷰의 위치 선택기만 갱신
+            const cardLocEl = document.getElementById('card_loc_container_' + safeSkuKey);
+            if (cardLocEl) {
+                cardLocEl.innerHTML = renderLocationSelectHtml(sku, newLoc, false);
+            }
 
-            // 2) 표 뷰 위치 선택기 갱신
-            document.querySelectorAll('[data-table-loc]').forEach(el => {
-                const elSku = el.getAttribute('data-table-loc');
-                if (elSku === sku || String(elSku).replace(/[.#$[\]]/g, '_') === safeSkuKey) {
-                    el.innerHTML = renderLocationSelectHtml(elSku, newLoc, true);
-                }
+            // 2) 표 뷰의 위치 선택기만 갱신
+            document.querySelectorAll('.table_loc_container_' + safeSkuKey).forEach(el => {
+                el.innerHTML = renderLocationSelectHtml(sku, newLoc, true);
             });
         }
 
+        // DP(진열) 상태 토글 함수
         function toggleDpStatus(sku, event) {
             if (event) event.stopPropagation();
             if (!sku) return;
@@ -601,6 +574,7 @@
             dpMap[sku] = nextState;
             dpMap[safeSkuKey] = nextState;
 
+            // 즉각적인 로컬 UI 반영
             handleDpChange(safeSkuKey, nextState);
 
             if (isFirebaseActive && db) {
@@ -608,6 +582,7 @@
             }
         }
 
+        // 적재 위치 변경 함수
         function updateLocation(sku, newLoc, event) {
             if (event) event.stopPropagation();
             if (!sku) return;
@@ -618,6 +593,7 @@
             locationMap[sku] = val;
             locationMap[safeSkuKey] = val;
 
+            // 즉각적인 로컬 UI 반영
             handleLocationChange(safeSkuKey, val);
 
             if (isFirebaseActive && db) {
@@ -641,28 +617,17 @@
             return num;
         }
 
-        function parseDateStr(str) {
-            if (!str) return null;
-            const clean = String(str).trim().replace(/[^\d\-\/.]/g, '');
-            const parts = clean.split(/[-/.]/);
-            if (parts.length >= 3) {
-                const y = parseInt(parts[0], 10);
-                const m = parseInt(parts, 10) - 1;
-                const d = parseInt(parts, 10);
-                if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
-                    return new Date(y, m, d);
-                }
-            }
-            return null;
-        }
-
-        // 브랜드 추출 로직 수정 완료: match.trim() 사용
         function extractBrand(subCategoryStr) {
             if (!subCategoryStr) return '기타';
+
             const cleaned = String(subCategoryStr).trim();
             const match = cleaned.match(/\(([^)]+)\)/);
-            if (match && match) {
-                return String(match).trim();
+
+            if (match) {
+                const [rawFull, capturedBrand] = match;
+                if (capturedBrand) {
+                    return capturedBrand.trim();
+                }
             }
 
             return cleaned
@@ -686,7 +651,10 @@
                 return false;
             }
             const num = parseInt(s.replace(/[^0-9]/g, ''), 10);
-            return num >= 210 && num <= 330;
+            if (num >= 210 && num <= 330) {
+                return true;
+            }
+            return false;
         }
 
         const mensShoeMap = {
@@ -711,14 +679,19 @@
             const num = parseInt(strVal.replace(/[^0-9]/g, ''), 10);
             if (!num || num < 200 || num > 330) return strVal;
 
-            const isWomen = getGenderCategory(genderStr) === 'women';
+            const gCat = getGenderCategory(genderStr);
+            const isWomen = gCat === 'women';
+
             const conversionMap = isWomen ? womensShoeMap : mensShoeMap;
             return conversionMap[num] ? `${num} (${conversionMap[num]})` : `${num}`;
         }
 
         function getApparelSizeOrder(sizeStr) {
             const s = String(sizeStr || '').trim().toUpperCase();
-            if (/^[1-9]$/.test(s)) return 100 + parseInt(s, 10);
+
+            if (/^[1-9]$/.test(s)) {
+                return 100 + parseInt(s, 10);
+            }
 
             const alphaMap = {
                 'XXS': 201, 'XS': 202, 'S': 203, 'M': 204, 'L': 205,
@@ -732,8 +705,13 @@
             if (slashMap[s]) return slashMap[s];
 
             const num = parseInt(s.replace(/[^0-9]/g, ''), 10);
-            if (num >= 70 && num <= 150 && /^\d+$/.test(s)) return 400 + num;
-            if (/^T[0-9]$/.test(s)) return 600 + parseInt(s.replace('T', ''), 10);
+            if (num >= 70 && num <= 150 && /^\d+$/.test(s)) {
+                return 400 + num;
+            }
+
+            if (/^T[0-9]$/.test(s)) {
+                return 600 + parseInt(s.replace('T', ''), 10);
+            }
 
             const osMap = {
                 'OSFW': 701, 'OSFM': 702, 'OSFA': 703, 'ONE SIZE': 704, '1SIZE': 704, 'FREE': 705, 'O/S': 706
@@ -801,7 +779,6 @@
                 if (text.includes('카테고리')) score++;
                 if (text.includes('브랜드')) score++;
                 if (text.includes('규격') || text.includes('사이즈')) score++;
-                if (text.includes('프로모션') || text.includes('할인') || text.includes('시작 일자')) score += 2;
 
                 if (score >= 2) {
                     headerRowIdx = i;
@@ -842,109 +819,13 @@
             return result;
         }
 
-        // ==========================================
-        // 4. 프로모션 데이터 파싱 및 활성 맵 빌드
-        // ==========================================
-        function processPromotionData(json) {
-            rawPromotions = [];
-            if (!json || json.length === 0) return;
-
-            const sample = json[0] || {};
-            const keys = Object.keys(sample);
-
-            const skuKey = keys.find(k => k.trim() === '품번') || keys.find(k => k.includes('품번') || k.toLowerCase().includes('sku')) || keys[0];
-            const promoNameKey = keys.find(k => k.includes('프로모션 이름') || k.includes('프로모션명') || k.includes('행사명') || k.includes('이벤트')) || '';
-            const discountKey = keys.find(k => k.includes('프로모션 할인') || k.includes('할인율') || k.includes('할인')) || '';
-            const promoPriceKey = keys.find(k => k.includes('프로모션 할인가') || k.includes('할인가') || k.includes('행사가')) || '';
-            const startDateKey = keys.find(k => k.includes('시작 일자') || k.includes('시작일') || k.includes('시작')) || '';
-            const endDateKey = keys.find(k => k.includes('종료 일자') || k.includes('종료일') || k.includes('종료')) || '';
-
-            json.forEach(row => {
-                const sku = String(row[skuKey] || '').trim();
-                if (!sku) return;
-
-                const name = String(row[promoNameKey] || '').trim();
-                const rawDiscount = String(row[discountKey] || '').trim();
-                const discountRate = parseInt(rawDiscount.replace(/[^0-9]/g, ''), 10) || 0;
-                const promoPrice = parseAndNormalizePrice(row[promoPriceKey]);
-                const startStr = String(row[startDateKey] || '').trim();
-                const endStr = String(row[endDateKey] || '').trim();
-
-                rawPromotions.push({
-                    sku: sku,
-                    name: name,
-                    discountRate: discountRate,
-                    promoPrice: promoPrice,
-                    startDateStr: startStr,
-                    endDateStr: endStr,
-                    startDate: parseDateStr(startStr),
-                    endDate: parseDateStr(endStr)
-                });
-            });
-
-            buildActivePromotionMap();
-        }
-
-        function buildActivePromotionMap() {
-            activePromoMap = {};
-            const now = new Date();
-            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-            const promoBySku = {};
-            rawPromotions.forEach(p => {
-                if (!promoBySku[p.sku]) promoBySku[p.sku] = [];
-                promoBySku[p.sku].push(p);
-            });
-
-            Object.keys(promoBySku).forEach(sku => {
-                const list = promoBySku[sku];
-
-                // 1) 오늘 기준 진행 중인 프로모션 필터링
-                const activeList = list.filter(p => {
-                    if (p.startDate && today < p.startDate) return false;
-                    if (p.endDate && today > p.endDate) return false;
-                    return true;
-                });
-
-                if (activeList.length === 0) return;
-
-                // 2) 최고 할인율 우선 선택
-                activeList.sort((a, b) => {
-                    if (b.discountRate !== a.discountRate) {
-                        return b.discountRate - a.discountRate;
-                    }
-                    if (a.promoPrice > 0 && b.promoPrice > 0 && a.promoPrice !== b.promoPrice) {
-                        return a.promoPrice - b.promoPrice;
-                    }
-                    return 0;
-                });
-
-                const best = activeList[0];
-
-                // 3) D-Day 텍스트 계산
-                let dDayText = '';
-                if (best.endDate) {
-                    const diffMs = best.endDate.getTime() - today.getTime();
-                    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-                    if (diffDays >= 0 && diffDays <= 3) {
-                        dDayText = diffDays === 0 ? 'D-Day' : `D-${diffDays}`;
-                    }
-                }
-
-                activePromoMap[sku] = {
-                    ...best,
-                    dDayText: dDayText
-                };
-            });
-        }
-
         function processInventoryData(json) {
             if (!json || json.length === 0) return;
 
             const sampleRow = json[0] || {};
             const keys = Object.keys(sampleRow);
 
-            const skuKey = keys.find(k => k.trim() === '품번') || keys.find(k => k.includes('품번') || k.toLowerCase().includes('sku')) || keys[0];
+            const skuKey = keys.find(k => k.trim() === '품번') || keys.find(k => k.includes('품번') || k.toLowerCase().includes('sku') || k.includes('코드')) || keys[0];
             const nameKey = keys.find(k => k.trim() === '품명') || keys.find(k => k.includes('품명')) || keys.find(k => k.includes('상품명')) || (keys.length > 1 ? keys : keys[0]) || '';
             const priceKey = keys.find(k => k.trim() === '소비자가') || keys.find(k => k.includes('소비자가') || k.includes('소비자') || k.includes('판매가') || k.includes('정가') || k.toLowerCase().includes('price')) || '';
             const subCatKey = keys.find(k => k.includes('품목소분류') || k.includes('소분류') || k.includes('브랜드')) || '';
@@ -1010,9 +891,15 @@
                 } else {
                     inventorySumMap[itemKey].stock += item.stock;
                     inventorySumMap[itemKey].busanStock = (inventorySumMap[itemKey].busanStock || 0) + (item.busanStock || 0);
-                    if (item.hasPosBarcode) inventorySumMap[itemKey].hasPosBarcode = true;
-                    if (!inventorySumMap[itemKey].imageUrl && item.imageUrl) inventorySumMap[itemKey].imageUrl = item.imageUrl;
-                    if (!inventorySumMap[itemKey].price && item.price) inventorySumMap[itemKey].price = item.price;
+                    if (item.hasPosBarcode) {
+                        inventorySumMap[itemKey].hasPosBarcode = true;
+                    }
+                    if (!inventorySumMap[itemKey].imageUrl && item.imageUrl) {
+                        inventorySumMap[itemKey].imageUrl = item.imageUrl;
+                    }
+                    if (!inventorySumMap[itemKey].price && item.price) {
+                        inventorySumMap[itemKey].price = item.price;
+                    }
                 }
             });
 
@@ -1048,7 +935,7 @@
             const sampleRow = json[0] || {};
             const keys = Object.keys(sampleRow);
 
-            const skuKey = keys.find(k => k.trim() === '품번') || keys.find(k => k.includes('품번') || k.toLowerCase().includes('sku')) || keys[0];
+            const skuKey = keys.find(k => k.trim() === '품번') || keys.find(k => k.includes('품번') || k.toLowerCase().includes('sku') || k.includes('코드')) || keys[0];
             const qtyKey = keys.find(k => k.trim() === '수량') || keys.find(k => k.includes('수량')) || keys.find(k => k.includes('판매')) || keys.find(k => k.includes('출고')) || keys[0] || '';
             const sizeKey = keys.find(k => k.trim() === '규격') || keys.find(k => k.includes('규격')) || '';
             
@@ -1069,7 +956,7 @@
         }
 
         // ==========================================
-        // 5. 필터 칩 렌더링
+        // 4. 필터 칩 렌더링 (브랜드 텍스트 전용)
         // ==========================================
         function renderFilterChips() {
             const brandSet = new Set();
@@ -1102,7 +989,7 @@
                 }
             });
 
-            // 1) 브랜드 칩스
+            // 1) 브랜드 칩스 (깔끔한 텍스트 전용)
             const brands = Array.from(brandSet).sort();
             let brandHtml = `<button class="chip-btn ${selectedBrand.length === 0 ? 'active' : ''}" onclick="selectBrand('')">전체 브랜드</button>`;
             brands.forEach(b => {
@@ -1143,6 +1030,7 @@
                 if (gOrder[a.filterGender] !== gOrder[b.filterGender]) {
                     return gOrder[a.filterGender] - gOrder[b.filterGender];
                 }
+
                 const numA = parseInt(String(a.rawSize || a.sizeDisplay).replace(/[^0-9]/g, ''), 10) || 0;
                 const numB = parseInt(String(b.rawSize || b.sizeDisplay).replace(/[^0-9]/g, ''), 10) || 0;
                 if (numA !== numB) return numA - numB;
@@ -1198,8 +1086,9 @@
         }
 
         function selectBrand(val) {
-            if (!val) selectedBrand = [];
-            else {
+            if (!val) {
+                selectedBrand = [];
+            } else {
                 const idx = selectedBrand.indexOf(val);
                 if (idx > -1) selectedBrand.splice(idx, 1);
                 else selectedBrand.push(val);
@@ -1209,8 +1098,9 @@
         }
 
         function selectBiz(val) {
-            if (!val) selectedBiz = [];
-            else {
+            if (!val) {
+                selectedBiz = [];
+            } else {
                 const idx = selectedBiz.indexOf(val);
                 if (idx > -1) selectedBiz.splice(idx, 1);
                 else selectedBiz.push(val);
@@ -1220,8 +1110,9 @@
         }
 
         function selectGender(val) {
-            if (!val) selectedGender = [];
-            else {
+            if (!val) {
+                selectedGender = [];
+            } else {
                 const idx = selectedGender.indexOf(val);
                 if (idx > -1) selectedGender.splice(idx, 1);
                 else selectedGender.push(val);
@@ -1231,8 +1122,9 @@
         }
 
         function selectSize(val) {
-            if (!val) selectedSizeDisplay = [];
-            else {
+            if (!val) {
+                selectedSizeDisplay = [];
+            } else {
                 const idx = selectedSizeDisplay.indexOf(val);
                 if (idx > -1) selectedSizeDisplay.splice(idx, 1);
                 else selectedSizeDisplay.push(val);
@@ -1261,13 +1153,13 @@
         }
 
         // ==========================================
-        // 6. 필터링 및 렌더링
+        // 5. 필터링 및 렌더링 (상태 보존 지원)
         // ==========================================
         function applyFiltersAndRender(resetLimit = true) {
             if (rawInventory.length === 0) return;
             const searchTerm = searchInput.value.trim().toLowerCase();
 
-            // 1) 상태 부여 (프로모션 반영)
+            // 1) 상태 부여
             const enrichedInventory = rawInventory.map(item => {
                 const salesKey = item.sku + "|" + item.size;
                 const sizeSales = salesMap[salesKey] || 0;
@@ -1278,21 +1170,13 @@
                 const isDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
                 const loc = locationMap[item.sku] || locationMap[safeSkuKey] || '';
 
-                const activePromo = activePromoMap[item.sku] || null;
-                let promoPrice = item.price;
-                if (activePromo && activePromo.discountRate > 0) {
-                    promoPrice = activePromo.promoPrice > 0 ? activePromo.promoPrice : Math.round(item.price * (100 - activePromo.discountRate) / 100);
-                }
-
                 return { 
                     ...item, 
                     sales: sizeSales, 
                     wos: calcWos,
                     isDp: isDp,
                     location: loc,
-                    isHighHeat: skuTotalSales >= HIGH_HEAT_THRESHOLD,
-                    activePromo: activePromo,
-                    promoPrice: promoPrice
+                    isHighHeat: skuTotalSales >= HIGH_HEAT_THRESHOLD
                 };
             });
 
@@ -1370,7 +1254,6 @@
                     selectedSizeDisplay.includes(item.sizeDisplay) || selectedSizeDisplay.includes(item.size)
                 );
 
-                const matchesPromotion = !isPromotionOnly || !!group.activePromo;
                 const matchesHeat = !isHighHeatOnly || group.isHighHeat;
                 const matchesWosWarning = !isWosWarningOnly || group.items.some(item => item.sales > 0 && item.wos <= 2.0);
                 const matchesPosMissing = !isPosMissingOnly || group.hasAnyPosMissing;
@@ -1386,7 +1269,7 @@
                 }
 
                 return matchesSearch && matchesBrand && matchesBiz && matchesGender && 
-                       matchesSize && matchesPromotion && matchesHeat && matchesWosWarning && matchesPosMissing && 
+                       matchesSize && matchesHeat && matchesWosWarning && matchesPosMissing && 
                        matchesDpOnly && matchesDpLowStock && matchesDpMissing && matchesLocation;
             });
 
@@ -1398,11 +1281,6 @@
             // 4) 정렬
             groupedData.sort((a, b) => {
                 if (sortBy === 'sales_desc') return b.totalSales - a.totalSales || b.totalStock - a.totalStock;
-                if (sortBy === 'discount_desc') {
-                    const rateA = a.activePromo ? a.activePromo.discountRate : -1;
-                    const rateB = b.activePromo ? b.activePromo.discountRate : -1;
-                    return rateB - rateA || b.totalSales - a.totalSales;
-                }
                 if (sortBy === 'wos_asc') return a.wos - b.wos;
                 if (sortBy === 'stock_desc') return b.totalStock - a.totalStock;
                 if (sortBy === 'name_asc') return a.name.localeCompare(b.name, 'ko') || (a.sku || '').localeCompare(b.sku || '', 'ko');
@@ -1412,11 +1290,6 @@
 
             filteredData.sort((a, b) => {
                 if (sortBy === 'sales_desc') return b.sales - a.sales || b.stock - a.stock;
-                if (sortBy === 'discount_desc') {
-                    const rateA = a.activePromo ? a.activePromo.discountRate : -1;
-                    const rateB = b.activePromo ? b.activePromo.discountRate : -1;
-                    return rateB - rateA || b.sales - a.sales;
-                }
                 if (sortBy === 'wos_asc') return a.wos - b.wos;
                 if (sortBy === 'stock_desc') return b.stock - a.stock;
                 if (sortBy === 'name_asc') return a.name.localeCompare(b.name, 'ko') || (a.sku || '').localeCompare(b.sku || '', 'ko');
@@ -1424,6 +1297,7 @@
                 return 0;
             });
 
+            // 사용자가 직접 검색/필터를 바꾼 경우에만 상단 32개로 리셋, 백그라운드 동기화 시에는 현재 로드된 스크롤 길이 유지
             if (resetLimit) {
                 currentGridLimit = GRID_PAGE_SIZE;
                 currentTableLimit = TABLE_PAGE_SIZE;
@@ -1457,11 +1331,10 @@
             else if (loc === '4층') bgClass = 'bg-amber-600 text-white border-amber-700 font-bold';
             else bgClass = isTable ? 'bg-gray-100 text-gray-500 border-gray-300 font-medium' : 'bg-black/60 hover:bg-black text-white font-bold border-transparent';
 
-            const safeSku = escapeJsStr(sku);
             return `
             <div onclick="event.stopPropagation();">
                 <div class="relative inline-flex items-center">
-                    <select onchange="updateLocation('${safeSku}', this.value, event)"
+                    <select onchange="updateLocation('${sku}', this.value, event)"
                             class="${bgClass} text-[10px] px-2 py-0.5 rounded shadow cursor-pointer border focus:outline-none transition appearance-none pr-4">
                         <option value="" ${!loc ? 'selected' : ''} class="bg-white text-gray-900">📍 위치 미지정</option>
                         <option value="B1" ${loc === 'B1' ? 'selected' : ''} class="bg-white text-indigo-900 font-bold">📍 B1</option>
@@ -1474,50 +1347,48 @@
             </div>`;
         }
 
+        // 카드 뷰 DP 버튼 렌더러
         function renderCardDpButtonHtml(sku, totalStock, isItemDp) {
-            const safeSku = escapeJsStr(sku);
             if (isItemDp) {
                 if (totalStock <= 2) {
                     return `
-                    <button onclick="toggleDpStatus('${safeSku}', event)" title="진열품이나 신사 재고가 2개 이하입니다! (클릭 시 미진열로 변경)" class="bg-red-600 hover:bg-red-700 text-white text-[10px] font-black px-2 py-0.5 rounded shadow flex items-center gap-1 animate-pulse border border-red-300">
+                    <button onclick="toggleDpStatus('${sku}', event)" title="진열품이나 신사 재고가 2개 이하입니다! (클릭 시 미진열로 변경)" class="bg-red-600 hover:bg-red-700 text-white text-[10px] font-black px-2 py-0.5 rounded shadow flex items-center gap-1 animate-pulse border border-red-300">
                         <i class="fa-solid fa-triangle-exclamation"></i>🚨 DP 재고부족 (${totalStock}개)
                     </button>`;
                 } else {
                     return `
-                    <button onclick="toggleDpStatus('${safeSku}', event)" title="클릭 시 미진열로 변경" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-extrabold px-2 py-0.5 rounded shadow flex items-center gap-1 transition">
+                    <button onclick="toggleDpStatus('${sku}', event)" title="클릭 시 미진열로 변경" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-extrabold px-2 py-0.5 rounded shadow flex items-center gap-1 transition">
                         <i class="fa-solid fa-check"></i>DP 완료
                     </button>`;
                 }
             } else {
                 return `
-                <button onclick="toggleDpStatus('${safeSku}', event)" title="클릭 시 진열(DP) 완료로 변경" class="bg-black/60 hover:bg-black text-white text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1 transition">
+                <button onclick="toggleDpStatus('${sku}', event)" title="클릭 시 진열(DP) 완료로 변경" class="bg-black/60 hover:bg-black text-white text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1 transition">
                     <i class="fa-solid fa-plus"></i>미진열 (DP 등록)
                 </button>`;
             }
         }
 
+        // 표 뷰 DP 버튼 렌더러
         function renderTableDpButtonHtml(sku, stock, isItemDp) {
-            const safeSku = escapeJsStr(sku);
             if (isItemDp) {
                 if (stock <= 2) {
-                    return `<button onclick="toggleDpStatus('${safeSku}', event)" class="px-2 py-0.5 rounded text-[10px] font-black bg-red-100 text-red-700 border border-red-300 hover:bg-red-200 transition flex items-center gap-1 mx-auto"><span class="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></span>DP 위험 (${stock}EA)</button>`;
+                    return `<button onclick="toggleDpStatus('${sku}', event)" class="px-2 py-0.5 rounded text-[10px] font-black bg-red-100 text-red-700 border border-red-300 hover:bg-red-200 transition flex items-center gap-1 mx-auto"><span class="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></span>DP 위험 (${stock}EA)</button>`;
                 } else {
-                    return `<button onclick="toggleDpStatus('${safeSku}', event)" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-300 hover:bg-emerald-200 transition">DP 완료</button>`;
+                    return `<button onclick="toggleDpStatus('${sku}', event)" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-300 hover:bg-emerald-200 transition">DP 완료</button>`;
                 }
             } else {
-                return `<button onclick="toggleDpStatus('${safeSku}', event)" class="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200">미진열</button>`;
+                return `<button onclick="toggleDpStatus('${sku}', event)" class="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200">미진열</button>`;
             }
         }
 
-        // ==========================================
-        // 7. 카드 및 테이블 HTML 빌더 (Data Attribute 적용)
-        // ==========================================
+        // 개별 카드 템플릿 생성기
         function buildCardHtml(item, index) {
             const safeId = 'card_' + (item.sku ? item.sku.replace(/[^a-zA-Z0-9_-]/g, '_') : index);
+            const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
             const googleSearchUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent((item.sku || '') + ' ' + (item.name || ''))}`;
             const wosHtml = getWosBadgeHtml(item.totalStock, item.totalSales, item.wos);
             
-            const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
             const isItemDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
             const itemLoc = locationMap[item.sku] || locationMap[safeSkuKey] || '';
             const isOpen = openCardDetailIds.has(safeId);
@@ -1527,8 +1398,7 @@
             const otherVariants = allVariants.filter(v => v.sku !== item.sku).map(v => {
                 const vSafeSkuKey = String(v.sku).replace(/[.#$[\]]/g, '_');
                 const isVDp = !!(dpMap[v.sku] || dpMap[vSafeSkuKey]);
-                const isVPromo = !!activePromoMap[v.sku];
-                return { ...v, isDp: isVDp, isPromo: isVPromo };
+                return { ...v, isDp: isVDp };
             });
 
             let otherColorsHtml = '';
@@ -1543,13 +1413,12 @@
                     </div>
                     <div class="flex flex-wrap gap-1">
                         ${otherVariants.map(v => `
-                            <button onclick="event.stopPropagation(); filterBySku('${escapeJsStr(v.sku)}')"
-                                    title="${escapeAttr(v.sku)} 조회 (신사: ${v.stock}개, 해운대: ${v.busanStock || 0}개, ${v.isDp ? '진열 완료' : '미진열'}${v.isPromo ? ', 프로모션 진행 중' : ''})"
+                            <button onclick="event.stopPropagation(); filterBySku('${v.sku}')"
+                                    title="${v.sku} 조회 (신사: ${v.stock}개, 해운대: ${v.busanStock || 0}개, ${v.isDp ? '진열 완료' : '미진열'})"
                                     class="text-[9px] px-1.5 py-0.5 rounded border border-gray-200 bg-gray-50 hover:bg-black hover:text-white transition flex items-center gap-1 font-mono">
                                 <span class="font-bold">${v.sku}</span>
                                 <span class="text-[8px] text-gray-400 font-sans">(${v.stock}개)</span>
                                 ${v.isDp ? '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>' : ''}
-                                ${v.isPromo ? '<span class="text-[8px] text-rose-500 font-bold">⚡</span>' : ''}
                             </button>
                         `).join('')}
                     </div>
@@ -1557,40 +1426,8 @@
                 `;
             }
 
-            const promo = item.activePromo;
-            let promoBadgeHtml = '';
-            let priceDisplayHtml = '';
-
-            if (promo) {
-                const isMarkdown = promo.discountRate > 0;
-                const badgeClass = isMarkdown ? 'promo-badge-red' : 'promo-badge-blue';
-                const iconColor = isMarkdown ? 'text-red-500' : 'text-blue-500';
-
-                promoBadgeHtml = `
-                <div class="flex items-center gap-1.5 flex-wrap">
-                    <span class="text-[10px] font-extrabold px-2 py-0.5 rounded flex items-center gap-1 ${badgeClass}">
-                        <i class="fa-solid fa-bolt ${iconColor}"></i>
-                        <span>${promo.name}</span>
-                        ${isMarkdown ? `<span class="bg-red-600 text-white text-[9px] px-1 py-0.2 rounded font-black ml-0.5">${promo.discountRate}% OFF</span>` : ''}
-                        ${promo.dDayText ? `<span class="bg-rose-600 text-white text-[8px] font-black px-1 rounded animate-pulse shadow-sm">${promo.dDayText}</span>` : ''}
-                    </span>
-                </div>`;
-
-                if (isMarkdown && item.promoPrice > 0) {
-                    priceDisplayHtml = `
-                    <div class="text-right whitespace-nowrap">
-                        <p class="text-[10px] text-gray-400 line-through leading-none">₩${item.price.toLocaleString()}</p>
-                        <p class="font-black text-sm text-red-600 leading-tight mt-0.5">₩${item.promoPrice.toLocaleString()}</p>
-                    </div>`;
-                } else {
-                    priceDisplayHtml = item.price > 0 ? `<div class="text-right whitespace-nowrap"><p class="font-black text-sm text-gray-900">₩${item.price.toLocaleString()}</p></div>` : '';
-                }
-            } else {
-                priceDisplayHtml = item.price > 0 ? `<div class="text-right whitespace-nowrap"><p class="font-black text-sm text-gray-900">₩${item.price.toLocaleString()}</p></div>` : '';
-            }
-
             const imageArea = item.imageUrl
-                ? `<img src="${item.imageUrl}" loading="lazy" class="w-full h-36 object-cover rounded-t-lg bg-gray-50" alt="${escapeAttr(item.name)}">`
+                ? `<img src="${item.imageUrl}" loading="lazy" class="w-full h-36 object-cover rounded-t-lg bg-gray-50" alt="${item.name}">`
                 : `<div class="w-full h-36 bg-gray-100 rounded-t-lg flex flex-col items-center justify-center p-3 text-center border-b border-gray-100">
                     <i class="fa-solid fa-shirt text-2xl text-gray-300 mb-2"></i>
                     <span class="text-[10px] text-gray-400 font-medium">이미지 미등록</span>
@@ -1649,22 +1486,22 @@
             }).join('');
 
             return `
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col justify-between hover:shadow-md transition cursor-pointer group"
+            <div id="card_wrap_${safeSkuKey}" class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col justify-between hover:shadow-md transition cursor-pointer group"
                  onclick="toggleCardDetail('${safeId}')">
                 <div>
                     <div class="relative">
                         ${imageArea}
                         ${item.isHighHeat ? '<span class="absolute top-2 left-2 heat-badge text-[10px] px-2 py-0.5 rounded shadow z-10">🔥 HIGH HEAT</span>' : ''}
                         
-                        <!-- DP 버튼 컨테이너 (Data-Attribute) -->
-                        <div data-card-dp="${escapeAttr(item.sku)}" class="absolute top-2 right-2 z-10">
+                        <!-- DP 버튼 컨테이너 -->
+                        <div id="card_dp_container_${safeSkuKey}" class="absolute top-2 right-2 z-10">
                             ${renderCardDpButtonHtml(item.sku, item.totalStock, isItemDp)}
                         </div>
 
                         ${item.hasAnyPosMissing ? '<span class="absolute bottom-2 left-2 bg-black/80 text-white text-[9px] px-1.5 py-0.5 rounded font-bold shadow z-10">POS 미등록 포함</span>' : ''}
                         
-                        <!-- 위치 셀렉터 컨테이너 (Data-Attribute) -->
-                        <div data-card-loc="${escapeAttr(item.sku)}" class="absolute bottom-2 right-2 z-10">
+                        <!-- 위치 셀렉터 컨테이너 -->
+                        <div id="card_loc_container_${safeSkuKey}" class="absolute bottom-2 right-2 z-10">
                             ${renderLocationSelectHtml(item.sku, itemLoc, false)}
                         </div>
                     </div>
@@ -1675,14 +1512,12 @@
                             <span class="text-[10px] text-gray-500 font-semibold">${item.gender || '공용'}</span>
                         </div>
 
-                        ${promoBadgeHtml}
-
                         <div class="flex justify-between items-start gap-1">
-                            <div class="flex-1 min-w-0">
+                            <div class="flex-1">
                                 <p class="font-bold text-sm text-gray-900 leading-snug line-clamp-1">${item.name}</p>
                                 <p class="font-mono text-xs text-gray-500 font-bold mt-0.5">${item.sku || '-'}</p>
                             </div>
-                            ${priceDisplayHtml}
+                            ${item.price > 0 ? `<div class="text-right whitespace-nowrap"><p class="font-black text-sm text-gray-900">₩${item.price.toLocaleString()}</p></div>` : ''}
                         </div>
 
                         <div class="pt-1">
@@ -1705,7 +1540,7 @@
 
                 <!-- 카드 하단 3단 지표 -->
                 <div class="p-2.5 border-t border-gray-100 bg-gray-50/70 grid grid-cols-3 gap-1 text-center text-xs">
-                    <div data-card-stock="${escapeAttr(item.sku)}" class="text-left pl-1">
+                    <div id="card_stock_metric_${safeSkuKey}" class="text-left pl-1">
                         <p class="text-[9px] text-gray-400 font-medium truncate">매장 총 재고(신사)</p>
                         <p class="font-black text-xs sm:text-sm ${item.totalStock <= 2 && isItemDp ? 'text-red-600' : (item.totalStock === 0 ? 'text-red-500' : 'text-gray-900')}">
                             ${item.totalStock.toLocaleString()} EA ${item.totalStock <= 2 && isItemDp ? '<span class="text-[10px]">⚠️</span>' : ''}
@@ -1739,50 +1574,26 @@
             `;
         }
 
+        // 개별 테이블 행 템플릿 생성기
         function buildTableRowHtml(item) {
             const wosHtml = getWosBadgeHtml(item.stock, item.sales, item.wos);
             const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
             const isItemDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
             const itemLoc = locationMap[item.sku] || locationMap[safeSkuKey] || '';
-            const promo = item.activePromo;
-
-            let priceCellHtml = '';
-            if (promo && promo.discountRate > 0 && item.promoPrice > 0) {
-                priceCellHtml = `
-                    <div class="text-right">
-                        <span class="text-[10px] text-gray-400 line-through block">₩${item.price.toLocaleString()}</span>
-                        <span class="font-black text-red-600 text-xs block">₩${item.promoPrice.toLocaleString()}</span>
-                        <span class="text-[9px] bg-red-100 text-red-700 px-1 rounded font-bold">${promo.discountRate}% OFF</span>
-                    </div>`;
-            } else if (promo) {
-                priceCellHtml = `
-                    <div class="text-right font-bold text-gray-800">
-                        ₩${item.price.toLocaleString()}
-                        <span class="text-[9px] bg-blue-50 text-blue-700 border border-blue-200 px-1 rounded block font-semibold mt-0.5">${promo.name}</span>
-                    </div>`;
-            } else {
-                priceCellHtml = `<div class="text-right font-bold text-gray-800">${item.price > 0 ? '₩' + item.price.toLocaleString() : '-'}</div>`;
-            }
             
             return `
             <tr class="hover:bg-gray-50 border-b border-gray-100" data-stock="${item.stock}">
-                <td class="p-3">
-                    <div class="flex items-center gap-1 flex-wrap">
-                        ${item.isHighHeat ? '<span class="heat-badge text-xs px-2 py-0.5 rounded">🔥 HIGH HEAT</span>' : ''}
-                        ${promo ? `<span class="text-[10px] font-bold px-1.5 py-0.2 rounded border ${promo.discountRate > 0 ? 'bg-red-50 text-red-700 border-red-200' : 'bg-blue-50 text-blue-700 border-blue-200'}">⚡ ${promo.name}${promo.dDayText ? ' (' + promo.dDayText + ')' : ''}</span>` : ''}
-                        ${wosHtml}
-                    </div>
-                </td>
-                <td data-table-dp="${escapeAttr(item.sku)}" class="p-3 text-center">
+                <td class="p-3">${item.isHighHeat ? '<span class="heat-badge text-xs px-2 py-0.5 rounded mr-1">🔥 HIGH HEAT</span>' : ''}${wosHtml}</td>
+                <td class="p-3 text-center table_dp_container_${safeSkuKey}">
                     ${renderTableDpButtonHtml(item.sku, item.stock, isItemDp)}
                 </td>
-                <td data-table-loc="${escapeAttr(item.sku)}" class="p-3 text-center">
+                <td class="p-3 text-center table_loc_container_${safeSkuKey}">
                     ${renderLocationSelectHtml(item.sku, itemLoc, true)}
                 </td>
                 <td class="p-3 font-mono font-bold">${item.sku}</td>
                 <td class="p-3 font-medium">${item.name}</td>
                 <td class="p-3 font-bold text-gray-800">${item.sizeDisplay || '-'}</td>
-                <td class="p-3">${priceCellHtml}</td>
+                <td class="p-3 text-right font-bold text-gray-800">${item.price > 0 ? '₩' + item.price.toLocaleString() : '-'}</td>
                 <td class="p-3"><span class="musinsa-badge">${item.brand}</span></td>
                 <td class="p-3 text-gray-600">${item.category2 || '-'}</td>
                 <td class="p-3 text-gray-600">${item.gender || '-'}</td>
@@ -1803,10 +1614,6 @@
             }
             metricTotalSales.textContent = filteredData.reduce((acc, cur) => acc + cur.sales, 0).toLocaleString();
             metricHighHeat.textContent = groupedData.filter(i => i.isHighHeat).length.toLocaleString();
-            if (metricTotalPromo) {
-                metricTotalPromo.textContent = groupedData.filter(i => !!i.activePromo).length.toLocaleString();
-            }
-
             resultCount.textContent = groupedData.length.toLocaleString();
             detailCount.textContent = filteredData.length.toLocaleString();
 
@@ -1962,20 +1769,15 @@
                 const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
                 const isItemDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
                 const loc = locationMap[item.sku] || locationMap[safeSkuKey] || '미지정';
-                const promo = activePromoMap[item.sku] || null;
 
                 return {
                     "상태": item.isHighHeat ? "HIGH HEAT" : (item.stock === 0 ? "품절" : "일반"),
-                    "프로모션명": promo ? promo.name : "-",
-                    "할인율": promo ? (promo.discountRate > 0 ? promo.discountRate + "%" : "0%(행사/쿠폰)") : "-",
-                    "행사할인가": promo && promo.discountRate > 0 ? (item.promoPrice || promo.promoPrice) : (item.price > 0 ? item.price : "-"),
-                    "행사종료일": promo && promo.endDateStr ? promo.endDateStr : "-",
                     "진열상태(DP)": isItemDp ? (item.stock <= 2 ? "DP 재고부족" : "DP 완료") : "미진열",
                     "적재위치": loc,
                     "WOS(주)": item.sales > 0 ? (item.stock / item.sales).toFixed(1) : "-",
                     "품번(SKU)": item.sku,
                     "품명": item.name,
-                    "소비자가(정가)": item.price > 0 ? item.price : "-",
+                    "소비자가": item.price > 0 ? item.price : "-",
                     "규격(사이즈)": item.sizeDisplay || item.size,
                     "브랜드": item.brand,
                     "BIZ": item.category2,
@@ -1995,11 +1797,6 @@
 
         exportExcelBtn.addEventListener('click', () => {
             downloadExcel(filteredData, "재고조회결과_전체");
-        });
-
-        exportPromoExcelBtn.addEventListener('click', () => {
-            const promoRows = rawInventory.filter(item => !!activePromoMap[item.sku]);
-            downloadExcel(promoRows, "프로모션_행사목록");
         });
 
         exportDpExcelBtn.addEventListener('click', () => {
@@ -2033,15 +1830,6 @@
         searchInput.addEventListener('keyup', (e) => {
             if (e.key === 'Enter') applyFiltersAndRender(true);
         });
-
-        if (togglePromotion) {
-            togglePromotion.addEventListener('click', () => {
-                isPromotionOnly = !isPromotionOnly;
-                togglePromotion.classList.toggle('bg-rose-600');
-                togglePromotion.classList.toggle('text-white');
-                applyFiltersAndRender(true);
-            });
-        }
 
         toggleHighHeat.addEventListener('click', () => {
             isHighHeatOnly = !isHighHeatOnly;
@@ -2116,7 +1904,6 @@
             selectedGender = [];
             selectedSizeDisplay = [];
             selectedLocation = '';
-            isPromotionOnly = false;
             isHighHeatOnly = false;
             isWosWarningOnly = false;
             isPosMissingOnly = false;
@@ -2125,7 +1912,6 @@
             isDpMissingOnly = false;
             sortBy = 'sales_desc';
             sortBySelect.value = 'sales_desc';
-            if (togglePromotion) togglePromotion.classList.remove('bg-rose-600', 'text-white');
             toggleHighHeat.classList.remove('bg-red-600', 'text-white');
             toggleWosWarning.classList.remove('bg-amber-600', 'text-white');
             if (togglePosMissing) togglePosMissing.classList.remove('bg-black', 'text-white');
@@ -2144,14 +1930,12 @@
                 selectedGender = [];
                 selectedSizeDisplay = [];
                 selectedLocation = '';
-                isPromotionOnly = false;
                 isHighHeatOnly = false;
                 isWosWarningOnly = false;
                 isPosMissingOnly = false;
                 isDpOnly = false;
                 isDpLowStockOnly = false;
                 isDpMissingOnly = false;
-                if (togglePromotion) togglePromotion.classList.remove('bg-rose-600', 'text-white');
                 toggleHighHeat.classList.remove('bg-red-600', 'text-white');
                 toggleWosWarning.classList.remove('bg-amber-600', 'text-white');
                 if (togglePosMissing) togglePosMissing.classList.remove('bg-black', 'text-white');
@@ -2164,64 +1948,23 @@
             });
         }
 
-        // ==========================================
-        // 8. 데이터 로딩 (안전한 개별 비동기 로드)
-        // ==========================================
         async function loadCsvData() {
             try {
-                let inventoryCsv = '';
-                let salesCsv = '';
-                let promoCsv = '';
+                const inventoryRes = await fetch('./inventory.csv');
+                const salesRes = await fetch('./sales.csv');
+                const inventoryCsv = await inventoryRes.text();
+                const salesCsv = await salesRes.text();
 
-                try {
-                    const res = await fetch('./inventory.csv');
-                    if (res && res.ok) inventoryCsv = await res.text();
-                } catch(e) {
-                    console.warn('inventory.csv 로드 실패:', e);
-                }
+                const inventoryWorkbook = XLSX.read(inventoryCsv, { type: "string" });
+                const inventorySheet = inventoryWorkbook.Sheets[inventoryWorkbook.SheetNames[0]];
+                const inventoryRows = parseExcelUniversal(inventorySheet);
 
-                try {
-                    const res = await fetch('./sales.csv');
-                    if (res && res.ok) salesCsv = await res.text();
-                } catch(e) {
-                    console.warn('sales.csv 로드 실패:', e);
-                }
+                const salesWorkbook = XLSX.read(salesCsv, { type: "string" });
+                const salesSheet = salesWorkbook.Sheets[salesWorkbook.SheetNames[0]];
+                const salesRows = parseExcelUniversal(salesSheet);
 
-                try {
-                    const res = await fetch('./promotion.csv');
-                    if (res && res.ok) promoCsv = await res.text();
-                } catch(e) {
-                    console.warn('promotion.csv 로드 실패 (선택 사항):', e);
-                }
-
-                // 1) 프로모션 데이터 우선 로드 & 활성 맵 빌드
-                if (promoCsv) {
-                    try {
-                        const promoWorkbook = XLSX.read(promoCsv, { type: "string" });
-                        const promoSheet = promoWorkbook.SheetspromoCsv, { type: "string" });
-                        const promoSheet = promoWorkbook.Sheets[promoWorkbook.SheetNames[0]];
-                        const promoRows = parseExcelUniversal(promoSheet);
-                        processPromotionData(promoRows);
-                    } catch (pErr) {
-                        console.warn("프로모션 데이터 파싱 경고:", pErr);
-                    }
-                }
-
-                // 2) 재고 데이터 파싱
-                if (inventoryCsv) {
-                    const inventoryWorkbook = XLSX.read(inventoryCsv, { type: "string" });
-                    const inventorySheet = inventoryWorkbook.Sheets[inventoryWorkbook.SheetNames[0]];
-                    const inventoryRows = parseExcelUniversal(inventorySheet);
-                    processInventoryData(inventoryRows);
-                }
-
-                // 3) 판매량 데이터 파싱
-                if (salesCsv) {
-                    const salesWorkbook = XLSX.read(salesCsv, { type: "string" });
-                    const salesSheet = salesWorkbook.Sheets[salesWorkbook.SheetNames[0]];
-                    const salesRows = parseExcelUniversal(salesSheet);
-                    processSalesData(salesRows);
-                }
+                processInventoryData(inventoryRows);
+                processSalesData(salesRows);
                 
                 statusIndicator.innerHTML = '✅ 저장소 데이터 로딩 완료';
             } catch(err) {
