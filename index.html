@@ -502,34 +502,30 @@
         // ==========================================
         // 3. 타깃 부분 갱신 (In-place DOM Updater)
         // ==========================================
-        function handleDpChange(safeSkuKey, newStatus) {
-            dpMap[safeSkuKey] = !!newStatus;
-            try { localStorage.setItem('rcmt_dp_status', JSON.stringify(dpMap)); } catch(e){}
+       locationMap[safeSkuKey] = newLoc || '';
+    try { localStorage.setItem('rcmt_location', JSON.stringify(locationMap)); } catch(e){}
 
-            // DP 관련 필터가 켜져 있는 상태라면 화면 재정렬 필요 (스크롤 한계는 유지)
-            if (isDpOnly || isDpMissingOnly || isDpLowStockOnly) {
-                applyFiltersAndRender(false);
-                return;
-            }
+    if (selectedLocation !== '') {
+        applyFiltersAndRender(false);
+        return;
+    }
 
-            const group = groupedData.find(g => String(g.sku).replace(/[.#$[\]]/g, '_') === safeSkuKey);
-            const sku = group ? group.sku : safeSkuKey;
-            const totalStock = group ? group.totalStock : 0;
+    const group = groupedData.find(g => String(g.sku).replace(/[.#$[\]]/g, '_') === safeSkuKey);
+    const sku = group ? group.sku : safeSkuKey;
 
-            // 1) 카드 뷰의 DP 버튼 및 재고 경고 문구만 갱신
-            const cardDpEl = document.getElementById('card_dp_container_' + safeSkuKey);
-            if (cardDpEl) {
-                cardDpEl.innerHTML = renderCardDpButtonHtml(sku, totalStock, !!newStatus);
-            }
-            const cardStockEl = document.getElementById('card_stock_metric_' + safeSkuKey);
-            if (cardStockEl && group) {
-                cardStockEl.innerHTML = `
-                    <p class="text-[9px] text-gray-400 font-medium truncate">매장 총 재고(신사)</p>
-                    <p class="font-black text-xs sm:text-sm ${totalStock <= 2 && !!newStatus ? 'text-red-600' : (totalStock === 0 ? 'text-red-500' : 'text-gray-900')}">
-                        ${totalStock.toLocaleString()} EA ${totalStock <= 2 && !!newStatus ? '<span class="text-[10px]">⚠️</span>' : ''}
-                    </p>
-                `;
-            }
+    // 1) 카드 뷰의 위치 선택기 갱신
+    const cardLocEl = document.getElementById('card_loc_container_' + safeSkuKey);
+    if (cardLocEl) {
+        cardLocEl.innerHTML = renderLocationSelectHtml(sku, newLoc, false);
+    }
+
+    // 2) 표 뷰의 위치 선택기 갱신 (data-table-loc 속성 비교)
+    document.querySelectorAll('[data-table-loc]').forEach(el => {
+        if (el.getAttribute('data-table-loc') === safeSkuKey) {
+            el.innerHTML = renderLocationSelectHtml(sku, newLoc, true);
+        }
+    });
+}
 
             // 2) 표(Table) 뷰의 DP 버튼 갱신
             document.querySelectorAll('.table_dp_container_' + safeSkuKey).forEach(el => {
@@ -1574,35 +1570,38 @@
             `;
         }
 
-        // 개별 테이블 행 템플릿 생성기
-        function buildTableRowHtml(item) {
-            const wosHtml = getWosBadgeHtml(item.stock, item.sales, item.wos);
-            const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
-            const isItemDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
-            const itemLoc = locationMap[item.sku] || locationMap[safeSkuKey] || '';
-            
-            return `
-            <tr class="hover:bg-gray-50 border-b border-gray-100" data-stock="${item.stock}">
-                <td class="p-3">${item.isHighHeat ? '<span class="heat-badge text-xs px-2 py-0.5 rounded mr-1">🔥 HIGH HEAT</span>' : ''}${wosHtml}</td>
-                <td class="p-3 text-center table_dp_container_${safeSkuKey}">
-                    ${renderTableDpButtonHtml(item.sku, item.stock, isItemDp)}
-                </td>
-                <td class="p-3 text-center table_loc_container_${safeSkuKey}">
-                    ${renderLocationSelectHtml(item.sku, itemLoc, true)}
-                </td>
-                <td class="p-3 font-mono font-bold">${item.sku}</td>
-                <td class="p-3 font-medium">${item.name}</td>
-                <td class="p-3 font-bold text-gray-800">${item.sizeDisplay || '-'}</td>
-                <td class="p-3 text-right font-bold text-gray-800">${item.price > 0 ? '₩' + item.price.toLocaleString() : '-'}</td>
-                <td class="p-3"><span class="musinsa-badge">${item.brand}</span></td>
-                <td class="p-3 text-gray-600">${item.category2 || '-'}</td>
-                <td class="p-3 text-gray-600">${item.gender || '-'}</td>
-                <td class="p-3">${!item.hasPosBarcode ? '<span class="bg-black text-white text-[10px] px-1.5 py-0.5 rounded font-bold">POS 미등록</span>' : '<span class="text-green-600 text-xs font-semibold">등록</span>'}</td>
-                <td class="p-3 text-right font-bold ${item.stock === 0 ? 'text-red-500' : ''}">${item.stock.toLocaleString()} EA</td>
-                <td class="p-3 text-right font-extrabold ${item.sales > 0 ? 'text-blue-600' : 'text-gray-400'}">${item.sales.toLocaleString()} EA</td>
-                <td class="p-3 text-right font-extrabold ${item.busanStock > 0 ? 'text-purple-700' : 'text-gray-400'}">${(item.busanStock || 0).toLocaleString()} EA</td>
-            </tr>
-            `;
+   // 개별 테이블 행 템플릿 생성기
+function buildTableRowHtml(item) {
+    const wosHtml = getWosBadgeHtml(item.stock, item.sales, item.wos);
+    const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
+    const isItemDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
+    const itemLoc = locationMap[item.sku] || locationMap[safeSkuKey] || '';
+    
+    return `
+    <tr class="hover:bg-gray-50 border-b border-gray-100" data-stock="${item.stock}">
+        <td class="p-3">${item.isHighHeat ? '<span class="heat-badge text-xs px-2 py-0.5 rounded mr-1">🔥 HIGH HEAT</span>' : ''}${wosHtml}</td>
+        <!-- data-table-dp 속성 사용 -->
+        <td class="p-3 text-center" data-table-dp="${safeSkuKey}">
+            ${renderTableDpButtonHtml(item.sku, item.stock, isItemDp)}
+        </td>
+        <!-- data-table-loc 속성 사용 -->
+        <td class="p-3 text-center" data-table-loc="${safeSkuKey}">
+            ${renderLocationSelectHtml(item.sku, itemLoc, true)}
+        </td>
+        <td class="p-3 font-mono font-bold">${item.sku}</td>
+        <td class="p-3 font-medium">${item.name}</td>
+        <td class="p-3 font-bold text-gray-800">${item.sizeDisplay || '-'}</td>
+        <td class="p-3 text-right font-bold text-gray-800">${item.price > 0 ? '₩' + item.price.toLocaleString() : '-'}</td>
+        <td class="p-3"><span class="musinsa-badge">${item.brand}</span></td>
+        <td class="p-3 text-gray-600">${item.category2 || '-'}</td>
+        <td class="p-3 text-gray-600">${item.gender || '-'}</td>
+        <td class="p-3">${!item.hasPosBarcode ? '<span class="bg-black text-white text-[10px] px-1.5 py-0.5 rounded font-bold">POS 미등록</span>' : '<span class="text-green-600 text-xs font-semibold">등록</span>'}</td>
+        <td class="p-3 text-right font-bold ${item.stock === 0 ? 'text-red-500' : ''}">${item.stock.toLocaleString()} EA</td>
+        <td class="p-3 text-right font-extrabold ${item.sales > 0 ? 'text-blue-600' : 'text-gray-400'}">${item.sales.toLocaleString()} EA</td>
+        <td class="p-3 text-right font-extrabold ${item.busanStock > 0 ? 'text-purple-700' : 'text-gray-400'}">${(item.busanStock || 0).toLocaleString()} EA</td>
+    </tr>
+    `;
+}
         }
 
         function renderResults() {
