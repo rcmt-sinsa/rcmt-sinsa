@@ -345,6 +345,13 @@
         let locationMap = {};
         let isInitialFirebaseLoaded = false;
 
+        function escapeAttr(str) {
+            return String(str || '').replace(/"/g, '&quot;');
+        }
+        function escapeJsStr(str) {
+            return String(str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        }
+
         try {
             firebase.initializeApp(firebaseConfig);
             db = firebase.database();
@@ -510,7 +517,7 @@
         }
 
         // ==========================================
-        // 3. 타깃 부분 갱신 (In-place DOM Updater)
+        // 3. 타깃 부분 갱신 (Data-Attribute 기반)
         // ==========================================
         function handleDpChange(safeSkuKey, newStatus) {
             dpMap[safeSkuKey] = !!newStatus;
@@ -525,24 +532,34 @@
             const sku = group ? group.sku : safeSkuKey;
             const totalStock = group ? group.totalStock : 0;
 
-            const cardDpEl = document.getElementById('card_dp_container_' + safeSkuKey);
-            if (cardDpEl) {
-                cardDpEl.innerHTML = renderCardDpButtonHtml(sku, totalStock, !!newStatus);
-            }
-            const cardStockEl = document.getElementById('card_stock_metric_' + safeSkuKey);
-            if (cardStockEl && group) {
-                cardStockEl.innerHTML = `
-                    <p class="text-[9px] text-gray-400 font-medium truncate">매장 총 재고(신사)</p>
-                    <p class="font-black text-xs sm:text-sm ${totalStock <= 2 && !!newStatus ? 'text-red-600' : (totalStock === 0 ? 'text-red-500' : 'text-gray-900')}">
-                        ${totalStock.toLocaleString()} EA ${totalStock <= 2 && !!newStatus ? '<span class="text-[10px]">⚠️</span>' : ''}
-                    </p>
-                `;
-            }
+            // 1) 카드 뷰의 DP 버튼 및 재고 경고 문구 갱신
+            document.querySelectorAll('[data-card-dp]').forEach(el => {
+                const elSku = el.getAttribute('data-card-dp');
+                if (elSku === sku || String(elSku).replace(/[.#$[\]]/g, '_') === safeSkuKey) {
+                    el.innerHTML = renderCardDpButtonHtml(elSku, totalStock, !!newStatus);
+                }
+            });
 
-            document.querySelectorAll('.table_dp_container_' + safeSkuKey).forEach(el => {
-                const row = el.closest('tr');
-                const stock = row && row.dataset.stock ? parseInt(row.dataset.stock, 10) : totalStock;
-                el.innerHTML = renderTableDpButtonHtml(sku, stock, !!newStatus);
+            document.querySelectorAll('[data-card-stock]').forEach(el => {
+                const elSku = el.getAttribute('data-card-stock');
+                if (elSku === sku || String(elSku).replace(/[.#$[\]]/g, '_') === safeSkuKey) {
+                    el.innerHTML = `
+                        <p class="text-[9px] text-gray-400 font-medium truncate">매장 총 재고(신사)</p>
+                        <p class="font-black text-xs sm:text-sm ${totalStock <= 2 && !!newStatus ? 'text-red-600' : (totalStock === 0 ? 'text-red-500' : 'text-gray-900')}">
+                            ${totalStock.toLocaleString()} EA ${totalStock <= 2 && !!newStatus ? '<span class="text-[10px]">⚠️</span>' : ''}
+                        </p>
+                    `;
+                }
+            });
+
+            // 2) 표(Table) 뷰의 DP 버튼 갱신
+            document.querySelectorAll('[data-table-dp]').forEach(el => {
+                const elSku = el.getAttribute('data-table-dp');
+                if (elSku === sku || String(elSku).replace(/[.#$[\]]/g, '_') === safeSkuKey) {
+                    const row = el.closest('tr');
+                    const stock = row && row.dataset.stock ? parseInt(row.dataset.stock, 10) : totalStock;
+                    el.innerHTML = renderTableDpButtonHtml(elSku, stock, !!newStatus);
+                }
             });
         }
 
@@ -558,13 +575,20 @@
             const group = groupedData.find(g => String(g.sku).replace(/[.#$[\]]/g, '_') === safeSkuKey);
             const sku = group ? group.sku : safeSkuKey;
 
-            const cardLocEl = document.getElementById('card_loc_container_' + safeSkuKey);
-            if (cardLocEl) {
-                cardLocEl.innerHTML = renderLocationSelectHtml(sku, newLoc, false);
-            }
+            // 1) 카드 뷰 위치 선택기 갱신
+            document.querySelectorAll('[data-card-loc]').forEach(el => {
+                const elSku = el.getAttribute('data-card-loc');
+                if (elSku === sku || String(elSku).replace(/[.#$[\]]/g, '_') === safeSkuKey) {
+                    el.innerHTML = renderLocationSelectHtml(elSku, newLoc, false);
+                }
+            });
 
-            document.querySelectorAll('.table_loc_container_' + safeSkuKey).forEach(el => {
-                el.innerHTML = renderLocationSelectHtml(sku, newLoc, true);
+            // 2) 표 뷰 위치 선택기 갱신
+            document.querySelectorAll('[data-table-loc]').forEach(el => {
+                const elSku = el.getAttribute('data-table-loc');
+                if (elSku === sku || String(elSku).replace(/[.#$[\]]/g, '_') === safeSkuKey) {
+                    el.innerHTML = renderLocationSelectHtml(elSku, newLoc, true);
+                }
             });
         }
 
@@ -624,7 +648,7 @@
             if (parts.length >= 3) {
                 const y = parseInt(parts[0], 10);
                 const m = parseInt(parts, 10) - 1;
-                const d = parseInt(parts[2], 10);
+                const d = parseInt(parts, 10);
                 if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
                     return new Date(y, m, d);
                 }
@@ -632,11 +656,14 @@
             return null;
         }
 
+        // 브랜드 추출 함수 (수정 완료)
         function extractBrand(subCategoryStr) {
             if (!subCategoryStr) return '기타';
             const cleaned = String(subCategoryStr).trim();
             const match = cleaned.match(/\(([^)]+)\)/);
-            if (match && match) return match.trim();
+            if (match && match) {
+                return match.trim();
+            }
 
             return cleaned
                 .replace(/신발|의류|용품|잡화/gi, '')
@@ -1430,10 +1457,11 @@
             else if (loc === '4층') bgClass = 'bg-amber-600 text-white border-amber-700 font-bold';
             else bgClass = isTable ? 'bg-gray-100 text-gray-500 border-gray-300 font-medium' : 'bg-black/60 hover:bg-black text-white font-bold border-transparent';
 
+            const safeSku = escapeJsStr(sku);
             return `
             <div onclick="event.stopPropagation();">
                 <div class="relative inline-flex items-center">
-                    <select onchange="updateLocation('${sku}', this.value, event)"
+                    <select onchange="updateLocation('${safeSku}', this.value, event)"
                             class="${bgClass} text-[10px] px-2 py-0.5 rounded shadow cursor-pointer border focus:outline-none transition appearance-none pr-4">
                         <option value="" ${!loc ? 'selected' : ''} class="bg-white text-gray-900">📍 위치 미지정</option>
                         <option value="B1" ${loc === 'B1' ? 'selected' : ''} class="bg-white text-indigo-900 font-bold">📍 B1</option>
@@ -1447,47 +1475,49 @@
         }
 
         function renderCardDpButtonHtml(sku, totalStock, isItemDp) {
+            const safeSku = escapeJsStr(sku);
             if (isItemDp) {
                 if (totalStock <= 2) {
                     return `
-                    <button onclick="toggleDpStatus('${sku}', event)" title="진열품이나 신사 재고가 2개 이하입니다! (클릭 시 미진열로 변경)" class="bg-red-600 hover:bg-red-700 text-white text-[10px] font-black px-2 py-0.5 rounded shadow flex items-center gap-1 animate-pulse border border-red-300">
+                    <button onclick="toggleDpStatus('${safeSku}', event)" title="진열품이나 신사 재고가 2개 이하입니다! (클릭 시 미진열로 변경)" class="bg-red-600 hover:bg-red-700 text-white text-[10px] font-black px-2 py-0.5 rounded shadow flex items-center gap-1 animate-pulse border border-red-300">
                         <i class="fa-solid fa-triangle-exclamation"></i>🚨 DP 재고부족 (${totalStock}개)
                     </button>`;
                 } else {
                     return `
-                    <button onclick="toggleDpStatus('${sku}', event)" title="클릭 시 미진열로 변경" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-extrabold px-2 py-0.5 rounded shadow flex items-center gap-1 transition">
+                    <button onclick="toggleDpStatus('${safeSku}', event)" title="클릭 시 미진열로 변경" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-extrabold px-2 py-0.5 rounded shadow flex items-center gap-1 transition">
                         <i class="fa-solid fa-check"></i>DP 완료
                     </button>`;
                 }
             } else {
                 return `
-                <button onclick="toggleDpStatus('${sku}', event)" title="클릭 시 진열(DP) 완료로 변경" class="bg-black/60 hover:bg-black text-white text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1 transition">
+                <button onclick="toggleDpStatus('${safeSku}', event)" title="클릭 시 진열(DP) 완료로 변경" class="bg-black/60 hover:bg-black text-white text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1 transition">
                     <i class="fa-solid fa-plus"></i>미진열 (DP 등록)
                 </button>`;
             }
         }
 
         function renderTableDpButtonHtml(sku, stock, isItemDp) {
+            const safeSku = escapeJsStr(sku);
             if (isItemDp) {
                 if (stock <= 2) {
-                    return `<button onclick="toggleDpStatus('${sku}', event)" class="px-2 py-0.5 rounded text-[10px] font-black bg-red-100 text-red-700 border border-red-300 hover:bg-red-200 transition flex items-center gap-1 mx-auto"><span class="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></span>DP 위험 (${stock}EA)</button>`;
+                    return `<button onclick="toggleDpStatus('${safeSku}', event)" class="px-2 py-0.5 rounded text-[10px] font-black bg-red-100 text-red-700 border border-red-300 hover:bg-red-200 transition flex items-center gap-1 mx-auto"><span class="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></span>DP 위험 (${stock}EA)</button>`;
                 } else {
-                    return `<button onclick="toggleDpStatus('${sku}', event)" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-300 hover:bg-emerald-200 transition">DP 완료</button>`;
+                    return `<button onclick="toggleDpStatus('${safeSku}', event)" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-300 hover:bg-emerald-200 transition">DP 완료</button>`;
                 }
             } else {
-                return `<button onclick="toggleDpStatus('${sku}', event)" class="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200">미진열</button>`;
+                return `<button onclick="toggleDpStatus('${safeSku}', event)" class="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200">미진열</button>`;
             }
         }
 
         // ==========================================
-        // 7. 카드 및 테이블 HTML 빌더 (프로모션 반영)
+        // 7. 카드 및 테이블 HTML 빌더 (Data Attribute 적용)
         // ==========================================
         function buildCardHtml(item, index) {
             const safeId = 'card_' + (item.sku ? item.sku.replace(/[^a-zA-Z0-9_-]/g, '_') : index);
-            const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
             const googleSearchUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent((item.sku || '') + ' ' + (item.name || ''))}`;
             const wosHtml = getWosBadgeHtml(item.totalStock, item.totalSales, item.wos);
             
+            const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
             const isItemDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
             const itemLoc = locationMap[item.sku] || locationMap[safeSkuKey] || '';
             const isOpen = openCardDetailIds.has(safeId);
@@ -1513,8 +1543,8 @@
                     </div>
                     <div class="flex flex-wrap gap-1">
                         ${otherVariants.map(v => `
-                            <button onclick="event.stopPropagation(); filterBySku('${v.sku}')"
-                                    title="${v.sku} 조회 (신사: ${v.stock}개, 해운대: ${v.busanStock || 0}개, ${v.isDp ? '진열 완료' : '미진열'}${v.isPromo ? ', 프로모션 진행 중' : ''})"
+                            <button onclick="event.stopPropagation(); filterBySku('${escapeJsStr(v.sku)}')"
+                                    title="${escapeAttr(v.sku)} 조회 (신사: ${v.stock}개, 해운대: ${v.busanStock || 0}개, ${v.isDp ? '진열 완료' : '미진열'}${v.isPromo ? ', 프로모션 진행 중' : ''})"
                                     class="text-[9px] px-1.5 py-0.5 rounded border border-gray-200 bg-gray-50 hover:bg-black hover:text-white transition flex items-center gap-1 font-mono">
                                 <span class="font-bold">${v.sku}</span>
                                 <span class="text-[8px] text-gray-400 font-sans">(${v.stock}개)</span>
@@ -1560,7 +1590,7 @@
             }
 
             const imageArea = item.imageUrl
-                ? `<img src="${item.imageUrl}" loading="lazy" class="w-full h-36 object-cover rounded-t-lg bg-gray-50" alt="${item.name}">`
+                ? `<img src="${item.imageUrl}" loading="lazy" class="w-full h-36 object-cover rounded-t-lg bg-gray-50" alt="${escapeAttr(item.name)}">`
                 : `<div class="w-full h-36 bg-gray-100 rounded-t-lg flex flex-col items-center justify-center p-3 text-center border-b border-gray-100">
                     <i class="fa-solid fa-shirt text-2xl text-gray-300 mb-2"></i>
                     <span class="text-[10px] text-gray-400 font-medium">이미지 미등록</span>
@@ -1619,22 +1649,22 @@
             }).join('');
 
             return `
-            <div id="card_wrap_${safeSkuKey}" class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col justify-between hover:shadow-md transition cursor-pointer group"
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col justify-between hover:shadow-md transition cursor-pointer group"
                  onclick="toggleCardDetail('${safeId}')">
                 <div>
                     <div class="relative">
                         ${imageArea}
                         ${item.isHighHeat ? '<span class="absolute top-2 left-2 heat-badge text-[10px] px-2 py-0.5 rounded shadow z-10">🔥 HIGH HEAT</span>' : ''}
                         
-                        <!-- DP 버튼 컨테이너 -->
-                        <div id="card_dp_container_${safeSkuKey}" class="absolute top-2 right-2 z-10">
+                        <!-- DP 버튼 컨테이너 (Data-Attribute) -->
+                        <div data-card-dp="${escapeAttr(item.sku)}" class="absolute top-2 right-2 z-10">
                             ${renderCardDpButtonHtml(item.sku, item.totalStock, isItemDp)}
                         </div>
 
                         ${item.hasAnyPosMissing ? '<span class="absolute bottom-2 left-2 bg-black/80 text-white text-[9px] px-1.5 py-0.5 rounded font-bold shadow z-10">POS 미등록 포함</span>' : ''}
                         
-                        <!-- 위치 셀렉터 컨테이너 -->
-                        <div id="card_loc_container_${safeSkuKey}" class="absolute bottom-2 right-2 z-10">
+                        <!-- 위치 셀렉터 컨테이너 (Data-Attribute) -->
+                        <div data-card-loc="${escapeAttr(item.sku)}" class="absolute bottom-2 right-2 z-10">
                             ${renderLocationSelectHtml(item.sku, itemLoc, false)}
                         </div>
                     </div>
@@ -1675,7 +1705,7 @@
 
                 <!-- 카드 하단 3단 지표 -->
                 <div class="p-2.5 border-t border-gray-100 bg-gray-50/70 grid grid-cols-3 gap-1 text-center text-xs">
-                    <div id="card_stock_metric_${safeSkuKey}" class="text-left pl-1">
+                    <div data-card-stock="${escapeAttr(item.sku)}" class="text-left pl-1">
                         <p class="text-[9px] text-gray-400 font-medium truncate">매장 총 재고(신사)</p>
                         <p class="font-black text-xs sm:text-sm ${item.totalStock <= 2 && isItemDp ? 'text-red-600' : (item.totalStock === 0 ? 'text-red-500' : 'text-gray-900')}">
                             ${item.totalStock.toLocaleString()} EA ${item.totalStock <= 2 && isItemDp ? '<span class="text-[10px]">⚠️</span>' : ''}
@@ -1743,10 +1773,10 @@
                         ${wosHtml}
                     </div>
                 </td>
-                <td class="p-3 text-center table_dp_container_${safeSkuKey}">
+                <td data-table-dp="${escapeAttr(item.sku)}" class="p-3 text-center">
                     ${renderTableDpButtonHtml(item.sku, item.stock, isItemDp)}
                 </td>
-                <td class="p-3 text-center table_loc_container_${safeSkuKey}">
+                <td data-table-loc="${escapeAttr(item.sku)}" class="p-3 text-center">
                     ${renderLocationSelectHtml(item.sku, itemLoc, true)}
                 </td>
                 <td class="p-3 font-mono font-bold">${item.sku}</td>
@@ -2186,6 +2216,8 @@
             try {
                 const response = await fetch("./inventory.csv", { method: "HEAD" });
                 const modified = response.headers.get("last-modified");
+                if (modified && lastUpdated) {
+                     modified = response.headers.get("last-modified");
                 if (modified && lastUpdated) {
                     lastUpdated.innerHTML = "업데이트: " + new Date(modified).toLocaleString("ko-KR");
                 }
