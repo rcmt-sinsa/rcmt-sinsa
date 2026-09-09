@@ -84,7 +84,7 @@
 
         <!-- Search & Filter Panel -->
         <section class="bg-white rounded-lg p-5 shadow-sm border border-gray-200 space-y-4">
-            <!-- Search Bar + Action Buttons -->
+            <!-- Search Bar + Buttons -->
             <div class="flex flex-col lg:flex-row gap-2">
                 <div class="relative flex-1">
                     <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-gray-400"></i>
@@ -330,13 +330,14 @@
         let isFirebaseActive = false;
         let dpMap = {};
         let locationMap = {};
+        let isInitialFirebaseLoaded = false;
 
         try {
             firebase.initializeApp(firebaseConfig);
             db = firebase.database();
             isFirebaseActive = true;
 
-            // 로컬 내역 파이어베이스 마이그레이션
+            // 로컬 내역 마이그레이션
             try {
                 const localSaved = JSON.parse(localStorage.getItem('rcmt_dp_status') || '{}');
                 if (localSaved && Object.keys(localSaved).length > 0) {
@@ -365,18 +366,44 @@
                 console.warn("Location Migration warning:", locMigErr);
             }
 
-            // DP 실시간 리스너
-            db.ref('rcmt_dp_status').on('value', (snapshot) => {
-                dpMap = snapshot.val() || {};
+            // 1회 초기 데이터 로드 (once)
+            Promise.all([
+                db.ref('rcmt_dp_status').once('value'),
+                db.ref('rcmt_location').once('value')
+            ]).then(([dpSnap, locSnap]) => {
+                dpMap = dpSnap.val() || {};
+                locationMap = locSnap.val() || {};
+                isInitialFirebaseLoaded = true;
+
                 const cloudEl = document.getElementById('cloudIndicator');
                 if (cloudEl) cloudEl.innerHTML = '<span class="text-emerald-400 font-bold">🟢 실시간 클라우드 연동 완료</span>';
-                applyFiltersAndRender();
-            });
 
-            // 적재 위치 실시간 리스너
-            db.ref('rcmt_location').on('value', (snapshot) => {
-                locationMap = snapshot.val() || {};
-                applyFiltersAndRender();
+                applyFiltersAndRender(true);
+
+                // 🌟 이후 발생하는 변경사항은 타깃 요소만 DOM 부분 갱신 (화면 리셋 방지)
+                db.ref('rcmt_dp_status').on('child_changed', (snap) => {
+                    handleDpChange(snap.key, snap.val());
+                });
+                db.ref('rcmt_dp_status').on('child_added', (snap) => {
+                    if (!isInitialFirebaseLoaded) return;
+                    handleDpChange(snap.key, snap.val());
+                });
+                db.ref('rcmt_dp_status').on('child_removed', (snap) => {
+                    handleDpChange(snap.key, false);
+                });
+
+                db.ref('rcmt_location').on('child_changed', (snap) => {
+                    handleLocationChange(snap.key, snap.val());
+                });
+                db.ref('rcmt_location').on('child_added', (snap) => {
+                    if (!isInitialFirebaseLoaded) return;
+                    handleLocationChange(snap.key, snap.val());
+                });
+                db.ref('rcmt_location').on('child_removed', (snap) => {
+                    handleLocationChange(snap.key, '');
+                });
+            }).catch(e => {
+                console.warn("Firebase 초기화 에러:", e);
             });
 
         } catch (e) {
@@ -393,7 +420,7 @@
         }
 
         // ==========================================
-        // 2. 상태 변수 및 렌더링 최적화 설정
+        // 2. 상태 관리 및 열려있는 상세 창 추적
         // ==========================================
         let rawInventory = [];
         let globalNameColorMap = {};
@@ -416,7 +443,10 @@
         let selectedGender = [];
         let selectedSizeDisplay = [];
 
-        // 분할 렌더링 (무한 스크롤) 페이지네이션 제어 변수
+        // 🌟 열려있는 카드 상세(아코디언) ID 추적 Set
+        const openCardDetailIds = new Set();
+
+        // 분할 렌더링 페이지 크기
         const GRID_PAGE_SIZE = 32;
         const TABLE_PAGE_SIZE = 50;
         let currentGridLimit = GRID_PAGE_SIZE;
@@ -436,7 +466,6 @@
         const clearFilterBtn = document.getElementById('clearFilterBtn');
         const sortBySelect = document.getElementById('sortBySelect');
 
-        // 엑셀 드롭다운 관련 DOM 요소
         const excelDropdownContainer = document.getElementById('excelDropdownContainer');
         const excelDropdownToggle = document.getElementById('excelDropdownToggle');
         const excelDropdownMenu = document.getElementById('excelDropdownMenu');
@@ -466,11 +495,76 @@
         function filterBySku(targetSku) {
             if (!targetSku) return;
             searchInput.value = targetSku;
-            applyFiltersAndRender();
+            applyFiltersAndRender(true);
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // DP(진열) 상태 토글
+        // ==========================================
+        // 3. 타깃 부분 갱신 (In-place DOM Updater)
+        // ==========================================
+        function handleDpChange(safeSkuKey, newStatus) {
+            dpMap[safeSkuKey] = !!newStatus;
+            try { localStorage.setItem('rcmt_dp_status', JSON.stringify(dpMap)); } catch(e){}
+
+            // DP 관련 필터가 켜져 있는 상태라면 화면 재정렬 필요 (스크롤 한계는 유지)
+            if (isDpOnly || isDpMissingOnly || isDpLowStockOnly) {
+                applyFiltersAndRender(false);
+                return;
+            }
+
+            const group = groupedData.find(g => String(g.sku).replace(/[.#$[\]]/g, '_') === safeSkuKey);
+            const sku = group ? group.sku : safeSkuKey;
+            const totalStock = group ? group.totalStock : 0;
+
+            // 1) 카드 뷰의 DP 버튼 및 재고 경고 문구만 갱신
+            const cardDpEl = document.getElementById('card_dp_container_' + safeSkuKey);
+            if (cardDpEl) {
+                cardDpEl.innerHTML = renderCardDpButtonHtml(sku, totalStock, !!newStatus);
+            }
+            const cardStockEl = document.getElementById('card_stock_metric_' + safeSkuKey);
+            if (cardStockEl && group) {
+                cardStockEl.innerHTML = `
+                    <p class="text-[9px] text-gray-400 font-medium truncate">매장 총 재고(신사)</p>
+                    <p class="font-black text-xs sm:text-sm ${totalStock <= 2 && !!newStatus ? 'text-red-600' : (totalStock === 0 ? 'text-red-500' : 'text-gray-900')}">
+                        ${totalStock.toLocaleString()} EA ${totalStock <= 2 && !!newStatus ? '<span class="text-[10px]">⚠️</span>' : ''}
+                    </p>
+                `;
+            }
+
+            // 2) 표(Table) 뷰의 DP 버튼 갱신
+            document.querySelectorAll('.table_dp_container_' + safeSkuKey).forEach(el => {
+                const row = el.closest('tr');
+                const stock = row && row.dataset.stock ? parseInt(row.dataset.stock, 10) : totalStock;
+                el.innerHTML = renderTableDpButtonHtml(sku, stock, !!newStatus);
+            });
+        }
+
+        function handleLocationChange(safeSkuKey, newLoc) {
+            locationMap[safeSkuKey] = newLoc || '';
+            try { localStorage.setItem('rcmt_location', JSON.stringify(locationMap)); } catch(e){}
+
+            // 특정 위치 필터가 켜져 있다면 목록 재정렬 필요 (스크롤 한계는 유지)
+            if (selectedLocation !== '') {
+                applyFiltersAndRender(false);
+                return;
+            }
+
+            const group = groupedData.find(g => String(g.sku).replace(/[.#$[\]]/g, '_') === safeSkuKey);
+            const sku = group ? group.sku : safeSkuKey;
+
+            // 1) 카드 뷰의 위치 선택기만 갱신
+            const cardLocEl = document.getElementById('card_loc_container_' + safeSkuKey);
+            if (cardLocEl) {
+                cardLocEl.innerHTML = renderLocationSelectHtml(sku, newLoc, false);
+            }
+
+            // 2) 표 뷰의 위치 선택기만 갱신
+            document.querySelectorAll('.table_loc_container_' + safeSkuKey).forEach(el => {
+                el.innerHTML = renderLocationSelectHtml(sku, newLoc, true);
+            });
+        }
+
+        // DP(진열) 상태 토글 함수
         function toggleDpStatus(sku, event) {
             if (event) event.stopPropagation();
             if (!sku) return;
@@ -480,13 +574,11 @@
             dpMap[sku] = nextState;
             dpMap[safeSkuKey] = nextState;
 
+            // 즉각적인 로컬 UI 반영
+            handleDpChange(safeSkuKey, nextState);
+
             if (isFirebaseActive && db) {
                 db.ref('rcmt_dp_status/' + safeSkuKey).set(nextState);
-            } else {
-                try {
-                    localStorage.setItem('rcmt_dp_status', JSON.stringify(dpMap));
-                } catch (e) {}
-                applyFiltersAndRender();
             }
         }
 
@@ -501,17 +593,15 @@
             locationMap[sku] = val;
             locationMap[safeSkuKey] = val;
 
+            // 즉각적인 로컬 UI 반영
+            handleLocationChange(safeSkuKey, val);
+
             if (isFirebaseActive && db) {
                 if (val) {
                     db.ref('rcmt_location/' + safeSkuKey).set(val);
                 } else {
                     db.ref('rcmt_location/' + safeSkuKey).remove();
                 }
-            } else {
-                try {
-                    localStorage.setItem('rcmt_location', JSON.stringify(locationMap));
-                } catch (e) {}
-                applyFiltersAndRender();
             }
         }
 
@@ -815,7 +905,7 @@
 
             rawInventory = Object.values(inventorySumMap);
 
-            // 아더 컬러 매핑
+            // 아더 컬러 맵
             globalNameColorMap = {};
             rawInventory.forEach(item => {
                 const cleanName = String(item.name || '').trim().toLowerCase();
@@ -835,7 +925,7 @@
             });
 
             renderFilterChips();
-            applyFiltersAndRender();
+            applyFiltersAndRender(true);
         }
 
         function processSalesData(json) {
@@ -862,11 +952,11 @@
                 }
             });
 
-            applyFiltersAndRender();
+            applyFiltersAndRender(false);
         }
 
         // ==========================================
-        // 3. 필터 칩 렌더링 (브랜드 텍스트 전용 표기)
+        // 4. 필터 칩 렌더링 (브랜드 텍스트 전용)
         // ==========================================
         function renderFilterChips() {
             const brandSet = new Set();
@@ -899,7 +989,7 @@
                 }
             });
 
-            // 1) 브랜드 칩스: 불필요한 아이콘 제거, 심플한 텍스트로만 렌더링
+            // 1) 브랜드 칩스 (깔끔한 텍스트 전용)
             const brands = Array.from(brandSet).sort();
             let brandHtml = `<button class="chip-btn ${selectedBrand.length === 0 ? 'active' : ''}" onclick="selectBrand('')">전체 브랜드</button>`;
             brands.forEach(b => {
@@ -1004,7 +1094,7 @@
                 else selectedBrand.push(val);
             }
             renderFilterChips();
-            applyFiltersAndRender();
+            applyFiltersAndRender(true);
         }
 
         function selectBiz(val) {
@@ -1016,7 +1106,7 @@
                 else selectedBiz.push(val);
             }
             renderFilterChips();
-            applyFiltersAndRender();
+            applyFiltersAndRender(true);
         }
 
         function selectGender(val) {
@@ -1028,7 +1118,7 @@
                 else selectedGender.push(val);
             }
             renderFilterChips();
-            applyFiltersAndRender();
+            applyFiltersAndRender(true);
         }
 
         function selectSize(val) {
@@ -1040,7 +1130,7 @@
                 else selectedSizeDisplay.push(val);
             }
             renderFilterChips();
-            applyFiltersAndRender();
+            applyFiltersAndRender(true);
         }
 
         function selectLocation(val) {
@@ -1059,13 +1149,13 @@
                     }
                 });
             }
-            applyFiltersAndRender();
+            applyFiltersAndRender(true);
         }
 
         // ==========================================
-        // 4. 필터링 및 분할 렌더링 로직
+        // 5. 필터링 및 렌더링 (상태 보존 지원)
         // ==========================================
-        function applyFiltersAndRender() {
+        function applyFiltersAndRender(resetLimit = true) {
             if (rawInventory.length === 0) return;
             const searchTerm = searchInput.value.trim().toLowerCase();
 
@@ -1207,9 +1297,11 @@
                 return 0;
             });
 
-            // 검색/필터 변경 시 페이지네이션 초기화 후 렌더링
-            currentGridLimit = GRID_PAGE_SIZE;
-            currentTableLimit = TABLE_PAGE_SIZE;
+            // 사용자가 직접 검색/필터를 바꾼 경우에만 상단 32개로 리셋, 백그라운드 동기화 시에는 현재 로드된 스크롤 길이 유지
+            if (resetLimit) {
+                currentGridLimit = GRID_PAGE_SIZE;
+                currentTableLimit = TABLE_PAGE_SIZE;
+            }
             renderResults();
         }
 
@@ -1239,10 +1331,8 @@
             else if (loc === '4층') bgClass = 'bg-amber-600 text-white border-amber-700 font-bold';
             else bgClass = isTable ? 'bg-gray-100 text-gray-500 border-gray-300 font-medium' : 'bg-black/60 hover:bg-black text-white font-bold border-transparent';
 
-            const containerClass = isTable ? 'inline-block' : 'absolute bottom-2 right-2 z-10';
-
             return `
-            <div class="${containerClass}" onclick="event.stopPropagation();">
+            <div onclick="event.stopPropagation();">
                 <div class="relative inline-flex items-center">
                     <select onchange="updateLocation('${sku}', this.value, event)"
                             class="${bgClass} text-[10px] px-2 py-0.5 rounded shadow cursor-pointer border focus:outline-none transition appearance-none pr-4">
@@ -1257,15 +1347,51 @@
             </div>`;
         }
 
-        // 개별 카드 템플릿 생성기 (loading="lazy" 탑재)
+        // 카드 뷰 DP 버튼 렌더러
+        function renderCardDpButtonHtml(sku, totalStock, isItemDp) {
+            if (isItemDp) {
+                if (totalStock <= 2) {
+                    return `
+                    <button onclick="toggleDpStatus('${sku}', event)" title="진열품이나 신사 재고가 2개 이하입니다! (클릭 시 미진열로 변경)" class="bg-red-600 hover:bg-red-700 text-white text-[10px] font-black px-2 py-0.5 rounded shadow flex items-center gap-1 animate-pulse border border-red-300">
+                        <i class="fa-solid fa-triangle-exclamation"></i>🚨 DP 재고부족 (${totalStock}개)
+                    </button>`;
+                } else {
+                    return `
+                    <button onclick="toggleDpStatus('${sku}', event)" title="클릭 시 미진열로 변경" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-extrabold px-2 py-0.5 rounded shadow flex items-center gap-1 transition">
+                        <i class="fa-solid fa-check"></i>DP 완료
+                    </button>`;
+                }
+            } else {
+                return `
+                <button onclick="toggleDpStatus('${sku}', event)" title="클릭 시 진열(DP) 완료로 변경" class="bg-black/60 hover:bg-black text-white text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1 transition">
+                    <i class="fa-solid fa-plus"></i>미진열 (DP 등록)
+                </button>`;
+            }
+        }
+
+        // 표 뷰 DP 버튼 렌더러
+        function renderTableDpButtonHtml(sku, stock, isItemDp) {
+            if (isItemDp) {
+                if (stock <= 2) {
+                    return `<button onclick="toggleDpStatus('${sku}', event)" class="px-2 py-0.5 rounded text-[10px] font-black bg-red-100 text-red-700 border border-red-300 hover:bg-red-200 transition flex items-center gap-1 mx-auto"><span class="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></span>DP 위험 (${stock}EA)</button>`;
+                } else {
+                    return `<button onclick="toggleDpStatus('${sku}', event)" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-300 hover:bg-emerald-200 transition">DP 완료</button>`;
+                }
+            } else {
+                return `<button onclick="toggleDpStatus('${sku}', event)" class="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200">미진열</button>`;
+            }
+        }
+
+        // 개별 카드 템플릿 생성기
         function buildCardHtml(item, index) {
             const safeId = 'card_' + (item.sku ? item.sku.replace(/[^a-zA-Z0-9_-]/g, '_') : index);
+            const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
             const googleSearchUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent((item.sku || '') + ' ' + (item.name || ''))}`;
             const wosHtml = getWosBadgeHtml(item.totalStock, item.totalSales, item.wos);
             
-            const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
             const isItemDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
             const itemLoc = locationMap[item.sku] || locationMap[safeSkuKey] || '';
+            const isOpen = openCardDetailIds.has(safeId);
 
             const cleanName = String(item.name || '').trim().toLowerCase();
             const allVariants = globalNameColorMap[cleanName] ? Array.from(globalNameColorMap[cleanName].values()) : [];
@@ -1299,28 +1425,6 @@
                 </div>
                 `;
             }
-
-            let dpButtonHtml = '';
-            if (isItemDp) {
-                if (item.totalStock <= 2) {
-                    dpButtonHtml = `
-                    <button onclick="toggleDpStatus('${item.sku}', event)" title="진열품이나 신사 재고가 2개 이하입니다! (클릭 시 미진열로 변경)" class="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white text-[10px] font-black px-2 py-0.5 rounded shadow flex items-center gap-1 z-10 animate-pulse border border-red-300">
-                        <i class="fa-solid fa-triangle-exclamation"></i>🚨 DP 재고부족 (${item.totalStock}개)
-                    </button>`;
-                } else {
-                    dpButtonHtml = `
-                    <button onclick="toggleDpStatus('${item.sku}', event)" title="클릭 시 미진열로 변경" class="absolute top-2 right-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-extrabold px-2 py-0.5 rounded shadow flex items-center gap-1 z-10 transition">
-                        <i class="fa-solid fa-check"></i>DP 완료
-                    </button>`;
-                }
-            } else {
-                dpButtonHtml = `
-                <button onclick="toggleDpStatus('${item.sku}', event)" title="클릭 시 진열(DP) 완료로 변경" class="absolute top-2 right-2 bg-black/60 hover:bg-black text-white text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1 z-10 transition">
-                    <i class="fa-solid fa-plus"></i>미진열 (DP 등록)
-                </button>`;
-            }
-
-            const locationSelectorHtml = renderLocationSelectHtml(item.sku, itemLoc, false);
 
             const imageArea = item.imageUrl
                 ? `<img src="${item.imageUrl}" loading="lazy" class="w-full h-36 object-cover rounded-t-lg bg-gray-50" alt="${item.name}">`
@@ -1382,15 +1486,24 @@
             }).join('');
 
             return `
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col justify-between hover:shadow-md transition cursor-pointer group"
+            <div id="card_wrap_${safeSkuKey}" class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col justify-between hover:shadow-md transition cursor-pointer group"
                  onclick="toggleCardDetail('${safeId}')">
                 <div>
                     <div class="relative">
                         ${imageArea}
                         ${item.isHighHeat ? '<span class="absolute top-2 left-2 heat-badge text-[10px] px-2 py-0.5 rounded shadow z-10">🔥 HIGH HEAT</span>' : ''}
-                        ${dpButtonHtml}
+                        
+                        <!-- DP 버튼 컨테이너 -->
+                        <div id="card_dp_container_${safeSkuKey}" class="absolute top-2 right-2 z-10">
+                            ${renderCardDpButtonHtml(item.sku, item.totalStock, isItemDp)}
+                        </div>
+
                         ${item.hasAnyPosMissing ? '<span class="absolute bottom-2 left-2 bg-black/80 text-white text-[9px] px-1.5 py-0.5 rounded font-bold shadow z-10">POS 미등록 포함</span>' : ''}
-                        ${locationSelectorHtml}
+                        
+                        <!-- 위치 셀렉터 컨테이너 -->
+                        <div id="card_loc_container_${safeSkuKey}" class="absolute bottom-2 right-2 z-10">
+                            ${renderLocationSelectHtml(item.sku, itemLoc, false)}
+                        </div>
                     </div>
 
                     <div class="p-3.5 space-y-2">
@@ -1411,7 +1524,7 @@
                             <div class="flex items-center justify-between mb-1">
                                 <span class="text-[10px] font-bold text-gray-500">보유 사이즈 (${item.sizeList.length})</span>
                                 <span class="text-[9px] text-blue-600 font-semibold group-hover:underline flex items-center gap-0.5">
-                                    상세보기 <i id="icon_${safeId}" class="fa-solid fa-chevron-down text-[8px] transition-transform"></i>
+                                    상세보기 <i id="icon_${safeId}" class="fa-solid fa-chevron-down text-[8px] transition-transform ${isOpen ? 'rotate-180' : ''}"></i>
                                 </span>
                             </div>
                             <div class="flex flex-wrap gap-1">
@@ -1427,7 +1540,7 @@
 
                 <!-- 카드 하단 3단 지표 -->
                 <div class="p-2.5 border-t border-gray-100 bg-gray-50/70 grid grid-cols-3 gap-1 text-center text-xs">
-                    <div class="text-left pl-1">
+                    <div id="card_stock_metric_${safeSkuKey}" class="text-left pl-1">
                         <p class="text-[9px] text-gray-400 font-medium truncate">매장 총 재고(신사)</p>
                         <p class="font-black text-xs sm:text-sm ${item.totalStock <= 2 && isItemDp ? 'text-red-600' : (item.totalStock === 0 ? 'text-red-500' : 'text-gray-900')}">
                             ${item.totalStock.toLocaleString()} EA ${item.totalStock <= 2 && isItemDp ? '<span class="text-[10px]">⚠️</span>' : ''}
@@ -1448,7 +1561,7 @@
                 </div>
 
                 <!-- 상세 아코디언 -->
-                <div id="${safeId}" class="hidden p-3 bg-gray-50 border-t border-gray-200 space-y-1.5" onclick="event.stopPropagation();">
+                <div id="${safeId}" class="${isOpen ? '' : 'hidden'} p-3 bg-gray-50 border-t border-gray-200 space-y-1.5" onclick="event.stopPropagation();">
                     <div class="flex items-center justify-between pb-1 border-b border-gray-200">
                         <span class="text-[11px] font-black text-gray-700">📋 사이즈별 재고 & 판매 현황</span>
                         <span class="text-[10px] text-gray-400">총 ${item.sizeList.length}개 규격</span>
@@ -1468,24 +1581,15 @@
             const isItemDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
             const itemLoc = locationMap[item.sku] || locationMap[safeSkuKey] || '';
             
-            let dpTableBtn = '';
-            if (isItemDp) {
-                if (item.stock <= 2) {
-                    dpTableBtn = `<button onclick="toggleDpStatus('${item.sku}', event)" class="px-2 py-0.5 rounded text-[10px] font-black bg-red-100 text-red-700 border border-red-300 hover:bg-red-200 transition flex items-center gap-1 mx-auto"><span class="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></span>DP 위험 (${item.stock}EA)</button>`;
-                } else {
-                    dpTableBtn = `<button onclick="toggleDpStatus('${item.sku}', event)" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-300 hover:bg-emerald-200 transition">DP 완료</button>`;
-                }
-            } else {
-                dpTableBtn = `<button onclick="toggleDpStatus('${item.sku}', event)" class="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200">미진열</button>`;
-            }
-
-            const tableLocSelect = renderLocationSelectHtml(item.sku, itemLoc, true);
-            
             return `
-            <tr class="hover:bg-gray-50 border-b border-gray-100">
+            <tr class="hover:bg-gray-50 border-b border-gray-100" data-stock="${item.stock}">
                 <td class="p-3">${item.isHighHeat ? '<span class="heat-badge text-xs px-2 py-0.5 rounded mr-1">🔥 HIGH HEAT</span>' : ''}${wosHtml}</td>
-                <td class="p-3 text-center">${dpTableBtn}</td>
-                <td class="p-3 text-center">${tableLocSelect}</td>
+                <td class="p-3 text-center table_dp_container_${safeSkuKey}">
+                    ${renderTableDpButtonHtml(item.sku, item.stock, isItemDp)}
+                </td>
+                <td class="p-3 text-center table_loc_container_${safeSkuKey}">
+                    ${renderLocationSelectHtml(item.sku, itemLoc, true)}
+                </td>
                 <td class="p-3 font-mono font-bold">${item.sku}</td>
                 <td class="p-3 font-medium">${item.name}</td>
                 <td class="p-3 font-bold text-gray-800">${item.sizeDisplay || '-'}</td>
@@ -1544,7 +1648,6 @@
             statusIndicator.innerHTML = `✅ 데이터 연동 완료 (${groupedData.length}개 상품 / ${filteredData.length}개 규격)`;
         }
 
-        // 추가 데이터 로드 함수 (스크롤 시 실행)
         function loadMoreGridItems() {
             if (currentGridLimit >= groupedData.length) {
                 gridSentinel.classList.add('hidden');
@@ -1587,7 +1690,6 @@
             }
         }
 
-        // 무한 스크롤 옵저버 설정
         const scrollObserver = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
@@ -1612,9 +1714,11 @@
             if (isHidden) {
                 detailEl.classList.remove('hidden');
                 if (iconEl) iconEl.classList.add('rotate-180');
+                openCardDetailIds.add(safeId);
             } else {
                 detailEl.classList.add('hidden');
                 if (iconEl) iconEl.classList.remove('rotate-180');
+                openCardDetailIds.delete(safeId);
             }
         }
 
@@ -1640,12 +1744,10 @@
 
         sortBySelect.addEventListener('change', (e) => {
             sortBy = e.target.value;
-            applyFiltersAndRender();
+            applyFiltersAndRender(true);
         });
 
-        // ==========================================
-        // 5. 엑셀 다운로드 드롭다운 메뉴 이벤트 제어
-        // ==========================================
+        // 엑셀 드롭다운 이벤트
         excelDropdownToggle.addEventListener('click', (e) => {
             e.stopPropagation();
             excelDropdownMenu.classList.toggle('hidden');
@@ -1724,23 +1826,23 @@
             downloadExcel(restockRows, "보충발주추천_WOS임박");
         });
 
-        searchBtn.addEventListener('click', applyFiltersAndRender);
+        searchBtn.addEventListener('click', () => applyFiltersAndRender(true));
         searchInput.addEventListener('keyup', (e) => {
-            if (e.key === 'Enter') applyFiltersAndRender();
+            if (e.key === 'Enter') applyFiltersAndRender(true);
         });
 
         toggleHighHeat.addEventListener('click', () => {
             isHighHeatOnly = !isHighHeatOnly;
             toggleHighHeat.classList.toggle('bg-red-600');
             toggleHighHeat.classList.toggle('text-white');
-            applyFiltersAndRender();
+            applyFiltersAndRender(true);
         });
 
         toggleWosWarning.addEventListener('click', () => {
             isWosWarningOnly = !isWosWarningOnly;
             toggleWosWarning.classList.toggle('bg-amber-600');
             toggleWosWarning.classList.toggle('text-white');
-            applyFiltersAndRender();
+            applyFiltersAndRender(true);
         });
 
         if (togglePosMissing) {
@@ -1748,7 +1850,7 @@
                 isPosMissingOnly = !isPosMissingOnly;
                 togglePosMissing.classList.toggle('bg-black');
                 togglePosMissing.classList.toggle('text-white');
-                applyFiltersAndRender();
+                applyFiltersAndRender(true);
             });
         }
 
@@ -1763,7 +1865,7 @@
                 }
                 toggleDpOnly.classList.toggle('bg-emerald-600');
                 toggleDpOnly.classList.toggle('text-white');
-                applyFiltersAndRender();
+                applyFiltersAndRender(true);
             });
         }
 
@@ -1776,7 +1878,7 @@
                 }
                 toggleDpLowStock.classList.toggle('bg-red-600');
                 toggleDpLowStock.classList.toggle('text-white');
-                applyFiltersAndRender();
+                applyFiltersAndRender(true);
             });
         }
 
@@ -1791,7 +1893,7 @@
                 }
                 toggleDpMissing.classList.toggle('bg-purple-600');
                 toggleDpMissing.classList.toggle('text-white');
-                applyFiltersAndRender();
+                applyFiltersAndRender(true);
             });
         }
 
@@ -1818,7 +1920,7 @@
             if (toggleDpMissing) toggleDpMissing.classList.remove('bg-purple-600', 'text-white');
             selectLocation('');
             renderFilterChips();
-            applyFiltersAndRender();
+            applyFiltersAndRender(true);
         });
 
         if (clearFilterBtn) {
@@ -1842,7 +1944,7 @@
                 if (toggleDpMissing) toggleDpMissing.classList.remove('bg-purple-600', 'text-white');
                 selectLocation('');
                 renderFilterChips();
-                applyFiltersAndRender();
+                applyFiltersAndRender(true);
             });
         }
 
