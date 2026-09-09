@@ -499,33 +499,34 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // ==========================================
+  // ==========================================
         // 3. 타깃 부분 갱신 (In-place DOM Updater)
         // ==========================================
-       locationMap[safeSkuKey] = newLoc || '';
-    try { localStorage.setItem('rcmt_location', JSON.stringify(locationMap)); } catch(e){}
+        function handleLocationChange(safeSkuKey, newLoc) {  // 👈 이 선언문 한 줄이 빠져 있었습니다!
+            locationMap[safeSkuKey] = newLoc || '';
+            try { localStorage.setItem('rcmt_location', JSON.stringify(locationMap)); } catch(e){}
 
-    if (selectedLocation !== '') {
-        applyFiltersAndRender(false);
-        return;
-    }
+            if (selectedLocation !== '') {
+                applyFiltersAndRender(false);
+                return;
+            }
 
-    const group = groupedData.find(g => String(g.sku).replace(/[.#$[\]]/g, '_') === safeSkuKey);
-    const sku = group ? group.sku : safeSkuKey;
+            const group = groupedData.find(g => String(g.sku).replace(/[.#$[\]]/g, '_') === safeSkuKey);
+            const sku = group ? group.sku : safeSkuKey;
 
-    // 1) 카드 뷰의 위치 선택기 갱신
-    const cardLocEl = document.getElementById('card_loc_container_' + safeSkuKey);
-    if (cardLocEl) {
-        cardLocEl.innerHTML = renderLocationSelectHtml(sku, newLoc, false);
-    }
+            // 1) 카드 뷰의 위치 선택기 갱신
+            const cardLocEl = document.getElementById('card_loc_container_' + safeSkuKey);
+            if (cardLocEl) {
+                cardLocEl.innerHTML = renderLocationSelectHtml(sku, newLoc, false);
+            }
 
-    // 2) 표 뷰의 위치 선택기 갱신 (data-table-loc 속성 비교)
-    document.querySelectorAll('[data-table-loc]').forEach(el => {
-        if (el.getAttribute('data-table-loc') === safeSkuKey) {
-            el.innerHTML = renderLocationSelectHtml(sku, newLoc, true);
+            // 2) 표 뷰의 위치 선택기 갱신 (data-table-loc 속성 비교)
+            document.querySelectorAll('[data-table-loc]').forEach(el => {
+                if (el.getAttribute('data-table-loc') === safeSkuKey) {
+                    el.innerHTML = renderLocationSelectHtml(sku, newLoc, true);
+                }
+            });
         }
-    });
-}
 
             // 2) 표(Table) 뷰의 DP 버튼 갱신
             document.querySelectorAll('.table_dp_container_' + safeSkuKey).forEach(el => {
