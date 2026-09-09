@@ -656,12 +656,13 @@
             return null;
         }
 
+        // 브랜드 추출 로직 수정 완료: match.trim() 사용
         function extractBrand(subCategoryStr) {
             if (!subCategoryStr) return '기타';
             const cleaned = String(subCategoryStr).trim();
             const match = cleaned.match(/\(([^)]+)\)/);
             if (match && match) {
-                return match.trim();
+                return String(match).trim();
             }
 
             return cleaned
@@ -2197,6 +2198,7 @@
                 if (promoCsv) {
                     try {
                         const promoWorkbook = XLSX.read(promoCsv, { type: "string" });
+                        const promoSheet = promoWorkbook.SheetspromoCsv, { type: "string" });
                         const promoSheet = promoWorkbook.Sheets[promoWorkbook.SheetNames[0]];
                         const promoRows = parseExcelUniversal(promoSheet);
                         processPromotionData(promoRows);
@@ -2228,7 +2230,7 @@
             }
         }
 
-       loadCsvData();
+        loadCsvData();
 
         async function updateLastModified() {
             try {
