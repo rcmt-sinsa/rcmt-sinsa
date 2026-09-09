@@ -436,7 +436,7 @@
         // ==========================================
         let rawInventory = [];
         let rawPromotions = [];
-        let activePromoMap = {}; // SKU -> 가장 할인율 높은 활성 프로모션 객체
+        let activePromoMap = {};
         let globalNameColorMap = {};
         let salesMap = {};
         let filteredData = [];
@@ -656,7 +656,6 @@
             return null;
         }
 
-        // 브랜드 추출 함수 (수정 완료)
         function extractBrand(subCategoryStr) {
             if (!subCategoryStr) return '기타';
             const cleaned = String(subCategoryStr).trim();
@@ -899,7 +898,7 @@
             Object.keys(promoBySku).forEach(sku => {
                 const list = promoBySku[sku];
 
-                // 1) 오늘 기준 진행 중(시작일 <= 오늘 <= 종료일)인 프로모션만 필터링
+                // 1) 오늘 기준 진행 중인 프로모션 필터링
                 const activeList = list.filter(p => {
                     if (p.startDate && today < p.startDate) return false;
                     if (p.endDate && today > p.endDate) return false;
@@ -908,7 +907,7 @@
 
                 if (activeList.length === 0) return;
 
-                // 2) 진행 중인 것 중 가장 할인율이 높은 것 우선 선택
+                // 2) 최고 할인율 우선 선택
                 activeList.sort((a, b) => {
                     if (b.discountRate !== a.discountRate) {
                         return b.discountRate - a.discountRate;
@@ -921,7 +920,7 @@
 
                 const best = activeList[0];
 
-                // 3) 종료 3일 전 D-Day 텍스트 계산
+                // 3) D-Day 텍스트 계산
                 let dDayText = '';
                 if (best.endDate) {
                     const diffMs = best.endDate.getTime() - today.getTime();
@@ -944,7 +943,7 @@
             const sampleRow = json[0] || {};
             const keys = Object.keys(sampleRow);
 
-            const skuKey = keys.find(k => k.trim() === '품번') || keys.find(k => k.includes('품번') || k.toLowerCase().includes('sku') || k.includes('코드')) || keys[0];
+            const skuKey = keys.find(k => k.trim() === '품번') || keys.find(k => k.includes('품번') || k.toLowerCase().includes('sku')) || keys[0];
             const nameKey = keys.find(k => k.trim() === '품명') || keys.find(k => k.includes('품명')) || keys.find(k => k.includes('상품명')) || (keys.length > 1 ? keys : keys[0]) || '';
             const priceKey = keys.find(k => k.trim() === '소비자가') || keys.find(k => k.includes('소비자가') || k.includes('소비자') || k.includes('판매가') || k.includes('정가') || k.toLowerCase().includes('price')) || '';
             const subCatKey = keys.find(k => k.includes('품목소분류') || k.includes('소분류') || k.includes('브랜드')) || '';
@@ -1048,7 +1047,7 @@
             const sampleRow = json[0] || {};
             const keys = Object.keys(sampleRow);
 
-            const skuKey = keys.find(k => k.trim() === '품번') || keys.find(k => k.includes('품번') || k.toLowerCase().includes('sku') || k.includes('코드')) || keys[0];
+            const skuKey = keys.find(k => k.trim() === '품번') || keys.find(k => k.includes('품번') || k.toLowerCase().includes('sku')) || keys[0];
             const qtyKey = keys.find(k => k.trim() === '수량') || keys.find(k => k.includes('수량')) || keys.find(k => k.includes('판매')) || keys.find(k => k.includes('출고')) || keys[0] || '';
             const sizeKey = keys.find(k => k.trim() === '규격') || keys.find(k => k.includes('규격')) || '';
             
@@ -2165,23 +2164,38 @@
         }
 
         // ==========================================
-        // 8. 데이터 로딩 (CSV 병렬 로드)
+        // 8. 데이터 로딩 (안전한 개별 비동기 로드)
         // ==========================================
         async function loadCsvData() {
             try {
-                const [inventoryRes, salesRes, promoRes] = await Promise.all([
-                    fetch('./inventory.csv'),
-                    fetch('./sales.csv'),
-                    fetch('./promotion.csv').catch(e => null)
-                ]);
+                let inventoryCsv = '';
+                let salesCsv = '';
+                let promoCsv = '';
 
-                const inventoryCsv = await inventoryRes.text();
-                const salesCsv = await salesRes.text();
+                try {
+                    const res = await fetch('./inventory.csv');
+                    if (res && res.ok) inventoryCsv = await res.text();
+                } catch(e) {
+                    console.warn('inventory.csv 로드 실패:', e);
+                }
+
+                try {
+                    const res = await fetch('./sales.csv');
+                    if (res && res.ok) salesCsv = await res.text();
+                } catch(e) {
+                    console.warn('sales.csv 로드 실패:', e);
+                }
+
+                try {
+                    const res = await fetch('./promotion.csv');
+                    if (res && res.ok) promoCsv = await res.text();
+                } catch(e) {
+                    console.warn('promotion.csv 로드 실패 (선택 사항):', e);
+                }
 
                 // 1) 프로모션 데이터 우선 로드 & 활성 맵 빌드
-                if (promoRes && promoRes.ok) {
+                if (promoCsv) {
                     try {
-                        const promoCsv = await promoRes.text();
                         const promoWorkbook = XLSX.read(promoCsv, { type: "string" });
                         const promoSheet = promoWorkbook.Sheets[promoWorkbook.SheetNames[0]];
                         const promoRows = parseExcelUniversal(promoSheet);
@@ -2191,17 +2205,21 @@
                     }
                 }
 
-                // 2) 재고 및 판매량 파싱
-                const inventoryWorkbook = XLSX.read(inventoryCsv, { type: "string" });
-                const inventorySheet = inventoryWorkbook.Sheets[inventoryWorkbook.SheetNames[0]];
-                const inventoryRows = parseExcelUniversal(inventorySheet);
+                // 2) 재고 데이터 파싱
+                if (inventoryCsv) {
+                    const inventoryWorkbook = XLSX.read(inventoryCsv, { type: "string" });
+                    const inventorySheet = inventoryWorkbook.Sheets[inventoryWorkbook.SheetNames[0]];
+                    const inventoryRows = parseExcelUniversal(inventorySheet);
+                    processInventoryData(inventoryRows);
+                }
 
-                const salesWorkbook = XLSX.read(salesCsv, { type: "string" });
-                const salesSheet = salesWorkbook.Sheets[salesWorkbook.SheetNames[0]];
-                const salesRows = parseExcelUniversal(salesSheet);
-
-                processInventoryData(inventoryRows);
-                processSalesData(salesRows);
+                // 3) 판매량 데이터 파싱
+                if (salesCsv) {
+                    const salesWorkbook = XLSX.read(salesCsv, { type: "string" });
+                    const salesSheet = salesWorkbook.Sheets[salesWorkbook.SheetNames[0]];
+                    const salesRows = parseExcelUniversal(salesSheet);
+                    processSalesData(salesRows);
+                }
                 
                 statusIndicator.innerHTML = '✅ 저장소 데이터 로딩 완료';
             } catch(err) {
@@ -2217,9 +2235,10 @@
                 const response = await fetch("./inventory.csv", { method: "HEAD" });
                 const modified = response.headers.get("last-modified");
                 if (modified && lastUpdated) {
-                     modified = response.headers.get("last-modified");
-                if (modified && lastUpdated) {
                     lastUpdated.innerHTML = "업데이트: " + new Date(modified).toLocaleString("ko-KR");
+                }
+            } catch(e) {
+                console Date(modified).toLocaleString("ko-KR");
                 }
             } catch(e) {
                 console.error(e);
