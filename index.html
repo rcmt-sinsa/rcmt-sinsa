@@ -2164,7 +2164,7 @@
             });
         }
 
-        // ==========================================
+       // ==========================================
         // 8. 데이터 로딩 (안전한 순차 비동기 구조)
         // ==========================================
         async function loadCsvData() {
@@ -2214,10 +2214,6 @@
                     processInventoryData(inventoryRows);
                 }
 
-                //Rows = parseExcelUniversal(inventorySheet);
-                    processInventoryData(inventoryRows);
-                }
-
                 // 3) 판매 데이터 파싱
                 if (salesCsv) {
                     const salesWorkbook = XLSX.read(salesCsv, { type: "string" });
@@ -2247,7 +2243,7 @@
             }
         }
 
-        updateLastModified
+        updateLastModified(); // <- 괄호 () 추가
     </script>
 </body>
 </html>
