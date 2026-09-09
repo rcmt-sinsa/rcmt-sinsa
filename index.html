@@ -436,7 +436,7 @@
         // ==========================================
         let rawInventory = [];
         let rawPromotions = [];
-        let activePromoMap = {}; // SKU -> 가장 할인율 높은 활성 프로모션 객체
+        let activePromoMap = {};
         let globalNameColorMap = {};
         let salesMap = {};
         let filteredData = [];
@@ -656,7 +656,7 @@
             return null;
         }
 
-        // 브랜드 추출 함수 (수정 완료)
+        // 브랜드 추출 함수
         function extractBrand(subCategoryStr) {
             if (!subCategoryStr) return '기타';
             const cleaned = String(subCategoryStr).trim();
@@ -1107,7 +1107,7 @@
             let brandHtml = `<button class="chip-btn ${selectedBrand.length === 0 ? 'active' : ''}" onclick="selectBrand('')">전체 브랜드</button>`;
             brands.forEach(b => {
                 const isActive = selectedBrand.includes(b) ? 'active' : '';
-                const safeB = String(b).replace(/'/g, "\\'");
+                const safeB = escapeJsStr(b);
                 brandHtml += `<button class="chip-btn ${isActive}" onclick="selectBrand('${safeB}')">${b}</button>`;
             });
             document.getElementById('brandChipContainer').innerHTML = brandHtml || '<span class="text-xs text-gray-400">데이터 없음</span>';
@@ -1118,7 +1118,7 @@
             bizs.forEach(b => {
                 const icon = getBizIconHtml(b);
                 const isActive = selectedBiz.includes(b) ? 'active' : '';
-                const safeB = String(b).replace(/'/g, "\\'");
+                const safeB = escapeJsStr(b);
                 bizHtml += `<button class="chip-btn ${isActive}" onclick="selectBiz('${safeB}')">${icon}${b}</button>`;
             });
             document.getElementById('bizChipContainer').innerHTML = bizHtml || '<span class="text-xs text-gray-400">데이터 없음</span>';
@@ -1129,7 +1129,7 @@
             genders.forEach(g => {
                 const icon = getGenderIconHtml(g);
                 const isActive = selectedGender.includes(g) ? 'active' : '';
-                const safeG = String(g).replace(/'/g, "\\'");
+                const safeG = escapeJsStr(g);
                 genderHtml += `<button class="chip-btn ${isActive}" onclick="selectGender('${safeG}')">${icon}${g}</button>`;
             });
             document.getElementById('genderChipContainer').innerHTML = genderHtml || '<span class="text-xs text-gray-400">데이터 없음</span>';
@@ -1156,7 +1156,7 @@
                 shoeSizeList.forEach(sObj => {
                     const s = sObj.sizeDisplay;
                     const isActive = selectedSizeDisplay.includes(s);
-                    const safeS = String(s).replace(/'/g, "\\'");
+                    const safeS = escapeJsStr(s);
                     
                     let chipStyle = '';
                     let genderBadge = '';
@@ -1188,7 +1188,7 @@
                 let apparelHtml = '';
                 apparelSizes.forEach(s => {
                     const isActive = selectedSizeDisplay.includes(s) ? 'active bg-black text-white border-black' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-100';
-                    const safeS = String(s).replace(/'/g, "\\'");
+                    const safeS = escapeJsStr(s);
                     apparelHtml += `<button class="size-chip-btn ${isActive}" onclick="selectSize('${safeS}')">${s}</button>`;
                 });
                 document.getElementById('apparelSizeContainer').innerHTML = apparelHtml;
@@ -2165,44 +2165,67 @@
         }
 
         // ==========================================
-        // 8. 데이터 로딩 (CSV 병렬 로드)
+        // 8. 데이터 로딩 (안전한 순차 비동기 구조)
         // ==========================================
         async function loadCsvData() {
             try {
-                const [inventoryRes, salesRes, promoRes] = await Promise.all([
-                    fetch('./inventory.csv'),
-                    fetch('./sales.csv'),
-                    fetch('./promotion.csv').catch(e => null)
-                ]);
+                let inventoryCsv = '';
+                let salesCsv = '';
+                let promoCsv = '';
 
-                const inventoryCsv = await inventoryRes.text();
-                const salesCsv = await salesRes.text();
+                try {
+                    const res = await fetch('./inventory.csv');
+                    if (res && res.ok) inventoryCsv = await res.text();
+                } catch(e) {
+                    console.warn('inventory.csv 로드 실패:', e);
+                }
 
-                // 1) 프로모션 데이터 우선 로드 & 활성 맵 빌드
-                if (promoRes && promoRes.ok) {
+                try {
+                    const res = await fetch('./sales.csv');
+                    if (res && res.ok) salesCsv = await res.text();
+                } catch(e) {
+                    console.warn('sales.csv 로드 실패:', e);
+                }
+
+                try {
+                    const res = await fetch('./promotion.csv');
+                    if (res && res.ok) promoCsv = await res.text();
+                } catch(e) {
+                    console.warn('promotion.csv 로드 실패 (선택 사항):', e);
+                }
+
+                // 1) 프로모션 데이터 파싱
+                if (promoCsv) {
                     try {
-                        const promoCsv = await promoRes.text();
                         const promoWorkbook = XLSX.read(promoCsv, { type: "string" });
                         const promoSheet = promoWorkbook.Sheets[promoWorkbook.SheetNames[0]];
                         const promoRows = parseExcelUniversal(promoSheet);
                         processPromotionData(promoRows);
                     } catch (pErr) {
-                        console.warn("프로모션 데이터 파싱 경고:", pErr);
+                        console.warn("프로모션 데이터 파싱 실패:", pErr);
                     }
                 }
 
-                // 2) 재고 및 판매량 파싱
-                const inventoryWorkbook = XLSX.read(inventoryCsv, { type: "string" });
-                const inventorySheet = inventoryWorkbook.Sheets[inventoryWorkbook.SheetNames[0]];
-                const inventoryRows = parseExcelUniversal(inventorySheet);
+                // 2) 재고 데이터 파싱
+                if (inventoryCsv) {
+                    const inventoryWorkbook = XLSX.read(inventoryCsv, { type: "string" });
+                    const inventorySheet = inventoryWorkbook.Sheets[inventoryWorkbook.SheetNames[0]];
+                    const inventoryRows = parseExcelUniversal(inventorySheet);
+                    processInventoryData(inventoryRows);
+                }
 
-                const salesWorkbook = XLSX.read(salesCsv, { type: "string" });
-                const salesSheet = salesWorkbook.Sheets[salesWorkbook.SheetNames[0]];
-                const salesRows = parseExcelUniversal(salesSheet);
+                //Rows = parseExcelUniversal(inventorySheet);
+                    processInventoryData(inventoryRows);
+                }
 
-                processInventoryData(inventoryRows);
-                processSalesData(salesRows);
-                
+                // 3) 판매 데이터 파싱
+                if (salesCsv) {
+                    const salesWorkbook = XLSX.read(salesCsv, { type: "string" });
+                    const salesSheet = salesWorkbook.Sheets[salesWorkbook.SheetNames[0]];
+                    const salesRows = parseExcelUniversal(salesSheet);
+                    processSalesData(salesRows);
+                }
+
                 statusIndicator.innerHTML = '✅ 저장소 데이터 로딩 완료';
             } catch(err) {
                 console.error(err);
@@ -2217,8 +2240,6 @@
                 const response = await fetch("./inventory.csv", { method: "HEAD" });
                 const modified = response.headers.get("last-modified");
                 if (modified && lastUpdated) {
-                     modified = response.headers.get("last-modified");
-                if (modified && lastUpdated) {
                     lastUpdated.innerHTML = "업데이트: " + new Date(modified).toLocaleString("ko-KR");
                 }
             } catch(e) {
@@ -2226,7 +2247,7 @@
             }
         }
 
-        updateLastModified();
+        updateLastModified
     </script>
 </body>
 </html>
