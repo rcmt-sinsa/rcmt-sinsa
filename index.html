@@ -546,20 +546,24 @@
         }
 
         // 보이지 않는 유니코드 문자(BOM 등) 및 공백 제거
+        function cleanVal(v) {
+            return String(v || '').replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
+        }
+
         function cleanSku(s) {
-            if (!s) return '';
-            return String(s).replace(/[\u200B-\u200D\uFEFF]/g, '').trim().toUpperCase();
+            return cleanVal(s).toUpperCase();
         }
 
-        function cleanName(s) {
-            if (!s) return '';
-            return String(s).replace(/[\u200B-\u200D\uFEFF]/g, '').trim().toLowerCase();
+        function cleanKey(k) {
+            return cleanVal(k);
         }
 
-        // SheetJS 자동 서식(9/5/26, 2026.09.05, 2026-09-05)을 완벽히 지원하는 날짜 파서
+        // SheetJS 자동 날짜 서식(9/5/26, 2026.09.05, 2026-09-05)을 지원하는 정확한 Date 파서
         function parseToDateObj(val) {
             if (!val) return null;
-            if (val instanceof Date) return val;
+            if (val instanceof Date) {
+                return isNaN(val.getTime()) ? null : val;
+            }
             const s = String(val).trim();
             if (!s) return null;
 
@@ -569,7 +573,7 @@
                 return new Date(parseInt(matchYMD, 10), parseInt(matchYMD, 10) - 1, parseInt(matchYMD, 10));
             }
 
-            // 2) SheetJS m/d/yy 형태 ("9/5/26", "09/05/2026")
+            // 2) SheetJS m/d/yy 형태 ("9/5/26", "09/05/2026", "9-5-26")
             const matchMDY = s.match(/^(\d{1,2})[-.\/](\d{1,2})[-.\/](\d{2,4})/);
             if (matchMDY) {
                 let y = parseInt(matchMDY, 10);
@@ -586,13 +590,15 @@
         function getReferenceDate() {
             if (serverDateStr && serverDateStr.startsWith('2026')) {
                 const parts = serverDateStr.split('-').map(Number);
-                return new Date(parts[0], parts - 1, parts);
+                if (parts.length >= 3 && !isNaN(parts[0]) && !isNaN(parts) && !isNaN(parts)) {
+                    return new Date(parts[0], parts - 1, parts);
+                }
             }
             const now = new Date();
             if (now.getFullYear() === 2026 && now.getMonth() === 8) {
                 return new Date(now.getFullYear(), now.getMonth(), now.getDate());
             }
-            return new Date(2026, 8, 10); // 기본 기준일 2026-09-10 (트레일위크, 매장전용할인 기간)
+            return new Date(2026, 8, 10); // 기본 기준일 2026-09-10
         }
 
         function getDaysRemaining(endDateStr) {
@@ -601,55 +607,48 @@
             const refDate = getReferenceDate();
             refDate.setHours(0, 0, 0, 0);
             endObj.setHours(0, 0, 0, 0);
-            return Math.round((endObj - refDate) / (1000 * 60 * 60 * 24));
+            return Math.round((endObj.getTime() - refDate.getTime()) / (1000 * 60 * 60 * 24));
         }
 
-        // 유효 프로모션 추출 및 다중 프로모션 우선순위 계산 (최고 할인율 우선)
+        // 유효 프로모션 추출: 엄격한 품번(SKU) 1:1 매칭 및 일자 필터링 (미래 행사 배제)
         function getActivePromotionsMap() {
             const refDate = getReferenceDate();
             refDate.setHours(0, 0, 0, 0);
             
             const skuMap = {};
-            const nameMap = {};
 
             rawPromotions.forEach(row => {
                 const sKey = cleanSku(row.sku);
-                const nKey = cleanName(row.name);
-                if (!sKey && !nKey) return;
+                if (!sKey) return;
 
                 const sDateObj = parseToDateObj(row.startDate);
                 const eDateObj = parseToDateObj(row.endDate);
 
-                // 시작일이 있고, 기준일보다 명백히 미래인 경우만 제외
+                // 1. 시작일이 있고, 기준일보다 미래인 경우 제외 (예: 9/14 시작 노다 시즌오프는 9/10에 제외)
                 if (sDateObj) {
                     sDateObj.setHours(0, 0, 0, 0);
-                    if (sDateObj > refDate) return;
+                    if (sDateObj.getTime() > refDate.getTime()) {
+                        return;
+                    }
                 }
 
-                // 종료일이 있고, 기준일보다 과거인 경우만 제외
+                // 2. 종료일이 있고, 기준일보다 과거인 경우 제외
                 if (eDateObj) {
                     eDateObj.setHours(23, 59, 59, 999);
-                    if (eDateObj < refDate) return;
-                }
-
-                const applyPriority = (targetMap, key) => {
-                    if (!key) return;
-                    const existing = targetMap[key];
-                    if (!existing || row.discountRate > existing.discountRate) {
-                        targetMap[key] = row;
+                    if (eDateObj.getTime() < refDate.getTime()) {
+                        return;
                     }
-                };
-
-                if (sKey) {
-                    applyPriority(skuMap, sKey);
-                    applyPriority(skuMap, sKey.replace(/\s+/g, ''));
                 }
-                if (nKey) {
-                    applyPriority(nameMap, nKey);
+
+                // 3. 중복 품번일 경우 할인율이 더 높은 행사 우선 적용
+                const existing = skuMap[sKey];
+                if (!existing || row.discountRate > existing.discountRate) {
+                    skuMap[sKey] = row;
+                    skuMap[sKey.replace(/\s+/g, '')] = row;
                 }
             });
 
-            return { skuMap, nameMap };
+            return skuMap;
         }
 
         function extractBrand(subCategoryStr) {
@@ -798,10 +797,6 @@
             }
         }
 
-        function cleanKey(k) {
-            return String(k || '').replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
-        }
-
         function parseExcelUniversal(sheet) {
             const rawMatrix = safeSheetToMatrix(sheet);
             if (!rawMatrix || rawMatrix.length === 0) return [];
@@ -867,7 +862,6 @@
             const keys = Object.keys(sampleRow);
 
             const skuKey = keys.find(k => cleanKey(k) === '품번' || cleanKey(k).includes('품번') || cleanKey(k).toLowerCase().includes('sku')) || keys[0];
-            const nameKey = keys.find(k => cleanKey(k).includes('상품명') || cleanKey(k).includes('품명')) || '';
             const discountKey = keys.find(k => cleanKey(k) === '프로모션 할인' || cleanKey(k).includes('할인율') || (cleanKey(k).includes('할인') && !cleanKey(k).includes('할인가'))) || '';
             const promoPriceKey = keys.find(k => cleanKey(k) === '프로모션 할인가' || cleanKey(k).includes('할인가')) || '';
             const promoNameKey = keys.find(k => cleanKey(k).includes('프로모션 이름') || cleanKey(k).includes('행사명') || cleanKey(k).includes('프로모션명')) || '';
@@ -877,7 +871,6 @@
 
             rawPromotions = json.map(row => {
                 const rawSku = cleanSku(row[skuKey]);
-                const rawName = cleanName(nameKey ? row[nameKey] : '');
                 const discountRate = parseDiscountRate(row[discountKey]);
                 const promoPrice = parseAndNormalizePrice(row[promoPriceKey]);
                 const promoName = promoNameKey ? String(row[promoNameKey] || '').trim() : '';
@@ -894,7 +887,6 @@
 
                 return {
                     sku: rawSku,
-                    name: rawName,
                     discountRate: discountRate,
                     promoPrice: promoPrice,
                     nameDisplay: promoName,
@@ -902,7 +894,7 @@
                     startDate: startDate,
                     endDate: endDate
                 };
-            }).filter(p => p.sku || p.name);
+            }).filter(p => p.sku);
 
             applyFiltersAndRender();
         }
@@ -928,22 +920,22 @@
             const posBarcodeKey = keys.find(k => cleanKey(k).includes('POS') || cleanKey(k).includes('바코드')) || '';
 
             const mappedRows = json.map(row => {
-                const rawSku = String(row[skuKey] || '').trim();
-                const rawName = String(row[nameKey] || '').trim();
+                const rawSku = cleanVal(row[skuKey]);
+                const rawName = cleanVal(row[nameKey]);
                 const priceVal = parseAndNormalizePrice(row[priceKey]);
-                const rawSubCat = subCatKey ? String(row[subCatKey] || '').trim() : '';
-                const rawCat2 = cat2Key ? String(row[cat2Key] || '').trim() : '';
-                const rawGender = genderKey ? String(row[genderKey] || '').trim() : '';
+                const rawSubCat = subCatKey ? cleanVal(row[subCatKey]) : '';
+                const rawCat2 = cat2Key ? cleanVal(row[cat2Key]) : '';
+                const rawGender = genderKey ? cleanVal(row[genderKey]) : '';
                 
-                const rawStockStr = stockKey ? String(row[stockKey] || '0').replace(/,/g, '') : '0';
+                const rawStockStr = stockKey ? cleanVal(row[stockKey]).replace(/,/g, '') : '0';
                 const stockVal = parseInt(rawStockStr, 10) || 0;
 
-                const rawBusanStockStr = busanStockKey ? String(row[busanStockKey] || '0').replace(/,/g, '') : '0';
+                const rawBusanStockStr = busanStockKey ? cleanVal(row[busanStockKey]).replace(/,/g, '') : '0';
                 const busanStockVal = parseInt(rawBusanStockStr, 10) || 0;
 
-                const rawSize = sizeKey ? String(row[sizeKey] || '').trim() : '';
-                const rawImg = imgKey ? String(row[imgKey] || '').trim() : '';
-                const rawPosBarcode = posBarcodeKey ? String(row[posBarcodeKey] || '').trim() : '';
+                const rawSize = sizeKey ? cleanVal(row[sizeKey]) : '';
+                const rawImg = imgKey ? cleanVal(row[imgKey]) : '';
+                const rawPosBarcode = posBarcodeKey ? cleanVal(row[posBarcodeKey]) : '';
 
                 const isShoe = isShoeSize(rawSize);
                 const formattedSize = isShoe ? formatShoeSizeDisplay(rawSize, rawGender) : rawSize;
@@ -998,7 +990,7 @@
             // 아더 컬러 매핑
             globalNameColorMap = {};
             rawInventory.forEach(item => {
-                const cName = cleanName(item.name);
+                const cName = cleanVal(item.name).toLowerCase();
                 if (!cName) return;
                 if (!globalNameColorMap[cName]) globalNameColorMap[cName] = new Map();
                 
@@ -1018,6 +1010,7 @@
             applyFiltersAndRender();
         }
 
+        // sales.csv의 '수량' 열을 엄격히 단독 매핑하여 판매량 오계산 방지
         function processSalesData(json) {
             salesMap = {};
             if (!json || json.length === 0) return;
@@ -1025,20 +1018,34 @@
             const sampleRow = json[0] || {};
             const keys = Object.keys(sampleRow);
 
-            const skuKey = keys.find(k => cleanKey(k) === '품번' || cleanKey(k).includes('품번') || cleanKey(k).toLowerCase().includes('sku')) || keys[0];
-            const qtyKey = keys.find(k => cleanKey(k) === '수량' || cleanKey(k).includes('수량') || cleanKey(k).includes('판매') || cleanKey(k).includes('출고')) || keys[0] || '';
+            const skuKey = keys.find(k => cleanKey(k) === '품번') || keys.find(k => cleanKey(k).includes('품번') || cleanKey(k).toLowerCase().includes('sku')) || keys[0];
             const sizeKey = keys.find(k => cleanKey(k) === '규격' || cleanKey(k).includes('규격')) || '';
             
+            // 주의: 판매년월, 판매기준가 등 '판매' 단어가 포함된 열을 피해 엄격히 '수량' 열만 지정
+            const qtyKey = keys.find(k => cleanKey(k) === '수량') 
+                        || keys.find(k => cleanKey(k) === '판매수량' || cleanKey(k) === '판매 수량')
+                        || keys.find(k => cleanKey(k).endsWith('수량'))
+                        || keys.find(k => cleanKey(k).includes('수량') && !cleanKey(k).includes('수주')) 
+                        || '';
+            
             json.forEach(row => {
-                const sku = String(row[skuKey] || '').trim();
-                const size = String(row[sizeKey] || '').trim();
-                const qtyStr = String(row[qtyKey] || '0').replace(/,/g, '');
+                const sku = cleanSku(row[skuKey]);
+                const size = cleanVal(row[sizeKey]).toUpperCase();
+                const qtyStr = cleanVal(row[qtyKey]).replace(/,/g, '');
                 const qty = parseInt(qtyStr, 10) || 0;
 
-                const salesKey = sku + "|" + size;
                 if (sku) {
+                    const salesKey = sku + "|" + size;
                     salesMap[salesKey] = (salesMap[salesKey] || 0) + qty;
                     salesMap[sku] = (salesMap[sku] || 0) + qty;
+
+                    const skuNoSpace = sku.replace(/\s+/g, '');
+                    const sizeNoSpace = size.replace(/\s+/g, '');
+                    if (skuNoSpace !== sku || sizeNoSpace !== size) {
+                        const altKey = skuNoSpace + "|" + sizeNoSpace;
+                        salesMap[altKey] = (salesMap[altKey] || 0) + qty;
+                        salesMap[skuNoSpace] = (salesMap[skuNoSpace] || 0) + qty;
+                    }
                 }
             });
 
@@ -1248,24 +1255,25 @@
         function applyFiltersAndRender() {
             if (rawInventory.length === 0) return;
             const searchTerm = searchInput.value.trim().toLowerCase();
-            const { skuMap, nameMap } = getActivePromotionsMap();
+            const activePromoMap = getActivePromotionsMap();
 
-            // 1) 상태 부여 및 프로모션 다중 매핑 (품번 및 품명)
+            // 1) 상태 부여 및 품번(SKU) 1:1 프로모션 매핑
             const enrichedInventory = rawInventory.map(item => {
-                const salesKey = item.sku + "|" + item.size;
-                const sizeSales = salesMap[salesKey] || 0;
-                const skuTotalSales = salesMap[item.sku] || 0;
+                const sKey = cleanSku(item.sku);
+                const szKey = cleanVal(item.size).toUpperCase();
+                const exactSalesKey = sKey + "|" + szKey;
+                const noSpaceSalesKey = sKey.replace(/\s+/g, '') + "|" + szKey.replace(/\s+/g, '');
+
+                const sizeSales = salesMap[exactSalesKey] !== undefined ? salesMap[exactSalesKey] : (salesMap[noSpaceSalesKey] || 0);
+                const skuTotalSales = salesMap[sKey] !== undefined ? salesMap[sKey] : (salesMap[sKey.replace(/\s+/g, '')] || 0);
                 const calcWos = sizeSales > 0 ? (item.stock / sizeSales) : (item.stock === 0 ? 0 : 999);
                 
                 const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
                 const isDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
                 const loc = locationMap[item.sku] || locationMap[safeSkuKey] || '';
 
-                const cSku = cleanSku(item.sku);
-                const cSkuNoSpace = cSku.replace(/\s+/g, '');
-                const cName = cleanName(item.name);
-
-                const promo = skuMap[cSku] || skuMap[cSkuNoSpace] || nameMap[cName] || null;
+                // 엄격한 품번 1:1 매칭
+                const promo = activePromoMap[sKey] || activePromoMap[sKey.replace(/\s+/g, '')] || null;
                 
                 let calculatedPromoPrice = item.price;
                 if (promo) {
@@ -1467,7 +1475,7 @@
             const isItemDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
             const itemLoc = locationMap[item.sku] || locationMap[safeSkuKey] || '';
 
-            const cName = cleanName(item.name);
+            const cName = cleanVal(item.name).toLowerCase();
             const allVariants = globalNameColorMap[cName] ? Array.from(globalNameColorMap[cName].values()) : [];
             const otherVariants = allVariants.filter(v => v.sku !== item.sku).map(v => {
                 const vSafeSkuKey = String(v.sku).replace(/[.#$[\]]/g, '_');
@@ -1522,7 +1530,7 @@
 
             const locationSelectorHtml = renderLocationSelectHtml(item.sku, itemLoc, false);
 
-            // 프로모션 상단 박스 레이아웃 (스케치 완벽 반영: DP 버튼 아래 우측 정렬)
+            // 프로모션 상단 박스 레이아웃 (스케치 반영: DP 버튼 아래 우측 정렬)
             let promoBadgeTop = '';
             let isCouponDuplicateProhibited = false;
 
@@ -1580,7 +1588,8 @@
                 } else {
                     priceDisplayHtml = `
                     <div class="text-right whitespace-nowrap">
-                        <p class="font-black text-sm text-gray-900">₩${item.price.toLocaleString()}</p>${item.promo ? '<span class="text-[9px] text-indigo-600 font-bold bg-indigo-50 px-1 py-0.2 rounded border border-indigo-200 block mt-0.5">쿠폰 프로모션 대상</span>' : ''}
+                        <p class="font-black text-sm text-gray-900">₩${item.price.toLocaleString()}</p>
+                        ${item.promo ? '<span class="text-[9px] text-indigo-600 font-bold bg-indigo-50 px-1 py-0.2 rounded border border-indigo-200 block mt-0.5">쿠폰 프로모션 대상</span>' : ''}
                         ${isCouponDuplicateProhibited ? '<p class="text-[9px] text-amber-700 font-bold mt-0.5"><i class="fa-solid fa-triangle-exclamation mr-0.5"></i>신규/생일 쿠폰 중복 불가</p>' : ''}
                     </div>`;
                 }
@@ -1626,7 +1635,8 @@
                 return `
                 <div class="flex items-center justify-between py-1.5 px-2 rounded ${highlightRow} border transition text-xs">
                     <div class="flex items-center gap-1.5 min-w-0">
-                        <span class="font-bold text-gray-900 truncate">${s.size}</span>${isSelected ? '<span class="text-[9px] bg-black text-white px-1 py-0.2 rounded font-bold whitespace-nowrap">선택</span>' : ''}
+                        <span class="font-bold text-gray-900 truncate">${s.size}</span>
+                        ${isSelected ? '<span class="text-[9px] bg-black text-white px-1 py-0.2 rounded font-bold whitespace-nowrap">선택</span>' : ''}
                         ${!s.hasPosBarcode ? '<span class="text-[9px] bg-red-100 text-red-600 px-1 py-0.2 rounded font-bold whitespace-nowrap">POS 미등록</span>' : ''}
                     </div>
                     <div class="flex items-center gap-2.5 sm:gap-3 text-right">
@@ -1848,9 +1858,8 @@
                 }
             }
 
-            const { skuMap } = getActivePromotionsMap();
-            const activeCount = Object.keys(skuMap).length;
-            const promoText = rawPromotions.length > 0 ? ` / 프로모션 ${rawPromotions.length}건 (활성 ${activeCount}건) 연동` : '';
+            const activePromoCount = Object.keys(getActivePromotionsMap()).length;
+            const promoText = rawPromotions.length > 0 ? ` / 프로모션 ${rawPromotions.length}건 (활성 ${activePromoCount}건) 연동` : '';
             statusIndicator.innerHTML = `✅ 데이터 연동 완료 (${groupedData.length}개 상품 / ${filteredData.length}개 규격${promoText})`;
         }
 
@@ -2242,6 +2251,8 @@
                     if (!isNaN(d.getTime())) {
                         const y = d.getFullYear();
                         const m = String(d.getMonth() + 1).padStart(2, '0');
+                        const day = String(d.getDate()).padStart(2, '0');
+                        server '0');
                         const day = String(d.getDate()).padStart(2, '0');
                         serverDateStr = `${y}-${m}-${day}`;
                     }
