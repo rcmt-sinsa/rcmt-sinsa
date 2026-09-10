@@ -167,6 +167,16 @@
                     </div>
                 </div>
 
+                <!-- 프로모션별 필터 칩스 (텍스트 전용) -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-2">
+                        프로모션
+                    </label>
+                    <div id="promoChipContainer" class="flex flex-wrap gap-1.5">
+                        <span class="text-xs text-gray-400">데이터 로딩 중...</span>
+                    </div>
+                </div>
+
                 <!-- 1. Brand Filter Chips -->
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-2">
@@ -249,10 +259,10 @@
                 <div class="flex items-center space-x-1">
                     <span class="font-bold text-gray-500">정렬:</span>
                     <select id="sortBySelect" class="border border-gray-300 rounded px-2 py-1.5 bg-white text-xs font-semibold focus:outline-none focus:border-black">
+                        <option value="name_asc" selected>제품명 순 (가나다) 🔤</option>
                         <option value="sales_desc">주간 판매량 높은순 🔥</option>
                         <option value="wos_asc">WOS 소진 임박순 🚨</option>
                         <option value="stock_desc">매장 재고 많은순 📦</option>
-                        <option value="name_asc">제품명 순 (가나다) 🔤</option>
                         <option value="sku_asc">품번 순 (SKU순) 🏷️</option>
                     </select>
                 </div>
@@ -401,8 +411,9 @@
         let isDpLowStockOnly = false;  
         let isDpMissingOnly = false;   
         let selectedLocation = '';
+        let selectedPromotion = []; // 프로모션별 필터 선택 상태
         let viewMode = 'grid';
-        let sortBy = 'sales_desc';
+        let sortBy = 'name_asc'; // 기본 정렬: 제품명 순 (가나다)
         const HIGH_HEAT_THRESHOLD = 3; 
 
         let serverDateStr = '2026-09-10';
@@ -539,7 +550,7 @@
             return cleanVal(k);
         }
 
-        // 안정적인 YYYY-MM-DD 변환 함수 (모든 구분기호 및 포맷 완벽 정규화)
+        // 안정적인 YYYY-MM-DD 변환 함수 (구분자 무관 완벽 정규화)
         function toIsoDate(str) {
             if (!str) return '';
             const clean = String(str).trim().replace(/[.\/]/g, '-');
@@ -581,7 +592,7 @@
             return Math.round((date2.getTime() - date1.getTime()) / (1000 * 60 * 60 * 24));
         }
 
-        // 유효 프로모션 추출: 파일 업로드 일자 기준 미래 행사(노다 시즌오프 9/14~) 완벽 배제
+        // 유효 프로모션 추출: 파일 업로드 일자 기준 미래 행사(9/14 노다 시즌오프 등) 완벽 배제
         function getActivePromotionsMap() {
             const today = getTodayIso();
             const skuMap = {};
@@ -593,7 +604,7 @@
                 const sDate = toIsoDate(row.startDate);
                 const eDate = toIsoDate(row.endDate);
 
-                // 1. 시작일이 오늘보다 미래인 경우 제외 (9/14 시작 노다 시즌오프는 9/11에 제외)
+                // 1. 시작일이 오늘보다 미래인 경우 제외 (9/14 노다 시즌오프는 9/11 기준 자동 제외)
                 if (sDate && sDate > today) return;
 
                 // 2. 종료일이 오늘보다 과거인 경우 제외
@@ -847,6 +858,7 @@
                 };
             }).filter(p => p.sku);
 
+            renderFilterChips();
             applyFiltersAndRender();
         }
 
@@ -1000,13 +1012,33 @@
         }
 
         // ==========================================
-        // 3. 필터 칩 렌더링
+        // 3. 필터 칩 렌더링 (프로모션 텍스트 칩 포함)
         // ==========================================
         function renderFilterChips() {
+            // 프로모션 칩스: 현재 유효하게 진행 중인 프로모션 목록 (텍스트 전용)
+            const promoSet = new Set();
+            const activePromoMap = getActivePromotionsMap();
+            Object.values(activePromoMap).forEach(p => {
+                const pName = p.nameDisplay || p.name;
+                if (pName) promoSet.add(pName);
+            });
+
+            const promoList = Array.from(promoSet).sort();
+            let promoHtml = `<button class="chip-btn ${selectedPromotion.length === 0 ? 'active' : ''}" onclick="selectPromotion('')">전체 프로모션</button>`;
+            promoList.forEach(p => {
+                const isActive = selectedPromotion.includes(p) ? 'active' : '';
+                const safeP = String(p).replace(/'/g, "\\'");
+                promoHtml += `<button class="chip-btn ${isActive}" onclick="selectPromotion('${safeP}')">${p}</button>`;
+            });
+            const promoContainer = document.getElementById('promoChipContainer');
+            if (promoContainer) {
+                promoContainer.innerHTML = promoList.length > 0 ? promoHtml : '<span class="text-xs text-gray-400">현재 진행 중인 프로모션 없음</span>';
+            }
+
+            // 브랜드 칩스
             const brandSet = new Set();
             const bizSet = new Set();
             const genderSet = new Set();
-
             const shoeSizesMap = new Map();
             const apparelSizesSet = new Set();
 
@@ -1122,6 +1154,17 @@
             } else {
                 document.getElementById('apparelSizeSection').classList.add('hidden');
             }
+        }
+
+        function selectPromotion(val) {
+            if (!val) selectedPromotion = [];
+            else {
+                const idx = selectedPromotion.indexOf(val);
+                if (idx > -1) selectedPromotion.splice(idx, 1);
+                else selectedPromotion.push(val);
+            }
+            renderFilterChips();
+            applyFiltersAndRender();
         }
 
         function selectBrand(val) {
@@ -1307,6 +1350,7 @@
                 );
 
                 const matchesPromotion = !isPromotionOnly || !!group.promo;
+                const matchesSpecificPromo = selectedPromotion.length === 0 || (group.promo && selectedPromotion.includes(group.promo.nameDisplay || group.promo.name));
                 const matchesHeat = !isHighHeatOnly || group.isHighHeat;
                 const matchesWosWarning = !isWosWarningOnly || group.items.some(item => item.sales > 0 && item.wos <= 2.0);
                 const matchesPosMissing = !isPosMissingOnly || group.hasAnyPosMissing;
@@ -1322,7 +1366,7 @@
                 }
 
                 return matchesSearch && matchesBrand && matchesBiz && matchesGender && 
-                       matchesSize && matchesPromotion && matchesHeat && matchesWosWarning && matchesPosMissing && 
+                       matchesSize && matchesPromotion && matchesSpecificPromo && matchesHeat && matchesWosWarning && matchesPosMissing && 
                        matchesDpOnly && matchesDpLowStock && matchesDpMissing && matchesLocation;
             });
 
@@ -1331,20 +1375,21 @@
                 filteredData.push(...group.items);
             });
 
+            // 기본 정렬: 제품명 순 (가나다) 최우선
             groupedData.sort((a, b) => {
+                if (sortBy === 'name_asc') return a.name.localeCompare(b.name, 'ko') || (a.sku || '').localeCompare(b.sku || '', 'ko');
                 if (sortBy === 'sales_desc') return b.totalSales - a.totalSales || b.totalStock - a.totalStock;
                 if (sortBy === 'wos_asc') return a.wos - b.wos;
                 if (sortBy === 'stock_desc') return b.totalStock - a.totalStock;
-                if (sortBy === 'name_asc') return a.name.localeCompare(b.name, 'ko') || (a.sku || '').localeCompare(b.sku || '', 'ko');
                 if (sortBy === 'sku_asc') return (a.sku || a.name).localeCompare((b.sku || b.name), 'ko');
                 return 0;
             });
 
             filteredData.sort((a, b) => {
+                if (sortBy === 'name_asc') return a.name.localeCompare(b.name, 'ko') || (a.sku || '').localeCompare(b.sku || '', 'ko');
                 if (sortBy === 'sales_desc') return b.sales - a.sales || b.stock - a.stock;
                 if (sortBy === 'wos_asc') return a.wos - b.wos;
                 if (sortBy === 'stock_desc') return b.stock - a.stock;
-                if (sortBy === 'name_asc') return a.name.localeCompare(b.name, 'ko') || (a.sku || '').localeCompare(b.sku || '', 'ko');
                 if (sortBy === 'sku_asc') return (a.sku || a.name).localeCompare((b.sku || b.name), 'ko');
                 return 0;
             });
@@ -2064,6 +2109,7 @@
             selectedGender = [];
             selectedSizeDisplay = [];
             selectedLocation = '';
+            selectedPromotion = [];
             isPromotionOnly = false;
             isHighHeatOnly = false;
             isWosWarningOnly = false;
@@ -2071,8 +2117,8 @@
             isDpOnly = false;
             isDpLowStockOnly = false;
             isDpMissingOnly = false;
-            sortBy = 'sales_desc';
-            sortBySelect.value = 'sales_desc';
+            sortBy = 'name_asc';
+            sortBySelect.value = 'name_asc';
             if (togglePromotion) togglePromotion.classList.remove('bg-yellow-500', 'text-white');
             toggleHighHeat.classList.remove('bg-red-600', 'text-white');
             toggleWosWarning.classList.remove('bg-amber-600', 'text-white');
@@ -2092,6 +2138,7 @@
                 selectedGender = [];
                 selectedSizeDisplay = [];
                 selectedLocation = '';
+                selectedPromotion = [];
                 isPromotionOnly = false;
                 isHighHeatOnly = false;
                 isWosWarningOnly = false;
@@ -2099,6 +2146,8 @@
                 isDpOnly = false;
                 isDpLowStockOnly = false;
                 isDpMissingOnly = false;
+                sortBy = 'name_asc';
+                sortBySelect.value = 'name_asc';
                 if (togglePromotion) togglePromotion.classList.remove('bg-yellow-500', 'text-white');
                 toggleHighHeat.classList.remove('bg-red-600', 'text-white');
                 toggleWosWarning.classList.remove('bg-amber-600', 'text-white');
