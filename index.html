@@ -1530,7 +1530,7 @@
 
             const locationSelectorHtml = renderLocationSelectHtml(item.sku, itemLoc, false);
 
-            // 프로모션 상단 박스 레이아웃 (스케치 반영: DP 버튼 아래 우측 정렬)
+            // 프로모션 상단 박스 레이아웃 (스케치 완벽 반영: DP 버튼 아래 우측 정렬)
             let promoBadgeTop = '';
             let isCouponDuplicateProhibited = false;
 
@@ -1602,7 +1602,7 @@
                     <div class="flex flex-col items-center justify-center text-center w-24 sm:w-28">
                         <i class="fa-solid fa-shirt text-2xl text-gray-300 mb-1"></i>
                         <span class="text-[10px] text-gray-400 font-medium leading-tight">이미지 미등록</span>
-                        <a href="${googleSearchUrl}" target="_blank" onclick="event.stopPropagation();" class="mt-1.5 text-[10px] bg-white border border-gray-300 text-gray-700 px-2 py-0.5 rounded shadow-sm hover:bg-gray-100 transition flex items-center gap-1 font-semibold">
+                        <a href="${googleSearchUrl}" target="_blank" onclick="event.stopPropagation();" class="mt-1.5 text-[10px] bg-white border border-gray-300 text-gray-700 px-2.5 py-0.5 rounded shadow-sm hover:bg-gray-100 transition flex items-center gap-1 font-semibold">
                             <i class="fa-solid fa-magnifying-glass text-[9px]"></i>구글 검색
                         </a>
                     </div>
@@ -2251,8 +2251,6 @@
                     if (!isNaN(d.getTime())) {
                         const y = d.getFullYear();
                         const m = String(d.getMonth() + 1).padStart(2, '0');
-                        const day = String(d.getDate()).padStart(2, '0');
-                        server '0');
                         const day = String(d.getDate()).padStart(2, '0');
                         serverDateStr = `${y}-${m}-${day}`;
                     }
