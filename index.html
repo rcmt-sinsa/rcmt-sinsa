@@ -167,7 +167,7 @@
                     </div>
                 </div>
 
-                <!-- 1. Brand Filter Chips (텍스트 표기) -->
+                <!-- 1. Brand Filter Chips -->
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-2">
                         <i class="fa-solid fa-tags text-gray-400 mr-1"></i>브랜드
@@ -204,7 +204,6 @@
                     </label>
                     
                     <div class="space-y-3 text-[11px]">
-                        <!-- 신발 사이즈 -->
                         <div id="shoeSizeSection" class="hidden">
                             <div class="flex items-center flex-wrap gap-2 mb-1.5">
                                 <span class="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
@@ -218,7 +217,6 @@
                             <div id="shoeSizeContainer" class="flex flex-wrap gap-1 mt-1"></div>
                         </div>
 
-                        <!-- 의류 및 용품 사이즈 -->
                         <div id="apparelSizeSection" class="hidden">
                             <span class="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 mr-1">
                                 👕 의류 및 용품
@@ -272,18 +270,15 @@
 
         <!-- Results Display Container -->
         <section id="resultsContainer">
-            <!-- 카드형 그리드 뷰 -->
             <div id="gridView" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 <div class="col-span-full bg-white p-12 text-center text-gray-400 rounded-lg border border-gray-200">
                     <i class="fa-solid fa-spinner fa-spin mr-2"></i>데이터를 불러오는 중입니다...
                 </div>
             </div>
-            <!-- 카드 뷰 무한 스크롤 트리거 -->
             <div id="gridSentinel" class="py-4 text-center text-xs text-gray-400 font-semibold hidden">
                 <i class="fa-solid fa-spinner fa-spin mr-1"></i>추가 상품을 불러오는 중...
             </div>
 
-            <!-- 표 형태 테이블 뷰 -->
             <div id="tableView" class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-xs">
@@ -309,7 +304,6 @@
                         </tbody>
                     </table>
                 </div>
-                <!-- 테이블 뷰 무한 스크롤 트리거 -->
                 <div id="tableSentinel" class="py-3 text-center text-xs text-gray-400 font-semibold border-t border-gray-100 hidden">
                     <i class="fa-solid fa-spinner fa-spin mr-1"></i>추가 데이터를 불러오는 중...
                 </div>
@@ -342,7 +336,6 @@
             db = firebase.database();
             isFirebaseActive = true;
 
-            // 로컬 내역 파이어베이스 마이그레이션
             try {
                 const localSaved = JSON.parse(localStorage.getItem('rcmt_dp_status') || '{}');
                 if (localSaved && Object.keys(localSaved).length > 0) {
@@ -353,9 +346,7 @@
                         }
                     });
                 }
-            } catch (migErr) {
-                console.warn("DP Migration warning:", migErr);
-            }
+            } catch (migErr) {}
 
             try {
                 const localLocSaved = JSON.parse(localStorage.getItem('rcmt_location') || '{}');
@@ -367,11 +358,8 @@
                         }
                     });
                 }
-            } catch (locMigErr) {
-                console.warn("Location Migration warning:", locMigErr);
-            }
+            } catch (locMigErr) {}
 
-            // DP 실시간 리스너
             db.ref('rcmt_dp_status').on('value', (snapshot) => {
                 dpMap = snapshot.val() || {};
                 const cloudEl = document.getElementById('cloudIndicator');
@@ -379,14 +367,12 @@
                 applyFiltersAndRender();
             });
 
-            // 적재 위치 실시간 리스너
             db.ref('rcmt_location').on('value', (snapshot) => {
                 locationMap = snapshot.val() || {};
                 applyFiltersAndRender();
             });
 
         } catch (e) {
-            console.warn("Firebase 연결 실패, 로컬 저장소로 작동합니다:", e);
             try {
                 dpMap = JSON.parse(localStorage.getItem('rcmt_dp_status') || '{}');
                 locationMap = JSON.parse(localStorage.getItem('rcmt_location') || '{}');
@@ -419,14 +405,13 @@
         let sortBy = 'sales_desc';
         const HIGH_HEAT_THRESHOLD = 3; 
 
-        let serverDateStr = '2026-09-10'; // 기본 프로모션 활성 기준일
+        let serverDateStr = '2026-09-10';
 
         let selectedBrand = [];
         let selectedBiz = [];
         let selectedGender = [];
         let selectedSizeDisplay = [];
 
-        // 분할 렌더링 (무한 스크롤) 페이지네이션 제어 변수
         const GRID_PAGE_SIZE = 32;
         const TABLE_PAGE_SIZE = 50;
         let currentGridLimit = GRID_PAGE_SIZE;
@@ -447,7 +432,6 @@
         const clearFilterBtn = document.getElementById('clearFilterBtn');
         const sortBySelect = document.getElementById('sortBySelect');
 
-        // 엑셀 드롭다운 관련 DOM 요소
         const excelDropdownContainer = document.getElementById('excelDropdownContainer');
         const excelDropdownToggle = document.getElementById('excelDropdownToggle');
         const excelDropdownMenu = document.getElementById('excelDropdownMenu');
@@ -482,7 +466,6 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // DP(진열) 상태 토글
         function toggleDpStatus(sku, event) {
             if (event) event.stopPropagation();
             if (!sku) return;
@@ -502,7 +485,6 @@
             }
         }
 
-        // 적재 위치 변경 함수
         function updateLocation(sku, newLoc, event) {
             if (event) event.stopPropagation();
             if (!sku) return;
@@ -545,7 +527,6 @@
             return isNaN(num) ? 0 : num;
         }
 
-        // 보이지 않는 유니코드 문자(BOM 등) 및 공백 제거
         function cleanVal(v) {
             return String(v || '').replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
         }
@@ -558,87 +539,62 @@
             return cleanVal(k);
         }
 
-        // SheetJS 자동 날짜 서식(9/5/26, 2026.09.05, 2026-09-05)을 지원하는 정확한 Date 파서
-        function parseToDateObj(val) {
-            if (!val) return null;
-            if (val instanceof Date) {
-                return isNaN(val.getTime()) ? null : val;
+        // 안정적인 YYYY-MM-DD ISO 문자열 변환기
+        function toIsoDate(str) {
+            if (!str) return '';
+            const clean = String(str).trim().replace(/[.\/]/g, '-');
+            const match = clean.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+            if (match) {
+                const y = match[1];
+                const m = match[2].padStart(2, '0');
+                const d = match[3].padStart(2, '0');
+                return `${y}-${m}-${d}`;
             }
-            const s = String(val).trim();
-            if (!s) return null;
-
-            // 1) "2026-09-05", "2026.09.05", "2026/09/05"
-            const matchYMD = s.match(/^(\d{4})[-.\/](\d{1,2})[-.\/](\d{1,2})/);
-            if (matchYMD) {
-                return new Date(parseInt(matchYMD, 10), parseInt(matchYMD, 10) - 1, parseInt(matchYMD, 10));
-            }
-
-            // 2) SheetJS m/d/yy 형태 ("9/5/26", "09/05/2026", "9-5-26")
-            const matchMDY = s.match(/^(\d{1,2})[-.\/](\d{1,2})[-.\/](\d{2,4})/);
-            if (matchMDY) {
-                let y = parseInt(matchMDY, 10);
-                if (y < 100) y += 2000;
-                const m = parseInt(matchMDY, 10);
-                const d = parseInt(matchMDY, 10);
-                return new Date(y, m - 1, d);
-            }
-
-            const parsed = new Date(s);
-            return isNaN(parsed.getTime()) ? null : parsed;
+            return '';
         }
 
-        function getReferenceDate() {
+        function getTodayIso() {
             if (serverDateStr && serverDateStr.startsWith('2026')) {
-                const parts = serverDateStr.split('-').map(Number);
-                if (parts.length >= 3 && !isNaN(parts[0]) && !isNaN(parts) && !isNaN(parts)) {
-                    return new Date(parts[0], parts - 1, parts);
-                }
+                const iso = toIsoDate(serverDateStr);
+                if (iso) return iso;
             }
             const now = new Date();
             if (now.getFullYear() === 2026 && now.getMonth() === 8) {
-                return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const m = String(now.getMonth() + 1).padStart(2, '0');
+                const d = String(now.getDate()).padStart(2, '0');
+                return `2026-${m}-${d}`;
             }
-            return new Date(2026, 8, 10); // 기본 기준일 2026-09-10
+            return '2026-09-10'; // 기본 행사 진행 기준일
         }
 
         function getDaysRemaining(endDateStr) {
-            const endObj = parseToDateObj(endDateStr);
-            if (!endObj) return 999;
-            const refDate = getReferenceDate();
-            refDate.setHours(0, 0, 0, 0);
-            endObj.setHours(0, 0, 0, 0);
-            return Math.round((endObj.getTime() - refDate.getTime()) / (1000 * 60 * 60 * 24));
+            const endIso = toIsoDate(endDateStr);
+            if (!endIso) return 999;
+            const today = getTodayIso();
+            const partsToday = today.split('-').map(Number);
+            const partsEnd = endIso.split('-').map(Number);
+            const d1 = new Date(partsToday[0], partsToday[1] - 1, partsToday[2]);
+            const d2 = new Date(partsEnd[0], partsEnd[1] - 1, partsEnd[2]);
+            return Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
         }
 
-        // 유효 프로모션 추출: 엄격한 품번(SKU) 1:1 매칭 및 일자 필터링 (미래 행사 배제)
+        // 유효 프로모션 추출: 엄격한 품번(SKU) 1:1 매칭 및 일자 필터링
         function getActivePromotionsMap() {
-            const refDate = getReferenceDate();
-            refDate.setHours(0, 0, 0, 0);
-            
+            const today = getTodayIso();
             const skuMap = {};
 
             rawPromotions.forEach(row => {
                 const sKey = cleanSku(row.sku);
                 if (!sKey) return;
 
-                const sDateObj = parseToDateObj(row.startDate);
-                const eDateObj = parseToDateObj(row.endDate);
+                const sDate = toIsoDate(row.startDate);
+                const eDate = toIsoDate(row.endDate);
 
-                // 1. 시작일이 있고, 기준일보다 미래인 경우 제외 (예: 9/14 시작 노다 시즌오프는 9/10에 제외)
-                if (sDateObj) {
-                    sDateObj.setHours(0, 0, 0, 0);
-                    if (sDateObj.getTime() > refDate.getTime()) {
-                        return;
-                    }
-                }
+                // 1. 시작일이 오늘보다 미래인 경우 제외 (예: 9/14 시작 노다 시즌오프는 9/10에 제외)
+                if (sDate && sDate > today) return;
 
-                // 2. 종료일이 있고, 기준일보다 과거인 경우 제외
-                if (eDateObj) {
-                    eDateObj.setHours(23, 59, 59, 999);
-                    if (eDateObj.getTime() < refDate.getTime()) {
-                        return;
-                    }
-                }
+                // 2. 종료일이 오늘보다 과거인 경우 제외
+                if (eDate && eDate < today) return;
 
                 // 3. 중복 품번일 경우 할인율이 더 높은 행사 우선 적용
                 const existing = skuMap[sKey];
@@ -723,9 +679,7 @@
         function getApparelSizeOrder(sizeStr) {
             const s = String(sizeStr || '').trim().toUpperCase();
 
-            if (/^[1-9]$/.test(s)) {
-                return 100 + parseInt(s, 10);
-            }
+            if (/^[1-9]$/.test(s)) return 100 + parseInt(s, 10);
 
             const alphaMap = {
                 'XXS': 201, 'XS': 202, 'S': 203, 'M': 204, 'L': 205,
@@ -739,13 +693,8 @@
             if (slashMap[s]) return slashMap[s];
 
             const num = parseInt(s.replace(/[^0-9]/g, ''), 10);
-            if (num >= 70 && num <= 150 && /^\d+$/.test(s)) {
-                return 400 + num;
-            }
-
-            if (/^T[0-9]$/.test(s)) {
-                return 600 + parseInt(s.replace('T', ''), 10);
-            }
+            if (num >= 70 && num <= 150 && /^\d+$/.test(s)) return 400 + num;
+            if (/^T[0-9]$/.test(s)) return 600 + parseInt(s.replace('T', ''), 10);
 
             const osMap = {
                 'OSFW': 701, 'OSFM': 702, 'OSFA': 703, 'ONE SIZE': 704, '1SIZE': 704, 'FREE': 705, 'O/S': 706
@@ -781,7 +730,6 @@
             try {
                 return XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false, blankrows: false });
             } catch (e) {
-                console.warn("sheet_to_json fallback:", e);
                 const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1:Z300');
                 const matrix = [];
                 for (let R = range.s.r; R <= range.e.r; ++R) {
@@ -963,7 +911,6 @@
                 };
             }).filter(item => item.sku || item.name);
 
-            // 동일 SKU + 동일 규격(사이즈) 합산
             const inventorySumMap = {};
             mappedRows.forEach(item => {
                 const itemKey = item.sku + '|||' + (item.size || item.sizeDisplay || 'FREE');
@@ -987,7 +934,6 @@
 
             rawInventory = Object.values(inventorySumMap);
 
-            // 아더 컬러 매핑
             globalNameColorMap = {};
             rawInventory.forEach(item => {
                 const cName = cleanVal(item.name).toLowerCase();
@@ -1010,7 +956,6 @@
             applyFiltersAndRender();
         }
 
-        // sales.csv의 '수량' 열을 엄격히 단독 매핑하여 판매량 오계산 방지
         function processSalesData(json) {
             salesMap = {};
             if (!json || json.length === 0) return;
@@ -1021,7 +966,7 @@
             const skuKey = keys.find(k => cleanKey(k) === '품번') || keys.find(k => cleanKey(k).includes('품번') || cleanKey(k).toLowerCase().includes('sku')) || keys[0];
             const sizeKey = keys.find(k => cleanKey(k) === '규격' || cleanKey(k).includes('규격')) || '';
             
-            // 주의: 판매년월, 판매기준가 등 '판매' 단어가 포함된 열을 피해 엄격히 '수량' 열만 지정
+            // 판매년월 등 다른 열을 제외하고 순수 '수량' 열만 정확히 추출
             const qtyKey = keys.find(k => cleanKey(k) === '수량') 
                         || keys.find(k => cleanKey(k) === '판매수량' || cleanKey(k) === '판매 수량')
                         || keys.find(k => cleanKey(k).endsWith('수량'))
@@ -1053,7 +998,7 @@
         }
 
         // ==========================================
-        // 3. 필터 칩 렌더링 (브랜드 텍스트 전용 표기)
+        // 3. 필터 칩 렌더링
         // ==========================================
         function renderFilterChips() {
             const brandSet = new Set();
@@ -1086,7 +1031,6 @@
                 }
             });
 
-            // 1) 브랜드 칩스: 심플한 텍스트로만 렌더링
             const brands = Array.from(brandSet).sort();
             let brandHtml = `<button class="chip-btn ${selectedBrand.length === 0 ? 'active' : ''}" onclick="selectBrand('')">전체 브랜드</button>`;
             brands.forEach(b => {
@@ -1096,7 +1040,6 @@
             });
             document.getElementById('brandChipContainer').innerHTML = brandHtml || '<span class="text-xs text-gray-400">데이터 없음</span>';
 
-            // 2) BIZ 칩스
             const bizs = Array.from(bizSet).sort();
             let bizHtml = `<button class="chip-btn ${selectedBiz.length === 0 ? 'active' : ''}" onclick="selectBiz('')"><i class="fa-solid fa-layer-group mr-1.5"></i>전체 BIZ</button>`;
             bizs.forEach(b => {
@@ -1107,7 +1050,6 @@
             });
             document.getElementById('bizChipContainer').innerHTML = bizHtml || '<span class="text-xs text-gray-400">데이터 없음</span>';
 
-            // 3) 성별 칩스
             const genders = Array.from(genderSet).sort();
             let genderHtml = `<button class="chip-btn ${selectedGender.length === 0 ? 'active' : ''}" onclick="selectGender('')"><i class="fa-solid fa-users mr-1.5"></i>전체 성별</button>`;
             genders.forEach(g => {
@@ -1120,7 +1062,6 @@
 
             document.getElementById('sizeEmptyText').classList.add('hidden');
 
-            // 4) 신발 규격 칩스
             const shoeSizeList = Array.from(shoeSizesMap.values());
             shoeSizeList.sort((a, b) => {
                 const gOrder = { 'men': 1, 'women': 2 };
@@ -1165,7 +1106,6 @@
                 document.getElementById('shoeSizeSection').classList.add('hidden');
             }
 
-            // 5) 의류 규격 칩스
             const apparelSizes = Array.from(apparelSizesSet);
             apparelSizes.sort(compareApparelSizes);
             if (apparelSizes.length > 0) {
@@ -1183,9 +1123,8 @@
         }
 
         function selectBrand(val) {
-            if (!val) {
-                selectedBrand = [];
-            } else {
+            if (!val) selectedBrand = [];
+            else {
                 const idx = selectedBrand.indexOf(val);
                 if (idx > -1) selectedBrand.splice(idx, 1);
                 else selectedBrand.push(val);
@@ -1195,9 +1134,8 @@
         }
 
         function selectBiz(val) {
-            if (!val) {
-                selectedBiz = [];
-            } else {
+            if (!val) selectedBiz = [];
+            else {
                 const idx = selectedBiz.indexOf(val);
                 if (idx > -1) selectedBiz.splice(idx, 1);
                 else selectedBiz.push(val);
@@ -1207,9 +1145,8 @@
         }
 
         function selectGender(val) {
-            if (!val) {
-                selectedGender = [];
-            } else {
+            if (!val) selectedGender = [];
+            else {
                 const idx = selectedGender.indexOf(val);
                 if (idx > -1) selectedGender.splice(idx, 1);
                 else selectedGender.push(val);
@@ -1219,9 +1156,8 @@
         }
 
         function selectSize(val) {
-            if (!val) {
-                selectedSizeDisplay = [];
-            } else {
+            if (!val) selectedSizeDisplay = [];
+            else {
                 const idx = selectedSizeDisplay.indexOf(val);
                 if (idx > -1) selectedSizeDisplay.splice(idx, 1);
                 else selectedSizeDisplay.push(val);
@@ -1257,7 +1193,6 @@
             const searchTerm = searchInput.value.trim().toLowerCase();
             const activePromoMap = getActivePromotionsMap();
 
-            // 1) 상태 부여 및 품번(SKU) 1:1 프로모션 매핑
             const enrichedInventory = rawInventory.map(item => {
                 const sKey = cleanSku(item.sku);
                 const szKey = cleanVal(item.size).toUpperCase();
@@ -1272,7 +1207,6 @@
                 const isDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
                 const loc = locationMap[item.sku] || locationMap[safeSkuKey] || '';
 
-                // 엄격한 품번 1:1 매칭
                 const promo = activePromoMap[sKey] || activePromoMap[sKey.replace(/\s+/g, '')] || null;
                 
                 let calculatedPromoPrice = item.price;
@@ -1296,7 +1230,6 @@
                 };
             });
 
-            // 2) SKU 단위 그룹핑
             const allGroupsMap = {};
             enrichedInventory.forEach(item => {
                 const groupKey = item.sku || (item.name + '_' + item.brand);
@@ -1361,7 +1294,6 @@
                 });
             });
 
-            // 3) 조건 필터링
             groupedData = allGroups.filter(group => {
                 const matchesSearch = !searchTerm || group.name.toLowerCase().includes(searchTerm) || (group.sku && group.sku.toLowerCase().includes(searchTerm));
                 const matchesBrand = selectedBrand.length === 0 || selectedBrand.includes(group.brand);
@@ -1397,7 +1329,6 @@
                 filteredData.push(...group.items);
             });
 
-            // 4) 정렬
             groupedData.sort((a, b) => {
                 if (sortBy === 'sales_desc') return b.totalSales - a.totalSales || b.totalStock - a.totalStock;
                 if (sortBy === 'wos_asc') return a.wos - b.wos;
@@ -1465,7 +1396,6 @@
             </div>`;
         }
 
-        // 개별 카드 템플릿 생성기 (요청 스케치 반영: 이미지 미등록 좌측 배치 & 우측 상단 프로모션 박스)
         function buildCardHtml(item, index) {
             const safeId = 'card_' + (item.sku ? item.sku.replace(/[^a-zA-Z0-9_-]/g, '_') : index);
             const googleSearchUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent((item.sku || '') + ' ' + (item.name || ''))}`;
@@ -1530,7 +1460,6 @@
 
             const locationSelectorHtml = renderLocationSelectHtml(item.sku, itemLoc, false);
 
-            // 프로모션 상단 박스 레이아웃 (스케치 완벽 반영: DP 버튼 아래 우측 정렬)
             let promoBadgeTop = '';
             let isCouponDuplicateProhibited = false;
 
@@ -1572,7 +1501,6 @@
                 }
             }
 
-            // 가격 표기 레이아웃 생성
             let priceDisplayHtml = '';
             if (item.price > 0) {
                 if (item.promo && item.promo.discountRate > 0) {
@@ -1595,7 +1523,6 @@
                 }
             }
 
-            // 요청 반영: 이미지 미등록 & 구글 검색 버튼을 카드 왼쪽으로 정렬
             const imageArea = item.imageUrl
                 ? `<img src="${item.imageUrl}" loading="lazy" class="w-full h-36 object-cover rounded-t-lg bg-gray-50" alt="${item.name}">`
                 : `<div class="w-full h-36 bg-gray-50 rounded-t-lg flex items-center justify-start pl-5 sm:pl-6 p-3 border-b border-gray-100 relative">
@@ -1704,7 +1631,6 @@
                     </div>
                 </div>
 
-                <!-- 카드 하단 3단 지표 -->
                 <div class="p-2.5 border-t border-gray-100 bg-gray-50/70 grid grid-cols-3 gap-1 text-center text-xs">
                     <div class="text-left pl-1">
                         <p class="text-[9px] text-gray-400 font-medium truncate">매장 총 재고(신사)</p>
@@ -1726,7 +1652,6 @@
                     </div>
                 </div>
 
-                <!-- 상세 아코디언 -->
                 <div id="${safeId}" class="hidden p-3 bg-gray-50 border-t border-gray-200 space-y-1.5" onclick="event.stopPropagation();">
                     <div class="flex items-center justify-between pb-1 border-b border-gray-200">
                         <span class="text-[11px] font-black text-gray-700">📋 사이즈별 재고 & 판매 현황</span>
@@ -1740,7 +1665,6 @@
             `;
         }
 
-        // 개별 테이블 행 템플릿 생성기
         function buildTableRowHtml(item) {
             const wosHtml = getWosBadgeHtml(item.stock, item.sales, item.wos);
             const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
@@ -1863,7 +1787,6 @@
             statusIndicator.innerHTML = `✅ 데이터 연동 완료 (${groupedData.length}개 상품 / ${filteredData.length}개 규격${promoText})`;
         }
 
-        // 추가 데이터 로드 함수 (스크롤 시 실행)
         function loadMoreGridItems() {
             if (currentGridLimit >= groupedData.length) {
                 gridSentinel.classList.add('hidden');
@@ -1906,7 +1829,6 @@
             }
         }
 
-        // 무한 스크롤 옵저버 설정
         const scrollObserver = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
