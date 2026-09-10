@@ -98,7 +98,7 @@
                         <i class="fa-solid fa-rotate-right mr-1"></i>초기화
                     </button>
                     
-                    <!-- 단일 엑셀 다운로드 드롭다운 메뉴 -->
+                    <!-- 엑셀 다운로드 드롭다운 메뉴 -->
                     <div class="relative inline-block text-left" id="excelDropdownContainer">
                         <button id="excelDropdownToggle" type="button" class="bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-2.5 rounded-md text-xs font-bold transition flex items-center justify-center shadow-sm">
                             <i class="fa-solid fa-file-excel mr-1.5"></i>엑셀 다운로드 <i class="fa-solid fa-chevron-down ml-1 text-[10px]"></i>
@@ -539,20 +539,23 @@
             return cleanVal(k);
         }
 
-        // 안정적인 YYYY-MM-DD ISO 문자열 변환기
+        // 안정적인 YYYY-MM-DD 변환 함수 (모든 구분기호 및 포맷 완벽 정규화)
         function toIsoDate(str) {
             if (!str) return '';
             const clean = String(str).trim().replace(/[.\/]/g, '-');
-            const match = clean.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
-            if (match) {
-                const y = match[1];
-                const m = match[2].padStart(2, '0');
-                const d = match[3].padStart(2, '0');
-                return `${y}-${m}-${d}`;
+            const [pA, pB, pC] = clean.split('-');
+            if (!pA || !pB || !pC) return '';
+            if (pA.length === 4) {
+                return pA + '-' + pB.padStart(2, '0') + '-' + pC.padStart(2, '0');
+            }
+            if (pC.length === 2 || pC.length === 4) {
+                const y = pC.length === 2 ? '20' + pC : pC;
+                return y + '-' + pA.padStart(2, '0') + '-' + pB.padStart(2, '0');
             }
             return '';
         }
 
+        // 기준일자: 파일 업로드 최종 수정일자(serverDateStr)를 최우선 적용
         function getTodayIso() {
             if (serverDateStr && serverDateStr.startsWith('2026')) {
                 const iso = toIsoDate(serverDateStr);
@@ -564,21 +567,21 @@
                 const d = String(now.getDate()).padStart(2, '0');
                 return `2026-${m}-${d}`;
             }
-            return '2026-09-10'; // 기본 행사 진행 기준일
+            return '2026-09-10'; // 기본 기준일
         }
 
         function getDaysRemaining(endDateStr) {
             const endIso = toIsoDate(endDateStr);
             if (!endIso) return 999;
             const today = getTodayIso();
-            const partsToday = today.split('-').map(Number);
-            const partsEnd = endIso.split('-').map(Number);
-            const d1 = new Date(partsToday[0], partsToday[1] - 1, partsToday[2]);
-            const d2 = new Date(partsEnd[0], partsEnd[1] - 1, partsEnd[2]);
-            return Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+            const [y1, m1, d1] = today.split('-').map(Number);
+            const [y2, m2, d2] = endIso.split('-').map(Number);
+            const date1 = new Date(y1, m1 - 1, d1);
+            const date2 = new Date(y2, m2 - 1, d2);
+            return Math.round((date2.getTime() - date1.getTime()) / (1000 * 60 * 60 * 24));
         }
 
-        // 유효 프로모션 추출: 엄격한 품번(SKU) 1:1 매칭 및 일자 필터링
+        // 유효 프로모션 추출: 파일 업로드 일자 기준 미래 행사(노다 시즌오프 9/14~) 완벽 배제
         function getActivePromotionsMap() {
             const today = getTodayIso();
             const skuMap = {};
@@ -590,7 +593,7 @@
                 const sDate = toIsoDate(row.startDate);
                 const eDate = toIsoDate(row.endDate);
 
-                // 1. 시작일이 오늘보다 미래인 경우 제외 (예: 9/14 시작 노다 시즌오프는 9/10에 제외)
+                // 1. 시작일이 오늘보다 미래인 경우 제외 (9/14 시작 노다 시즌오프는 9/11에 제외)
                 if (sDate && sDate > today) return;
 
                 // 2. 종료일이 오늘보다 과거인 경우 제외
@@ -966,7 +969,6 @@
             const skuKey = keys.find(k => cleanKey(k) === '품번') || keys.find(k => cleanKey(k).includes('품번') || cleanKey(k).toLowerCase().includes('sku')) || keys[0];
             const sizeKey = keys.find(k => cleanKey(k) === '규격' || cleanKey(k).includes('규격')) || '';
             
-            // 판매년월 등 다른 열을 제외하고 순수 '수량' 열만 정확히 추출
             const qtyKey = keys.find(k => cleanKey(k) === '수량') 
                         || keys.find(k => cleanKey(k) === '판매수량' || cleanKey(k) === '판매 수량')
                         || keys.find(k => cleanKey(k).endsWith('수량'))
