@@ -108,6 +108,9 @@
                                 <button id="exportExcelBtn" class="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-gray-100 flex items-center font-medium transition">
                                     <i class="fa-solid fa-file-lines text-green-600 mr-2.5 w-4 text-center"></i>📄 전체 재고 목록
                                 </button>
+                                <button id="exportPromoExcelBtn" class="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-gray-100 flex items-center font-medium transition">
+                                    <i class="fa-solid fa-bolt text-yellow-600 mr-2.5 w-4 text-center"></i>⚡ 프로모션 품목 목록
+                                </button>
                                 <button id="exportDpExcelBtn" class="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-gray-100 flex items-center font-medium transition">
                                     <i class="fa-solid fa-check-double text-emerald-600 mr-2.5 w-4 text-center"></i>✨ 진열 (DP) 목록
                                 </button>
@@ -126,6 +129,9 @@
             <!-- Quick Toggles -->
             <div class="border-t border-gray-100 pt-4 space-y-4">
                 <div class="flex flex-wrap items-center gap-2 pb-2 border-b border-gray-100">
+                    <button id="togglePromotion" class="px-3 py-1.5 rounded text-xs font-bold border border-yellow-400 text-yellow-800 hover:bg-yellow-50 transition flex items-center shadow-sm">
+                        <i class="fa-solid fa-bolt mr-1 text-yellow-500"></i> ⚡ 프로모션 상품만 보기
+                    </button>
                     <button id="toggleHighHeat" class="px-3 py-1.5 rounded text-xs font-bold border border-red-300 text-red-600 hover:bg-red-50 transition flex items-center">
                         <i class="fa-solid fa-fire mr-1"></i> HIGH HEAT 품목만 보기 (주간 3개 이상)
                     </button>
@@ -283,13 +289,13 @@
                     <table class="w-full text-left text-xs">
                         <thead class="bg-gray-100 text-gray-700 font-bold uppercase border-b border-gray-200">
                             <tr>
-                                <th class="p-3">상태 / WOS</th>
+                                <th class="p-3">상태 / WOS / 행사</th>
                                 <th class="p-3 text-center">진열(DP)</th>
                                 <th class="p-3 text-center">적재 위치</th>
                                 <th class="p-3">품번 (SKU)</th>
                                 <th class="p-3">품명 (상품명)</th>
                                 <th class="p-3">규격 (사이즈)</th>
-                                <th class="p-3 text-right">소비자가</th>
+                                <th class="p-3 text-right">가격 / 할인가</th>
                                 <th class="p-3">브랜드</th>
                                 <th class="p-3">BIZ</th>
                                 <th class="p-3">성별</th>
@@ -396,10 +402,12 @@
         // 2. 상태 변수 및 렌더링 최적화 설정
         // ==========================================
         let rawInventory = [];
+        let rawPromotions = [];
         let globalNameColorMap = {};
         let salesMap = {};
         let filteredData = [];
         let groupedData = [];
+        let isPromotionOnly = false;
         let isHighHeatOnly = false;
         let isWosWarningOnly = false;
         let isPosMissingOnly = false;
@@ -426,6 +434,7 @@
         const lastUpdated = document.getElementById('lastUpdated');
         const searchInput = document.getElementById('searchInput');
         const searchBtn = document.getElementById('searchBtn');
+        const togglePromotion = document.getElementById('togglePromotion');
         const toggleHighHeat = document.getElementById('toggleHighHeat');
         const toggleWosWarning = document.getElementById('toggleWosWarning');
         const togglePosMissing = document.getElementById('togglePosMissing');
@@ -441,6 +450,7 @@
         const excelDropdownToggle = document.getElementById('excelDropdownToggle');
         const excelDropdownMenu = document.getElementById('excelDropdownMenu');
         const exportExcelBtn = document.getElementById('exportExcelBtn');
+        const exportPromoExcelBtn = document.getElementById('exportPromoExcelBtn');
         const exportDpExcelBtn = document.getElementById('exportDpExcelBtn');
         const exportUnDpExcelBtn = document.getElementById('exportUnDpExcelBtn');
         const exportRestockExcelBtn = document.getElementById('exportRestockExcelBtn');
@@ -525,6 +535,62 @@
                 num = Math.round(num / 100);
             }
             return num;
+        }
+
+        function parseDiscountRate(val) {
+            if (!val) return 0;
+            const num = parseFloat(String(val).replace(/[^0-9.]/g, ''));
+            return isNaN(num) ? 0 : num;
+        }
+
+        function getTodayStr() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function getDaysRemaining(endDateStr) {
+            if (!endDateStr) return 999;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const parts = endDateStr.split('-').map(v => parseInt(v.trim(), 10));
+            if (parts.length < 3 || isNaN(parts[0])) return 999;
+            const end = new Date(parts[0], parts - 1, parts[2]);
+            end.setHours(0, 0, 0, 0);
+            return Math.round((end - today) / (1000 * 60 * 60 * 24));
+        }
+
+        // 유효 프로모션 추출 및 다중 프로모션 우선순위 계산 (최고 할인율 우선)
+        function getActivePromotionsMap() {
+            const todayStr = getTodayStr();
+            const map = {};
+
+            rawPromotions.forEach(row => {
+                const sku = row.sku;
+                if (!sku) return;
+
+                const startDate = row.startDate;
+                const endDate = row.endDate;
+
+                // 시작 일자가 미래인 경우 노출 안 됨
+                if (startDate && startDate > todayStr) return;
+                // 종료 일자가 지난 경우 노출 안 됨
+                if (endDate && endDate < todayStr) return;
+
+                const existing = map[sku];
+                if (!existing) {
+                    map[sku] = row;
+                } else {
+                    // 중복 시 할인율이 더 높은 프로모션으로 노출 (0%보다 10%, 20%가 우선)
+                    if (row.discountRate > existing.discountRate) {
+                        map[sku] = row;
+                    }
+                }
+            });
+
+            return map;
         }
 
         function extractBrand(subCategoryStr) {
@@ -689,6 +755,7 @@
                 if (text.includes('카테고리')) score++;
                 if (text.includes('브랜드')) score++;
                 if (text.includes('규격') || text.includes('사이즈')) score++;
+                if (text.includes('프로모션') || text.includes('할인')) score++;
 
                 if (score >= 2) {
                     headerRowIdx = i;
@@ -727,6 +794,44 @@
             });
 
             return result;
+        }
+
+        function processPromotionData(json) {
+            rawPromotions = [];
+            if (!json || json.length === 0) return;
+
+            const sampleRow = json[0] || {};
+            const keys = Object.keys(sampleRow);
+
+            const skuKey = keys.find(k => k.trim() === '품번') || keys.find(k => k.includes('품번') || k.toLowerCase().includes('sku')) || keys[0];
+            const discountKey = keys.find(k => k.includes('프로모션 할인') || k.includes('할인율') || k.includes('할인')) || '';
+            const promoPriceKey = keys.find(k => k.includes('프로모션 할인가') || k.includes('할인가')) || '';
+            const nameKey = keys.find(k => k.includes('프로모션 이름') || k.includes('행사명') || k.includes('프로모션명')) || '';
+            const couponDupKey = keys.find(k => k.includes('신규/생일') || k.includes('중복')) || '';
+            const startKey = keys.find(k => k.includes('시작') || k.includes('start')) || '';
+            const endKey = keys.find(k => k.includes('종료') || k.includes('end')) || '';
+
+            rawPromotions = json.map(row => {
+                const rawSku = String(row[skuKey] || '').trim();
+                const discountRate = parseDiscountRate(row[discountKey]);
+                const promoPrice = parseAndNormalizePrice(row[promoPriceKey]);
+                const promoName = nameKey ? String(row[nameKey] || '').trim() : '';
+                const couponDup = couponDupKey ? String(row[couponDupKey] || '').trim().toUpperCase() : 'O';
+                const startDate = startKey ? String(row[startKey] || '').trim() : '';
+                const endDate = endKey ? String(row[endKey] || '').trim() : '';
+
+                return {
+                    sku: rawSku,
+                    discountRate: discountRate,
+                    promoPrice: promoPrice,
+                    name: promoName,
+                    couponDuplicate: couponDup,
+                    startDate: startDate,
+                    endDate: endDate
+                };
+            }).filter(p => p.sku);
+
+            applyFiltersAndRender();
         }
 
         function processInventoryData(json) {
@@ -787,7 +892,9 @@
                     hasPosBarcode: rawPosBarcode !== '',
                     sales: 0,
                     wos: 999,
-                    isHighHeat: false
+                    isHighHeat: false,
+                    promo: null,
+                    promoPrice: priceVal
                 };
             }).filter(item => item.sku || item.name);
 
@@ -899,7 +1006,7 @@
                 }
             });
 
-            // 1) 브랜드 칩스: 불필요한 아이콘 제거, 심플한 텍스트로만 렌더링
+            // 1) 브랜드 칩스: 심플한 텍스트로만 렌더링
             const brands = Array.from(brandSet).sort();
             let brandHtml = `<button class="chip-btn ${selectedBrand.length === 0 ? 'active' : ''}" onclick="selectBrand('')">전체 브랜드</button>`;
             brands.forEach(b => {
@@ -1068,6 +1175,7 @@
         function applyFiltersAndRender() {
             if (rawInventory.length === 0) return;
             const searchTerm = searchInput.value.trim().toLowerCase();
+            const activePromoMap = getActivePromotionsMap();
 
             // 1) 상태 부여
             const enrichedInventory = rawInventory.map(item => {
@@ -1080,13 +1188,25 @@
                 const isDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
                 const loc = locationMap[item.sku] || locationMap[safeSkuKey] || '';
 
+                const promo = activePromoMap[item.sku] || null;
+                let calculatedPromoPrice = item.price;
+                if (promo) {
+                    if (promo.promoPrice > 0) {
+                        calculatedPromoPrice = promo.promoPrice;
+                    } else if (promo.discountRate > 0 && item.price > 0) {
+                        calculatedPromoPrice = Math.round(item.price * (1 - promo.discountRate / 100));
+                    }
+                }
+
                 return { 
                     ...item, 
                     sales: sizeSales, 
                     wos: calcWos,
                     isDp: isDp,
                     location: loc,
-                    isHighHeat: skuTotalSales >= HIGH_HEAT_THRESHOLD
+                    isHighHeat: skuTotalSales >= HIGH_HEAT_THRESHOLD,
+                    promo: promo,
+                    promoPrice: calculatedPromoPrice
                 };
             });
 
@@ -1108,6 +1228,8 @@
                         hasAnyPosMissing: false,
                         isDp: isItemDp,
                         location: itemLoc,
+                        promo: item.promo,
+                        promoPrice: item.promoPrice,
                         items: [],
                         sizeList: []
                     };
@@ -1164,6 +1286,7 @@
                     selectedSizeDisplay.includes(item.sizeDisplay) || selectedSizeDisplay.includes(item.size)
                 );
 
+                const matchesPromotion = !isPromotionOnly || !!group.promo;
                 const matchesHeat = !isHighHeatOnly || group.isHighHeat;
                 const matchesWosWarning = !isWosWarningOnly || group.items.some(item => item.sales > 0 && item.wos <= 2.0);
                 const matchesPosMissing = !isPosMissingOnly || group.hasAnyPosMissing;
@@ -1179,7 +1302,7 @@
                 }
 
                 return matchesSearch && matchesBrand && matchesBiz && matchesGender && 
-                       matchesSize && matchesHeat && matchesWosWarning && matchesPosMissing && 
+                       matchesSize && matchesPromotion && matchesHeat && matchesWosWarning && matchesPosMissing && 
                        matchesDpOnly && matchesDpLowStock && matchesDpMissing && matchesLocation;
             });
 
@@ -1257,7 +1380,7 @@
             </div>`;
         }
 
-        // 개별 카드 템플릿 생성기 (loading="lazy" 탑재)
+        // 개별 카드 템플릿 생성기 (프로모션 배지, 종료 D-Day, 신규/생일 중복불가 표기 반영)
         function buildCardHtml(item, index) {
             const safeId = 'card_' + (item.sku ? item.sku.replace(/[^a-zA-Z0-9_-]/g, '_') : index);
             const googleSearchUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent((item.sku || '') + ' ' + (item.name || ''))}`;
@@ -1321,6 +1444,57 @@
             }
 
             const locationSelectorHtml = renderLocationSelectHtml(item.sku, itemLoc, false);
+
+            // 프로모션 배지 및 D-Day 계산
+            let promoBadgeTop = '';
+            let isCouponDuplicateProhibited = false;
+
+            if (item.promo) {
+                const daysRemaining = getDaysRemaining(item.promo.endDate);
+                let dDayBadge = '';
+                if (daysRemaining >= 0 && daysRemaining <= 3) {
+                    dDayBadge = `<span class="bg-amber-500 text-white text-[9px] font-black px-1.5 py-0.2 rounded shadow ml-1 animate-pulse">종료 ${daysRemaining === 0 ? 'D-Day' : 'D-' + daysRemaining}</span>`;
+                }
+
+                if (item.promo.discountRate > 0) {
+                    promoBadgeTop = `
+                    <span class="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded shadow z-10 flex items-center gap-1 border border-red-400">
+                        <i class="fa-solid fa-bolt"></i>${item.promo.name}${dDayBadge}
+                    </span>`;
+                } else {
+                    promoBadgeTop = `
+                    <span class="bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow z-10 flex items-center gap-1 border border-indigo-400">
+                        <i class="fa-solid fa-gift"></i>${item.promo.name} 대상${dDayBadge}
+                    </span>`;
+                }
+
+                if (item.promo.couponDuplicate === 'X' || item.promo.name.includes('매장 전용')) {
+                    isCouponDuplicateProhibited = true;
+                }
+            }
+
+            // 가격 표기 레이아웃 생성
+            let priceDisplayHtml = '';
+            if (item.price > 0) {
+                if (item.promo && item.promo.discountRate > 0) {
+                    priceDisplayHtml = `
+                    <div class="text-right whitespace-nowrap">
+                        <p class="text-xs text-gray-400 line-through">₩${item.price.toLocaleString()}</p>
+                        <div class="flex items-center justify-end gap-1 mt-0.5">
+                            <span class="font-black text-sm text-red-600">₩${item.promoPrice.toLocaleString()}</span>
+                            <span class="bg-red-100 text-red-600 text-[10px] font-extrabold px-1.5 py-0.2 rounded border border-red-200">${item.promo.discountRate}% OFF</span>
+                        </div>
+                        ${isCouponDuplicateProhibited ? '<p class="text-[9px] text-amber-700 font-bold mt-0.5"><i class="fa-solid fa-triangle-exclamation mr-0.5"></i>신규/생일 쿠폰 중복 불가</p>' : ''}
+                    </div>`;
+                } else {
+                    priceDisplayHtml = `
+                    <div class="text-right whitespace-nowrap">
+                        <p class="font-black text-sm text-gray-900">₩${item.price.toLocaleString()}</p>
+                        ${item.promo ? '<span class="text-[9px] text-indigo-600 font-bold bg-indigo-50 px-1 py-0.2 rounded border border-indigo-200 block mt-0.5">쿠폰 프로모션 대상</span>' : ''}
+                        ${isCouponDuplicateProhibited ? '<p class="text-[9px] text-amber-700 font-bold mt-0.5"><i class="fa-solid fa-triangle-exclamation mr-0.5"></i>신규/생일 쿠폰 중복 불가</p>' : ''}
+                    </div>`;
+                }
+            }
 
             const imageArea = item.imageUrl
                 ? `<img src="${item.imageUrl}" loading="lazy" class="w-full h-36 object-cover rounded-t-lg bg-gray-50" alt="${item.name}">`
@@ -1387,7 +1561,10 @@
                 <div>
                     <div class="relative">
                         ${imageArea}
-                        ${item.isHighHeat ? '<span class="absolute top-2 left-2 heat-badge text-[10px] px-2 py-0.5 rounded shadow z-10">🔥 HIGH HEAT</span>' : ''}
+                        <div class="absolute top-2 left-2 flex flex-col gap-1 z-10 items-start">
+                            ${item.isHighHeat ? '<span class="heat-badge text-[10px] px-2 py-0.5 rounded shadow">🔥 HIGH HEAT</span>' : ''}
+                            ${promoBadgeTop}
+                        </div>
                         ${dpButtonHtml}
                         ${item.hasAnyPosMissing ? '<span class="absolute bottom-2 left-2 bg-black/80 text-white text-[9px] px-1.5 py-0.5 rounded font-bold shadow z-10">POS 미등록 포함</span>' : ''}
                         ${locationSelectorHtml}
@@ -1404,7 +1581,7 @@
                                 <p class="font-bold text-sm text-gray-900 leading-snug line-clamp-1">${item.name}</p>
                                 <p class="font-mono text-xs text-gray-500 font-bold mt-0.5">${item.sku || '-'}</p>
                             </div>
-                            ${item.price > 0 ? `<div class="text-right whitespace-nowrap"><p class="font-black text-sm text-gray-900">₩${item.price.toLocaleString()}</p></div>` : ''}
+                            ${priceDisplayHtml}
                         </div>
 
                         <div class="pt-1">
@@ -1481,15 +1658,51 @@
 
             const tableLocSelect = renderLocationSelectHtml(item.sku, itemLoc, true);
             
+            let promoBadgeTable = '';
+            if (item.promo) {
+                const daysRemaining = getDaysRemaining(item.promo.endDate);
+                const dDayText = (daysRemaining >= 0 && daysRemaining <= 3) ? ` (${daysRemaining === 0 ? 'D-Day' : 'D-' + daysRemaining})` : '';
+                if (item.promo.discountRate > 0) {
+                    promoBadgeTable = `<span class="bg-red-100 text-red-700 font-extrabold text-[10px] px-1.5 py-0.5 rounded border border-red-200 mr-1">⚡ ${item.promo.name} ${item.promo.discountRate}%${dDayText}</span>`;
+                } else {
+                    promoBadgeTable = `<span class="bg-indigo-100 text-indigo-700 font-extrabold text-[10px] px-1.5 py-0.5 rounded border border-indigo-200 mr-1">🎁 ${item.promo.name}${dDayText}</span>`;
+                }
+            }
+
+            let priceTableHtml = '-';
+            if (item.price > 0) {
+                if (item.promo && item.promo.discountRate > 0) {
+                    priceTableHtml = `
+                        <div class="text-right">
+                            <span class="line-through text-gray-400 block text-[10px]">₩${item.price.toLocaleString()}</span>
+                            <span class="text-red-600 font-black">₩${item.promoPrice.toLocaleString()}</span>
+                            <span class="text-[9px] text-red-500 font-bold">(${item.promo.discountRate}%)</span>
+                            ${(item.promo.couponDuplicate === 'X' || item.promo.name.includes('매장 전용')) ? '<span class="block text-[8px] text-amber-700 font-bold">쿠폰중복불가</span>' : ''}
+                        </div>`;
+                } else {
+                    priceTableHtml = `
+                        <div class="text-right">
+                            <span class="font-bold text-gray-800">₩${item.price.toLocaleString()}</span>
+                            ${(item.promo && (item.promo.couponDuplicate === 'X' || item.promo.name.includes('매장 전용'))) ? '<span class="block text-[8px] text-amber-700 font-bold">쿠폰중복불가</span>' : ''}
+                        </div>`;
+                }
+            }
+
             return `
             <tr class="hover:bg-gray-50 border-b border-gray-100">
-                <td class="p-3">${item.isHighHeat ? '<span class="heat-badge text-xs px-2 py-0.5 rounded mr-1">🔥 HIGH HEAT</span>' : ''}${wosHtml}</td>
+                <td class="p-3">
+                    <div class="flex flex-col gap-0.5 items-start">
+                        ${item.isHighHeat ? '<span class="heat-badge text-[10px] px-1.5 py-0.2 rounded mb-0.5">🔥 HIGH HEAT</span>' : ''}
+                        ${promoBadgeTable}
+                        ${wosHtml}
+                    </div>
+                </td>
                 <td class="p-3 text-center">${dpTableBtn}</td>
                 <td class="p-3 text-center">${tableLocSelect}</td>
                 <td class="p-3 font-mono font-bold">${item.sku}</td>
                 <td class="p-3 font-medium">${item.name}</td>
                 <td class="p-3 font-bold text-gray-800">${item.sizeDisplay || '-'}</td>
-                <td class="p-3 text-right font-bold text-gray-800">${item.price > 0 ? '₩' + item.price.toLocaleString() : '-'}</td>
+                <td class="p-3 text-right">${priceTableHtml}</td>
                 <td class="p-3"><span class="musinsa-badge">${item.brand}</span></td>
                 <td class="p-3 text-gray-600">${item.category2 || '-'}</td>
                 <td class="p-3 text-gray-600">${item.gender || '-'}</td>
@@ -1670,12 +1883,16 @@
 
                 return {
                     "상태": item.isHighHeat ? "HIGH HEAT" : (item.stock === 0 ? "품절" : "일반"),
+                    "프로모션명": item.promo ? item.promo.name : "-",
+                    "할인율": item.promo && item.promo.discountRate > 0 ? `${item.promo.discountRate}%` : "-",
+                    "소비자가": item.price > 0 ? item.price : "-",
+                    "할인가": item.promo && item.promo.discountRate > 0 ? item.promoPrice : "-",
+                    "신규/생일중복": item.promo ? (item.promo.couponDuplicate === 'X' ? '중복불가' : '가능') : "-",
                     "진열상태(DP)": isItemDp ? (item.stock <= 2 ? "DP 재고부족" : "DP 완료") : "미진열",
                     "적재위치": loc,
                     "WOS(주)": item.sales > 0 ? (item.stock / item.sales).toFixed(1) : "-",
                     "품번(SKU)": item.sku,
                     "품명": item.name,
-                    "소비자가": item.price > 0 ? item.price : "-",
                     "규격(사이즈)": item.sizeDisplay || item.size,
                     "브랜드": item.brand,
                     "BIZ": item.category2,
@@ -1695,6 +1912,11 @@
 
         exportExcelBtn.addEventListener('click', () => {
             downloadExcel(filteredData, "재고조회결과_전체");
+        });
+
+        exportPromoExcelBtn.addEventListener('click', () => {
+            const promoRows = filteredData.filter(item => item.promo);
+            downloadExcel(promoRows, "프로모션_적용품목리스트");
         });
 
         exportDpExcelBtn.addEventListener('click', () => {
@@ -1728,6 +1950,15 @@
         searchInput.addEventListener('keyup', (e) => {
             if (e.key === 'Enter') applyFiltersAndRender();
         });
+
+        if (togglePromotion) {
+            togglePromotion.addEventListener('click', () => {
+                isPromotionOnly = !isPromotionOnly;
+                togglePromotion.classList.toggle('bg-yellow-500');
+                togglePromotion.classList.toggle('text-white');
+                applyFiltersAndRender();
+            });
+        }
 
         toggleHighHeat.addEventListener('click', () => {
             isHighHeatOnly = !isHighHeatOnly;
@@ -1802,6 +2033,7 @@
             selectedGender = [];
             selectedSizeDisplay = [];
             selectedLocation = '';
+            isPromotionOnly = false;
             isHighHeatOnly = false;
             isWosWarningOnly = false;
             isPosMissingOnly = false;
@@ -1810,6 +2042,7 @@
             isDpMissingOnly = false;
             sortBy = 'sales_desc';
             sortBySelect.value = 'sales_desc';
+            if (togglePromotion) togglePromotion.classList.remove('bg-yellow-500', 'text-white');
             toggleHighHeat.classList.remove('bg-red-600', 'text-white');
             toggleWosWarning.classList.remove('bg-amber-600', 'text-white');
             if (togglePosMissing) togglePosMissing.classList.remove('bg-black', 'text-white');
@@ -1828,12 +2061,14 @@
                 selectedGender = [];
                 selectedSizeDisplay = [];
                 selectedLocation = '';
+                isPromotionOnly = false;
                 isHighHeatOnly = false;
                 isWosWarningOnly = false;
                 isPosMissingOnly = false;
                 isDpOnly = false;
                 isDpLowStockOnly = false;
                 isDpMissingOnly = false;
+                if (togglePromotion) togglePromotion.classList.remove('bg-yellow-500', 'text-white');
                 toggleHighHeat.classList.remove('bg-red-600', 'text-white');
                 toggleWosWarning.classList.remove('bg-amber-600', 'text-white');
                 if (togglePosMissing) togglePosMissing.classList.remove('bg-black', 'text-white');
@@ -1850,6 +2085,8 @@
             try {
                 const inventoryRes = await fetch('./inventory.csv');
                 const salesRes = await fetch('./sales.csv');
+                const promotionRes = await fetch('./promotion.csv').catch(() => null);
+
                 const inventoryCsv = await inventoryRes.text();
                 const salesCsv = await salesRes.text();
 
@@ -1860,6 +2097,14 @@
                 const salesWorkbook = XLSX.read(salesCsv, { type: "string" });
                 const salesSheet = salesWorkbook.Sheets[salesWorkbook.SheetNames[0]];
                 const salesRows = parseExcelUniversal(salesSheet);
+
+                if (promotionRes && promotionRes.ok) {
+                    const promotionCsv = await promotionRes.text();
+                    const promotionWorkbook = XLSX.read(promotionCsv, { type: "string" });
+                    const promotionSheet = promotionWorkbook.Sheets[promotionWorkbook.SheetNames[0]];
+                    const promotionRows = parseExcelUniversal(promotionSheet);
+                    processPromotionData(promotionRows);
+                }
 
                 processInventoryData(inventoryRows);
                 processSalesData(salesRows);
