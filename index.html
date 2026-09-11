@@ -2428,45 +2428,60 @@
             }
 
             try {
-                // Step 1: 0.5x 초광각을 피하고 1배율(1x) 표준 후면 메인 카메라 찾기
+                // Step 1: 후면 카메라 중 1배율(1x) 메인 카메라의 ID(문자열) 찾기
                 let target1xCameraId = null;
                 try {
-                    // 권한 획득 스트림 임시 실행 (장치 레이블 활성화용)
-                    const tempStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-                    tempStream.getTracks().forEach(t => t.stop());
+                    const devices = await Html5Qrcode.getCameras();
+                    if (devices && devices.length > 0) {
+                        // 1) 0.5x 초광각 및 망원을 제외한 1배율 표준 'Back Camera' 정밀 탐색
+                        const back1x = devices.find(d => {
+                            const l = (d.label || '').toLowerCase();
+                            const isBack = l.includes('back') || l.includes('rear') || l.includes('후면');
+                            const isNotUltra = !l.includes('ultra') && !l.includes('0.5') && !l.includes('wide angle');
+                            const isNotTele = !l.includes('tele') && !l.includes('망원');
+                            return isBack && isNotUltra && isNotTele;
+                        });
 
-                    const devices = await navigator.mediaDevices.enumerateDevices();
-                    const videoDevs = devices.filter(d => d.kind === 'videoinput');
-
-                    // iPhone 및 Android에서 Ultra Wide(0.5x)가 아닌 1x 표준 메인 카메라 탐색
-                    const back1x = videoDevs.find(d => {
-                        const l = (d.label || '').toLowerCase();
-                        const isBack = l.includes('back') || l.includes('rear') || l.includes('후면');
-                        const isNotUltra = !l.includes('ultra') && !l.includes('0.5') && !l.includes('wide angle');
-                        const isNotTele = !l.includes('tele') && !l.includes('망원');
-                        return isBack && isNotUltra && isNotTele;
-                    });
-
-                    if (back1x) {
-                        target1xCameraId = back1x.deviceId;
+                        if (back1x && back1x.id) {
+                            target1xCameraId = back1x.id;
+                        } else {
+                            // 2) 레이블에 ultra가 없는 후면 카메라
+                            const anyBack = devices.find(d => {
+                                const l = (d.label || '').toLowerCase();
+                                return (l.includes('back') || l.includes('rear') || l.includes('후면')) && !l.includes('ultra');
+                            });
+                            if (anyBack && anyBack.id) {
+                                target1xCameraId = anyBack.id;
+                            } else {
+                                // 3) 후면 카메라 중 아무거나
+                                const fallbackBack = devices.find(d => {
+                                    const l = (d.label || '').toLowerCase();
+                                    return l.includes('back') || l.includes('rear') || l.includes('후면');
+                                });
+                                if (fallbackBack && fallbackBack.id) {
+                                    target1xCameraId = fallbackBack.id;
+                                }
+                            }
+                        }
                     }
                 } catch(e) {
-                    console.warn("1x camera lookup failed:", e);
+                    console.warn("Camera enum error, fallback to facingMode:", e);
                 }
 
-                // Step 2: 1x 카메라로 고화질 오토포커스 실행
-                const cameraSource = target1xCameraId ? { deviceId: { exact: target1xCameraId } } : { facingMode: "environment" };
+                // Step 2: 1x 카메라 string ID 전달 (html5-qrcode 규격: 1번째 인자가 문자열이면 해당 카메라 고정)
+                // 만약 못 찾으면 { facingMode: { exact: "environment" } } 로 후면 100% 강제 고정
+                const cameraParam = target1xCameraId || { facingMode: "environment" };
 
                 const config = {
                     fps: 25,
                     qrbox: (viewfinderWidth, viewfinderHeight) => {
-                        // 세로 바코드/가로 바코드 모두 잡을 수 있는 여유 있는 사각형
                         const w = Math.min(viewfinderWidth * 0.88, 300);
                         const h = Math.min(viewfinderHeight * 0.75, 240);
                         return { width: Math.floor(w), height: Math.floor(h) };
                     },
                     aspectRatio: 1.0,
                     videoConstraints: {
+                        facingMode: { ideal: "environment" },
                         focusMode: "continuous",
                         width: { ideal: 1920 },
                         height: { ideal: 1080 }
@@ -2474,7 +2489,7 @@
                 };
 
                 await html5QrScanner.start(
-                    cameraSource,
+                    cameraParam,
                     config,
                     (decodedText) => handleScannedCode(decodedText),
                     () => {}
@@ -2483,9 +2498,9 @@
                 isScannerRunning = true;
 
             } catch (err) {
-                console.error("Camera start failed:", err);
+                console.error("Camera start failed, retry with pure environment:", err);
                 try {
-                    // 폴백: 기본 후면 카메라
+                    // 폴백: 무조건 후면 카메라 강제
                     await html5QrScanner.start(
                         { facingMode: "environment" },
                         { fps: 20, qrbox: { width: 260, height: 200 } },
@@ -2495,7 +2510,7 @@
                     isScannerRunning = true;
                     return;
                 } catch(e2) {}
-                alert("카메라 실행에 실패했습니다. 브라우저 설정에서 카메라 권한을 확인해주세요.");
+                alert("후면 카메라를 열 수 없습니다. 브라우저 설정에서 카메라 권한을 확인해주세요.");
                 stopCameraScanner();
             }
         }
