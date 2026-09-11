@@ -341,23 +341,12 @@
                 </div>
                 <div class="p-4 space-y-3">
                     <div id="reader" class="rounded-xl overflow-hidden bg-black w-full" style="min-height: 240px;"></div>
-                    <!-- 줌 조절 버튼 & 팁 -->
-                    <div class="flex items-center justify-between px-1">
-                        <div class="flex items-center gap-1.5">
-                            <span class="text-[10px] text-gray-500 font-bold">배율:</span>
-                            <button type="button" onclick="applyCameraZoom(1.0)" class="zoom-btn px-2.5 py-0.5 rounded text-[10px] font-bold border border-gray-300 bg-black text-white active-zoom">1x</button>
-                            <button type="button" onclick="applyCameraZoom(2.0)" class="zoom-btn px-2.5 py-0.5 rounded text-[10px] font-bold border border-gray-300 bg-gray-100 text-gray-700">2x</button>
-                            <button type="button" onclick="applyCameraZoom(3.0)" class="zoom-btn px-2.5 py-0.5 rounded text-[10px] font-bold border border-gray-300 bg-gray-100 text-gray-700">3x</button>
-                        </div>
-                        <span class="text-[10px] text-gray-400">15~20cm 거리 유지</span>
-                    </div>
-
-                    <div class="text-center space-y-0.5 pt-1 border-t border-gray-100">
+                    <div class="text-center space-y-1 py-1">
                         <p class="text-xs font-bold text-gray-800">
-                            가로 빨간 상자 안에 바코드를 맞춰주세요
+                            🔍 1배율 메인 카메라 (초점 자동 조절)
                         </p>
-                        <p class="text-[10px] text-gray-500">
-                            초점이 흐리면 [2x]를 누르고 살짝 떨어뜨려 비춰주세요.
+                        <p class="text-[11px] text-gray-500">
+                            바코드를 사각형 안에 비춰주세요. (세로 바코드는 폰을 90도 회전)
                         </p>
                     </div>
                 </div>
@@ -2298,7 +2287,7 @@
         });
 
         // ==========================================
-        // 6. 스마트폰 카메라 바코드 스캐너 (후면 카메라 전용 고정)
+        // 6. 1배율(1x) 메인 렌즈 전용 & 1D 바코드 전담 스캐너
         // ==========================================
         let html5QrScanner = null;
         let isScannerRunning = false;
@@ -2340,37 +2329,40 @@
             if (toastTimer) clearTimeout(toastTimer);
             toastTimer = setTimeout(() => {
                 scanToast.classList.add('hidden');
-            }, 4000);
+            }, 4500);
         }
 
-        // 바코드 유연 매칭 헬퍼 (UPC-A 12자리 vs EAN-13 13자리 앞자리 0 호환, 공백 제거)
-        function checkBarcodeMatch(scannedCode, itemBarcode, itemSku) {
-            if (!scannedCode) return false;
+        // 바코드 대조 헬퍼 (UPC-A, EAN-13, Code-128, 앞자리 0 호환, SKU 접두사 호환)
+        function checkBarcodeMatch(scannedCode, item) {
+            if (!scannedCode || !item) return false;
             const s = String(scannedCode).trim();
-            const sClean = s.replace(/[^a-zA-Z0-9]/g, '');
+            const sClean = s.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
             const sNoZero = sClean.replace(/^0+/, '');
 
-            const b = String(itemBarcode || '').trim();
-            const bClean = b.replace(/[^a-zA-Z0-9]/g, '');
+            const b = String(item.barcode || '').trim();
+            const bClean = b.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
             const bNoZero = bClean.replace(/^0+/, '');
 
-            // 1) 바코드 완전 일치 또는 앞자리 0 제거 일치
+            // 1) 바코드 필드 완전 일치 또는 앞자리 0 제거 일치 (12자리 UPC vs 13자리 EAN)
             if (bClean && (bClean === sClean || (bNoZero && bNoZero === sNoZero))) {
                 return true;
             }
 
-            // 2) EAN/UPC 상호 포함 관계 (12자리/13자리)
+            // 2) 바코드 10자리 이상 상호 포함 관계
             if (bClean && sClean && sNoZero.length >= 10 && bNoZero.length >= 10) {
                 if (bClean.includes(sNoZero) || sClean.includes(bNoZero)) {
                     return true;
                 }
             }
 
-            // 3) SKU 일치
-            const sku = String(itemSku || '').trim().toUpperCase();
-            const sUpper = s.toUpperCase();
-            if (sku && (sku === sUpper || sku.replace(/\s+/g, '') === sUpper.replace(/\s+/g, ''))) {
-                return true;
+            // 3) 품번(SKU) 대조 (노말, 온, 호카 등)
+            const sku = String(item.sku || '').trim().toUpperCase();
+            const skuClean = sku.replace(/[^a-zA-Z0-9]/g, '');
+            if (skuClean && sClean) {
+                if (skuClean === sClean) return true;
+                // 바코드가 SKU로 시작하는 경우 (예: 바코드 252N2AMS02-002018M -> SKU 252N2AMS02-002)
+                if (sClean.startsWith(skuClean) && skuClean.length >= 6) return true;
+                if (skuClean.startsWith(sClean) && sClean.length >= 6) return true;
             }
 
             return false;
@@ -2384,7 +2376,7 @@
             stopCameraScanner();
 
             // 유연 매칭으로 품목 탐색
-            const matched = rawInventory.find(it => checkBarcodeMatch(code, it.barcode, it.sku));
+            const matched = rawInventory.find(it => checkBarcodeMatch(code, it));
 
             if (matched) {
                 searchInput.value = matched.sku || matched.name;
@@ -2399,7 +2391,7 @@
                 const loc = locationMap[matched.sku] || locationMap[safeSkuKey] || '미지정';
                 showScanToast(
                     `✅ [${matched.brand}] ${matched.name}`,
-                    `스캔: ${code} | 규격: ${matched.sizeDisplay || matched.size} | 신사 재고: ${matched.stock}EA | 위치: ${loc}`,
+                    `바코드: ${code} | 규격: ${matched.sizeDisplay || matched.size} | 신사 재고: ${matched.stock}EA | 위치: ${loc}`,
                     true
                 );
             } else {
@@ -2408,7 +2400,7 @@
                 window.scrollTo({ top: 0, behavior: 'smooth' });
                 showScanToast(
                     "⚠️ 스캔 완료 (DB 미등록 바코드)", 
-                    `스캔된 바코드 [${code}]가 inventory.csv의 POS연동바코드 목록에 없습니다.`, 
+                    `스캔된 번호 [${code}]가 inventory.csv의 바코드/품번에 없습니다.`, 
                     false
                 );
             }
@@ -2417,19 +2409,17 @@
         async function startCameraScanner() {
             cameraModal.classList.remove('hidden');
 
-            // 1D 바코드(UPC, EAN, CODE128)를 최우선으로 지원
+            // 1D 바코드 전담 (QR 코드는 제외하여 택의 'SCAN ME!', 'OnCode' QR에 빼앗기는 현상 차단)
             let formats = undefined;
             if (window.Html5QrcodeSupportedFormats) {
                 formats = [
-                    Html5QrcodeSupportedFormats.UPC_A,
-                    Html5QrcodeSupportedFormats.UPC_E,
-                    Html5QrcodeSupportedFormats.UPC_EAN_EXTENSION,
-                    Html5QrcodeSupportedFormats.EAN_13,
-                    Html5QrcodeSupportedFormats.EAN_8,
-                    Html5QrcodeSupportedFormats.CODE_128,
-                    Html5QrcodeSupportedFormats.CODE_39,
-                    Html5QrcodeSupportedFormats.ITF,
-                    Html5QrcodeSupportedFormats.QR_CODE
+                    Html5QrcodeSupportedFormats.CODE_128, // NNormal 등 알파벳+숫자 바코드
+                    Html5QrcodeSupportedFormats.EAN_13,   // 유럽/국내 13자리 바코드 (On, CEP 등)
+                    Html5QrcodeSupportedFormats.EAN_8,    // 8자리 바코드
+                    Html5QrcodeSupportedFormats.UPC_A,    // 나이키, 호카 12자리 바코드
+                    Html5QrcodeSupportedFormats.UPC_E,    // 단축 UPC
+                    Html5QrcodeSupportedFormats.CODE_39,  // 일반 바코드
+                    Html5QrcodeSupportedFormats.ITF       // 물류 바코드
                 ];
             }
 
@@ -2438,40 +2428,74 @@
             }
 
             try {
+                // Step 1: 0.5x 초광각을 피하고 1배율(1x) 표준 후면 메인 카메라 찾기
+                let target1xCameraId = null;
+                try {
+                    // 권한 획득 스트림 임시 실행 (장치 레이블 활성화용)
+                    const tempStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                    tempStream.getTracks().forEach(t => t.stop());
+
+                    const devices = await navigator.mediaDevices.enumerateDevices();
+                    const videoDevs = devices.filter(d => d.kind === 'videoinput');
+
+                    // iPhone 및 Android에서 Ultra Wide(0.5x)가 아닌 1x 표준 메인 카메라 탐색
+                    const back1x = videoDevs.find(d => {
+                        const l = (d.label || '').toLowerCase();
+                        const isBack = l.includes('back') || l.includes('rear') || l.includes('후면');
+                        const isNotUltra = !l.includes('ultra') && !l.includes('0.5') && !l.includes('wide angle');
+                        const isNotTele = !l.includes('tele') && !l.includes('망원');
+                        return isBack && isNotUltra && isNotTele;
+                    });
+
+                    if (back1x) {
+                        target1xCameraId = back1x.deviceId;
+                    }
+                } catch(e) {
+                    console.warn("1x camera lookup failed:", e);
+                }
+
+                // Step 2: 1x 카메라로 고화질 오토포커스 실행
+                const cameraSource = target1xCameraId ? { deviceId: { exact: target1xCameraId } } : { facingMode: "environment" };
+
                 const config = {
                     fps: 25,
                     qrbox: (viewfinderWidth, viewfinderHeight) => {
-                        const w = Math.min(viewfinderWidth * 0.9, 340);
-                        const h = Math.min(viewfinderHeight * 0.45, 130);
+                        // 세로 바코드/가로 바코드 모두 잡을 수 있는 여유 있는 사각형
+                        const w = Math.min(viewfinderWidth * 0.88, 300);
+                        const h = Math.min(viewfinderHeight * 0.75, 240);
                         return { width: Math.floor(w), height: Math.floor(h) };
                     },
-                    aspectRatio: 1.3333,
+                    aspectRatio: 1.0,
                     videoConstraints: {
-                        facingMode: { ideal: "environment" },
                         focusMode: "continuous",
                         width: { ideal: 1920 },
                         height: { ideal: 1080 }
                     }
                 };
 
-                // 무조건 후면 카메라(environment)로만 고정 실행
                 await html5QrScanner.start(
-                    { facingMode: "environment" },
+                    cameraSource,
                     config,
-                    (decodedText) => {
-                        handleScannedCode(decodedText);
-                    },
-                    () => {} // 프레임 인식 실패 무시
+                    (decodedText) => handleScannedCode(decodedText),
+                    () => {}
                 );
 
                 isScannerRunning = true;
 
-                // 1배율 초기화 시도
-                setTimeout(() => applyCameraZoom(1.0), 300);
-
             } catch (err) {
                 console.error("Camera start failed:", err);
-                alert("후면 카메라를 열 수 없습니다. 브라우저 설정에서 카메라 권한을 확인해주세요.");
+                try {
+                    // 폴백: 기본 후면 카메라
+                    await html5QrScanner.start(
+                        { facingMode: "environment" },
+                        { fps: 20, qrbox: { width: 260, height: 200 } },
+                        (decodedText) => handleScannedCode(decodedText),
+                        () => {}
+                    );
+                    isScannerRunning = true;
+                    return;
+                } catch(e2) {}
+                alert("카메라 실행에 실패했습니다. 브라우저 설정에서 카메라 권한을 확인해주세요.");
                 stopCameraScanner();
             }
         }
@@ -2484,29 +2508,6 @@
                 isScannerRunning = false;
             }
             cameraModal.classList.add('hidden');
-        }
-
-        function applyCameraZoom(level) {
-            try {
-                if (!html5QrScanner || !isScannerRunning) return;
-                const track = html5QrScanner.getRunningTrack();
-                if (track && track.getCapabilities && track.getCapabilities().zoom) {
-                    const caps = track.getCapabilities().zoom;
-                    const target = Math.min(Math.max(level, caps.min || 1), caps.max || 5);
-                    track.applyConstraints({ advanced: [{ zoom: target }] });
-                }
-                // 버튼 스타일 갱신
-                const zoomBtns = document.querySelectorAll('.zoom-btn');
-                zoomBtns.forEach(btn => {
-                    if (btn.textContent.trim() === `${level}x`) {
-                        btn.className = 'zoom-btn px-2.5 py-0.5 rounded text-[10px] font-bold border border-gray-300 bg-black text-white active-zoom';
-                    } else {
-                        btn.className = 'zoom-btn px-2.5 py-0.5 rounded text-[10px] font-bold border border-gray-300 bg-gray-100 text-gray-700';
-                    }
-                });
-            } catch(e) {
-                console.warn("Zoom not supported:", e);
-            }
         }
 
         // 노트북 USB/블루투스 바코드 스캐너 전역 자동 감지
