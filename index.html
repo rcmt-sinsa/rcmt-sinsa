@@ -411,9 +411,9 @@
         let isDpLowStockOnly = false;  
         let isDpMissingOnly = false;   
         let selectedLocation = '';
-        let selectedPromotion = []; // 프로모션별 필터 선택 상태
+        let selectedPromotion = []; 
         let viewMode = 'grid';
-        let sortBy = 'name_asc'; // 기본 정렬: 제품명 순 (가나다)
+        let sortBy = 'name_asc'; 
         const HIGH_HEAT_THRESHOLD = 3; 
 
         let serverDateStr = '2026-09-10';
@@ -550,7 +550,6 @@
             return cleanVal(k);
         }
 
-        // 안정적인 YYYY-MM-DD 변환 함수 (구분자 무관 완벽 정규화)
         function toIsoDate(str) {
             if (!str) return '';
             const clean = String(str).trim().replace(/[.\/]/g, '-');
@@ -566,7 +565,6 @@
             return '';
         }
 
-        // 기준일자: 파일 업로드 최종 수정일자(serverDateStr)를 최우선 적용
         function getTodayIso() {
             if (serverDateStr && serverDateStr.startsWith('2026')) {
                 const iso = toIsoDate(serverDateStr);
@@ -578,7 +576,7 @@
                 const d = String(now.getDate()).padStart(2, '0');
                 return `2026-${m}-${d}`;
             }
-            return '2026-09-10'; // 기본 기준일
+            return '2026-09-10';
         }
 
         function getDaysRemaining(endDateStr) {
@@ -592,7 +590,6 @@
             return Math.round((date2.getTime() - date1.getTime()) / (1000 * 60 * 60 * 24));
         }
 
-        // 유효 프로모션 추출: 파일 업로드 일자 기준 미래 행사(9/14 노다 시즌오프 등) 완벽 배제
         function getActivePromotionsMap() {
             const today = getTodayIso();
             const skuMap = {};
@@ -604,13 +601,9 @@
                 const sDate = toIsoDate(row.startDate);
                 const eDate = toIsoDate(row.endDate);
 
-                // 1. 시작일이 오늘보다 미래인 경우 제외 (9/14 노다 시즌오프는 9/11 기준 자동 제외)
                 if (sDate && sDate > today) return;
-
-                // 2. 종료일이 오늘보다 과거인 경우 제외
                 if (eDate && eDate < today) return;
 
-                // 3. 중복 품번일 경우 할인율이 더 높은 행사 우선 적용
                 const existing = skuMap[sKey];
                 if (!existing || row.discountRate > existing.discountRate) {
                     skuMap[sKey] = row;
@@ -823,7 +816,7 @@
             const sampleRow = json[0] || {};
             const keys = Object.keys(sampleRow);
 
-            const skuKey = keys.find(k => cleanKey(k) === '품번' || cleanKey(k).includes('품번') || cleanKey(k).toLowerCase().includes('sku')) || keys[0];
+            const skuKey = keys.find(k => cleanKey(k) === '품번') || keys.find(k => cleanKey(k).includes('품번') || cleanKey(k).toLowerCase().includes('sku')) || keys[0];
             const discountKey = keys.find(k => cleanKey(k) === '프로모션 할인' || cleanKey(k).includes('할인율') || (cleanKey(k).includes('할인') && !cleanKey(k).includes('할인가'))) || '';
             const promoPriceKey = keys.find(k => cleanKey(k) === '프로모션 할인가' || cleanKey(k).includes('할인가')) || '';
             const promoNameKey = keys.find(k => cleanKey(k).includes('프로모션 이름') || cleanKey(k).includes('행사명') || cleanKey(k).includes('프로모션명')) || '';
@@ -868,17 +861,17 @@
             const sampleRow = json[0] || {};
             const keys = Object.keys(sampleRow);
 
-            const skuKey = keys.find(k => cleanKey(k) === '품번' || cleanKey(k).includes('품번') || cleanKey(k).toLowerCase().includes('sku')) || keys[0];
-            const nameKey = keys.find(k => cleanKey(k) === '품명' || cleanKey(k).includes('품명') || cleanKey(k).includes('상품명')) || (keys.length > 1 ? keys : keys[0]) || '';
-            const priceKey = keys.find(k => cleanKey(k) === '소비자가' || cleanKey(k).includes('소비자가') || cleanKey(k).includes('판매가') || cleanKey(k).includes('정가')) || '';
+            const skuKey = keys.find(k => cleanKey(k) === '품번') || keys.find(k => cleanKey(k).includes('품번') || cleanKey(k).toLowerCase().includes('sku')) || keys[0];
+            const nameKey = keys.find(k => cleanKey(k) === '품명') || keys.find(k => cleanKey(k).includes('품명') || cleanKey(k).includes('상품명')) || (keys.length > 1 ? keys : keys[0]) || '';
+            const priceKey = keys.find(k => cleanKey(k) === '소비자가') || keys.find(k => cleanKey(k).includes('소비자가') || cleanKey(k).includes('판매가') || cleanKey(k).includes('정가')) || '';
             const subCatKey = keys.find(k => cleanKey(k).includes('품목소분류') || cleanKey(k).includes('소분류') || cleanKey(k).includes('브랜드')) || '';
             const cat2Key = keys.find(k => cleanKey(k).includes('카테고리2') || cleanKey(k).includes('중분류') || cleanKey(k).toLowerCase().includes('biz')) || '';
-            const genderKey = keys.find(k => cleanKey(k) === '성별' || cleanKey(k).includes('성별')) || '';
+            const genderKey = keys.find(k => cleanKey(k) === '성별') || keys.find(k => cleanKey(k).includes('성별')) || '';
             
             const stockKey = keys.find(k => cleanKey(k).includes('신사동') || cleanKey(k).includes('매장(신사동)')) || keys.find(k => cleanKey(k).includes('신사') && cleanKey(k).includes('매장')) || keys.find(k => cleanKey(k).includes('매장')) || '';
             const busanStockKey = keys.find(k => cleanKey(k).includes('부산') && cleanKey(k).includes('매장')) || keys.find(k => cleanKey(k).includes('해운대') && cleanKey(k).includes('매장')) || keys.find(k => cleanKey(k).includes('부산') && !cleanKey(k).includes('대기')) || '';
 
-            const sizeKey = keys.find(k => cleanKey(k) === '규격' || cleanKey(k).includes('규격') || cleanKey(k).includes('사이즈')) || '';
+            const sizeKey = keys.find(k => cleanKey(k) === '규격') || keys.find(k => cleanKey(k).includes('규격') || cleanKey(k).includes('사이즈')) || '';
             const imgKey = keys.find(k => cleanKey(k).includes('이미지') || cleanKey(k).toLowerCase().includes('image')) || '';
             const posBarcodeKey = keys.find(k => cleanKey(k).includes('POS') || cleanKey(k).includes('바코드')) || '';
 
@@ -979,7 +972,7 @@
             const keys = Object.keys(sampleRow);
 
             const skuKey = keys.find(k => cleanKey(k) === '품번') || keys.find(k => cleanKey(k).includes('품번') || cleanKey(k).toLowerCase().includes('sku')) || keys[0];
-            const sizeKey = keys.find(k => cleanKey(k) === '규격' || cleanKey(k).includes('규격')) || '';
+            const sizeKey = keys.find(k => cleanKey(k) === '규격') || keys.find(k => cleanKey(k).includes('규격')) || '';
             
             const qtyKey = keys.find(k => cleanKey(k) === '수량') 
                         || keys.find(k => cleanKey(k) === '판매수량' || cleanKey(k) === '판매 수량')
@@ -1302,7 +1295,9 @@
                 allGroupsMap[groupKey].totalStock += item.stock;
                 allGroupsMap[groupKey].totalBusanStock += (item.busanStock || 0);
                 allGroupsMap[groupKey].totalSales += item.sales;
-                if (!item.hasPosBarcode) {
+                
+                // POS 미등록 판정: 신사점 매장 재고가 1개 이상(item.stock > 0) 있으면서 바코드가 미등록된 경우만 POS 미등록으로 인정
+                if (!item.hasPosBarcode && item.stock > 0) {
                     allGroupsMap[groupKey].hasAnyPosMissing = true;
                 }
 
@@ -1353,6 +1348,8 @@
                 const matchesSpecificPromo = selectedPromotion.length === 0 || (group.promo && selectedPromotion.includes(group.promo.nameDisplay || group.promo.name));
                 const matchesHeat = !isHighHeatOnly || group.isHighHeat;
                 const matchesWosWarning = !isWosWarningOnly || group.items.some(item => item.sales > 0 && item.wos <= 2.0);
+                
+                // POS 미등록 필터: 신사 매장 재고가 있으면서 미등록된 상품만 매칭
                 const matchesPosMissing = !isPosMissingOnly || group.hasAnyPosMissing;
                 const matchesDpOnly = !isDpOnly || group.isDp;
                 const matchesDpLowStock = !isDpLowStockOnly || (group.isDp && group.totalStock <= 2);
@@ -1372,7 +1369,12 @@
 
             filteredData = [];
             groupedData.forEach(group => {
-                filteredData.push(...group.items);
+                if (isPosMissingOnly) {
+                    // POS 미등록만 보기 필터 활성화 시, 신사 매장 재고가 1개 이상 있으면서 미등록된 사이즈만 표에 노출
+                    filteredData.push(...group.items.filter(it => !it.hasPosBarcode && it.stock > 0));
+                } else {
+                    filteredData.push(...group.items);
+                }
             });
 
             // 기본 정렬: 제품명 순 (가나다) 최우선
@@ -1611,7 +1613,7 @@
                     <div class="flex items-center gap-1.5 min-w-0">
                         <span class="font-bold text-gray-900 truncate">${s.size}</span>
                         ${isSelected ? '<span class="text-[9px] bg-black text-white px-1 py-0.2 rounded font-bold whitespace-nowrap">선택</span>' : ''}
-                        ${!s.hasPosBarcode ? '<span class="text-[9px] bg-red-100 text-red-600 px-1 py-0.2 rounded font-bold whitespace-nowrap">POS 미등록</span>' : ''}
+                        ${(!s.hasPosBarcode && s.stock > 0) ? '<span class="text-[9px] bg-red-100 text-red-600 px-1 py-0.2 rounded font-bold whitespace-nowrap">POS 미등록</span>' : ''}
                     </div>
                     <div class="flex items-center gap-2.5 sm:gap-3 text-right">
                         <div class="text-right">
@@ -1781,7 +1783,7 @@
                 <td class="p-3"><span class="musinsa-badge">${item.brand}</span></td>
                 <td class="p-3 text-gray-600">${item.category2 || '-'}</td>
                 <td class="p-3 text-gray-600">${item.gender || '-'}</td>
-                <td class="p-3">${!item.hasPosBarcode ? '<span class="bg-black text-white text-[10px] px-1.5 py-0.5 rounded font-bold">POS 미등록</span>' : '<span class="text-green-600 text-xs font-semibold">등록</span>'}</td>
+                <td class="p-3">${!item.hasPosBarcode ? (item.stock > 0 ? '<span class="bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded font-bold">POS 미등록</span>' : '<span class="text-gray-400 text-xs">미등록 (신사0)</span>') : '<span class="text-green-600 text-xs font-semibold">등록</span>'}</td>
                 <td class="p-3 text-right font-bold ${item.stock === 0 ? 'text-red-500' : ''}">${item.stock.toLocaleString()} EA</td>
                 <td class="p-3 text-right font-extrabold ${item.sales > 0 ? 'text-blue-600' : 'text-gray-400'}">${item.sales.toLocaleString()} EA</td>
                 <td class="p-3 text-right font-extrabold ${item.busanStock > 0 ? 'text-purple-700' : 'text-gray-400'}">${(item.busanStock || 0).toLocaleString()} EA</td>
