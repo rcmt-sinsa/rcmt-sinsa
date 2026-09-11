@@ -2336,9 +2336,13 @@
             }
             try {
                 const config = {
-                    fps: 15,
-                    qrbox: { width: 250, height: 160 },
-                    aspectRatio: 1.0
+                    fps: 20,
+                    qrbox: (viewfinderWidth, viewfinderHeight) => {
+                        const width = Math.min(viewfinderWidth * 0.9, 320);
+                        const height = Math.min(viewfinderHeight * 0.45, 140);
+                        return { width: Math.floor(width), height: Math.floor(height) };
+                    },
+                    aspectRatio: 1.333
                 };
                 await html5QrScanner.start(
                     { facingMode: "environment" },
@@ -2366,6 +2370,32 @@
             cameraModal.classList.add('hidden');
         }
 
+        // 바코드 유연 매칭 헬퍼 (앞자리 0 유무, 공백, 대소문자 허용)
+        function checkBarcodeMatch(scannedCode, itemBarcode, itemSku) {
+            if (!scannedCode) return false;
+            const s = String(scannedCode).trim();
+            const sClean = s.replace(/[^a-zA-Z0-9]/g, '');
+            const sNoZero = sClean.replace(/^0+/, '');
+
+            const b = String(itemBarcode || '').trim();
+            const bClean = b.replace(/[^a-zA-Z0-9]/g, '');
+            const bNoZero = bClean.replace(/^0+/, '');
+
+            // 1) 바코드 정확 일치 또는 앞자리 0 제거 일치 (UPC-A vs EAN-13 호환)
+            if (bClean && (bClean === sClean || (bNoZero && bNoZero === sNoZero))) {
+                return true;
+            }
+
+            // 2) SKU 일치
+            const sku = String(itemSku || '').trim().toUpperCase();
+            const sUpper = s.toUpperCase();
+            if (sku && (sku === sUpper || sku.replace(/\s+/g, '') === sUpper.replace(/\s+/g, ''))) {
+                return true;
+            }
+
+            return false;
+        }
+
         function handleScannedCode(scannedText) {
             const code = String(scannedText || '').trim();
             if (!code) return;
@@ -2373,17 +2403,11 @@
             playScanBeep(true);
             stopCameraScanner();
 
-            const cleanCodeUpper = code.toUpperCase();
-            // 1. barcode 값 또는 SKU와 일치하는 아이템 탐색
-            const matched = rawInventory.find(it => {
-                const itB = String(it.barcode || '').trim();
-                const itS = String(it.sku || '').trim().toUpperCase();
-                return (itB && itB === code) || (itS && (itS === cleanCodeUpper || itS.replace(/\s+/g, '') === cleanCodeUpper.replace(/\s+/g, '')));
-            });
+            // 1. 유연 매칭으로 아이템 탐색
+            const matched = rawInventory.find(it => checkBarcodeMatch(code, it.barcode, it.sku));
 
             if (matched) {
                 searchInput.value = matched.sku || matched.name;
-                // 해당 사이즈가 있는 경우 사이즈 필터도 즉시 선택하여 강조
                 if (matched.sizeDisplay) {
                     selectedSizeDisplay = [matched.sizeDisplay];
                 }
@@ -2394,18 +2418,48 @@
                 const safeSkuKey = String(matched.sku).replace(/[.#$[\]]/g, '_');
                 const loc = locationMap[matched.sku] || locationMap[safeSkuKey] || '미지정';
                 showScanToast(
-                    `[${matched.brand}] ${matched.name}`,
-                    `규격: ${matched.sizeDisplay || matched.size} | 신사 재고: ${matched.stock}EA | 위치: ${loc}`,
+                    `✅ [${matched.brand}] ${matched.name}`,
+                    `스캔: ${code} | 규격: ${matched.sizeDisplay || matched.size} | 신사 재고: ${matched.stock}EA | 위치: ${loc}`,
                     true
                 );
             } else {
-                // 바코드 필드에 없으면 검색창에 넣어 전체 검색 시도
+                // 바코드가 DB에 없을 경우 검색창에 그대로 넣어 부분 검색 시도
                 searchInput.value = code;
                 applyFiltersAndRender();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
-                showScanToast("바코드 미등록 상품", `스캔값 [${code}]으로 품번/품명 검색을 시도했습니다.`, false);
+                showScanToast(
+                    "⚠️ 스캔 성공 (DB 미등록 바코드)", 
+                    `스캔된 번호 [${code}]가 inventory.csv의 POS연동바코드/품번과 일치하지 않습니다.`, 
+                    false
+                );
             }
         }
+
+        // 노트북 USB/블루투스 바코드 스캐너 전역 자동 감지 (입력창 클릭 안 해도 쏘면 자동 검색)
+        let scannerBuffer = '';
+        let lastKeyTime = Date.now();
+        window.addEventListener('keydown', (e) => {
+            // 사용자가 검색창이나 위치 select를 직접 타이핑 중이면 무시
+            if (document.activeElement === searchInput || document.activeElement.tagName === 'SELECT' || document.activeElement.tagName === 'INPUT') {
+                return;
+            }
+
+            const now = Date.now();
+            if (now - lastKeyTime > 100) {
+                scannerBuffer = '';
+            }
+            lastKeyTime = now;
+
+            if (e.key === 'Enter') {
+                if (scannerBuffer.length >= 4) {
+                    e.preventDefault();
+                    handleScannedCode(scannerBuffer);
+                    scannerBuffer = '';
+                }
+            } else if (e.key.length === 1) {
+                scannerBuffer += e.key;
+            }
+        });
 
         if (openScannerBtn) {
             openScannerBtn.addEventListener('click', startCameraScanner);
