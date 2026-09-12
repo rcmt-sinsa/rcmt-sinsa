@@ -482,12 +482,18 @@
             if (!sku) return;
 
             const safeSkuKey = String(sku).replace(/[.#$[\]]/g, '_');
-            const nextState = !dpMap[sku] && !dpMap[safeSkuKey];
+            const noHyphenKey = String(sku).replace(/-/g, '');
+            const nextState = !getItemDp(sku);
+            
             dpMap[sku] = nextState;
             dpMap[safeSkuKey] = nextState;
+            if (noHyphenKey) dpMap[noHyphenKey] = nextState;
 
             if (isFirebaseActive && db) {
                 db.ref('rcmt_dp_status/' + safeSkuKey).set(nextState);
+                if (noHyphenKey && noHyphenKey !== safeSkuKey) {
+                    db.ref('rcmt_dp_status/' + noHyphenKey).set(nextState);
+                }
             } else {
                 try {
                     localStorage.setItem('rcmt_dp_status', JSON.stringify(dpMap));
@@ -496,21 +502,46 @@
             }
         }
 
+        function getItemLocation(sku) {
+            if (!sku) return '';
+            const safeKey = String(sku).replace(/[.#$[\]]/g, '_');
+            const noHyphen = String(sku).replace(/-/g, '');
+            const withHyphen = formatSku(sku);
+            return locationMap[sku] || locationMap[safeKey] || locationMap[withHyphen] || locationMap[noHyphen] || '';
+        }
+
+        function getItemDp(sku) {
+            if (!sku) return false;
+            const safeKey = String(sku).replace(/[.#$[\]]/g, '_');
+            const noHyphen = String(sku).replace(/-/g, '');
+            const withHyphen = formatSku(sku);
+            return !!(dpMap[sku] || dpMap[safeKey] || dpMap[withHyphen] || dpMap[noHyphen]);
+        }
+
+
         function updateLocation(sku, newLoc, event) {
             if (event) event.stopPropagation();
             if (!sku) return;
 
             const safeSkuKey = String(sku).replace(/[.#$[\]]/g, '_');
+            const noHyphenKey = String(sku).replace(/-/g, '');
             const val = String(newLoc || '').trim();
 
             locationMap[sku] = val;
             locationMap[safeSkuKey] = val;
+            if (noHyphenKey) locationMap[noHyphenKey] = val;
 
             if (isFirebaseActive && db) {
                 if (val) {
                     db.ref('rcmt_location/' + safeSkuKey).set(val);
+                    if (noHyphenKey && noHyphenKey !== safeSkuKey) {
+                        db.ref('rcmt_location/' + noHyphenKey).set(val);
+                    }
                 } else {
                     db.ref('rcmt_location/' + safeSkuKey).remove();
+                    if (noHyphenKey && noHyphenKey !== safeSkuKey) {
+                        db.ref('rcmt_location/' + noHyphenKey).remove();
+                    }
                 }
             } else {
                 try {
@@ -519,6 +550,23 @@
                 applyFiltersAndRender();
             }
         }
+
+        function getItemLocation(sku) {
+            if (!sku) return '';
+            const safeKey = String(sku).replace(/[.#$[\]]/g, '_');
+            const noHyphen = String(sku).replace(/-/g, '');
+            const withHyphen = formatSku(sku);
+            return locationMap[sku] || locationMap[safeKey] || locationMap[withHyphen] || locationMap[noHyphen] || '';
+        }
+
+        function getItemDp(sku) {
+            if (!sku) return false;
+            const safeKey = String(sku).replace(/[.#$[\]]/g, '_');
+            const noHyphen = String(sku).replace(/-/g, '');
+            const withHyphen = formatSku(sku);
+            return !!(dpMap[sku] || dpMap[safeKey] || dpMap[withHyphen] || dpMap[noHyphen]);
+        }
+
 
         function parseAndNormalizePrice(rawPrice) {
             if (!rawPrice) return 0;
@@ -539,11 +587,24 @@
         }
 
         function cleanVal(v) {
-            return String(v || '').replace(/[-]/g, '').trim();
+            const s = String(v || '').trim();
+            return s === '-' ? '' : s;
+        }
+
+        // 나이키 품번 정규화: 9자리 연속 코드(예: FZ0006010)를 나이키 표준 포맷(FZ0006-010)으로 자동 변환
+        function formatSku(s) {
+            if (!s) return '';
+            const trimmed = String(s).trim().toUpperCase();
+            if (trimmed.includes('-')) return trimmed;
+            // 9자리 영숫자 (앞 6자리 영숫자 + 뒤 3자리 숫자) 나이키 품번 형태 감지 시 자동 하이픈 삽입
+            if (/^[A-Z0-9]{6}[0-9]{3}$/.test(trimmed)) {
+                return trimmed.slice(0, 6) + '-' + trimmed.slice(6);
+            }
+            return trimmed;
         }
 
         function cleanSku(s) {
-            return cleanVal(s).toUpperCase();
+            return formatSku(cleanVal(s));
         }
 
         function cleanKey(k) {
@@ -876,7 +937,7 @@
             const posBarcodeKey = keys.find(k => cleanKey(k).includes('POS') || cleanKey(k).includes('바코드')) || '';
 
             const mappedRows = json.map(row => {
-                const rawSku = cleanVal(row[skuKey]);
+                const rawSku = formatSku(cleanVal(row[skuKey]));
                 const rawName = cleanVal(row[nameKey]);
                 const priceVal = parseAndNormalizePrice(row[priceKey]);
                 const rawSubCat = subCatKey ? cleanVal(row[subCatKey]) : '';
@@ -1245,9 +1306,8 @@
                 const skuTotalSales = salesMap[sKey] !== undefined ? salesMap[sKey] : (salesMap[sKey.replace(/\s+/g, '')] || 0);
                 const calcWos = sizeSales > 0 ? (item.stock / sizeSales) : (item.stock === 0 ? 0 : 999);
                 
-                const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
-                const isDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
-                const loc = locationMap[item.sku] || locationMap[safeSkuKey] || '';
+                const isDp = getItemDp(item.sku);
+                const loc = getItemLocation(item.sku);
 
                 const promo = activePromoMap[sKey] || activePromoMap[sKey.replace(/\s+/g, '')] || null;
                 
@@ -1275,9 +1335,8 @@
             const allGroupsMap = {};
             enrichedInventory.forEach(item => {
                 const groupKey = item.sku || (item.name + '_' + item.brand);
-                const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
-                const isItemDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
-                const itemLoc = locationMap[item.sku] || locationMap[safeSkuKey] || '';
+                const isItemDp = getItemDp(item.sku);
+                const itemLoc = getItemLocation(item.sku);
 
                 if (!allGroupsMap[groupKey]) {
                     allGroupsMap[groupKey] = {
@@ -1461,15 +1520,13 @@
             const googleSearchUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent((item.sku || '') + ' ' + (item.name || ''))}`;
             const wosHtml = getWosBadgeHtml(item.totalStock, item.totalSales, item.wos);
             
-            const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
-            const isItemDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
-            const itemLoc = locationMap[item.sku] || locationMap[safeSkuKey] || '';
+            const isItemDp = getItemDp(item.sku);
+                const itemLoc = getItemLocation(item.sku);
 
             const cName = cleanVal(item.name).toLowerCase();
             const allVariants = globalNameColorMap[cName] ? Array.from(globalNameColorMap[cName].values()) : [];
             const otherVariants = allVariants.filter(v => v.sku !== item.sku).map(v => {
-                const vSafeSkuKey = String(v.sku).replace(/[.#$[\]]/g, '_');
-                const isVDp = !!(dpMap[v.sku] || dpMap[vSafeSkuKey]);
+                const isVDp = getItemDp(v.sku);
                 return { ...v, isDp: isVDp };
             });
 
@@ -1727,9 +1784,8 @@
 
         function buildTableRowHtml(item) {
             const wosHtml = getWosBadgeHtml(item.stock, item.sales, item.wos);
-            const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
-            const isItemDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
-            const itemLoc = locationMap[item.sku] || locationMap[safeSkuKey] || '';
+            const isItemDp = getItemDp(item.sku);
+                const itemLoc = getItemLocation(item.sku);
             
             let dpTableBtn = '';
             if (isItemDp) {
@@ -1965,9 +2021,8 @@
                 return;
             }
             const exportRows = rows.map(item => {
-                const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
-                const isItemDp = !!(dpMap[item.sku] || dpMap[safeSkuKey]);
-                const loc = locationMap[item.sku] || locationMap[safeSkuKey] || '미지정';
+                const isItemDp = getItemDp(item.sku);
+                const loc = getItemLocation(item.sku) || '미지정';
                 const displayName = item.promo ? (item.promo.nameDisplay || item.promo.name || '-') : '-';
 
                 return {
@@ -2009,18 +2064,12 @@
         });
 
         exportDpExcelBtn.addEventListener('click', () => {
-            const dpRows = rawInventory.filter(item => {
-                const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
-                return !!(dpMap[item.sku] || dpMap[safeSkuKey]);
-            });
+            const dpRows = rawInventory.filter(item => getItemDp(item.sku));
             downloadExcel(dpRows, "진열_DP품목리스트");
         });
 
         exportUnDpExcelBtn.addEventListener('click', () => {
-            const unDpRows = rawInventory.filter(item => {
-                const safeSkuKey = String(item.sku).replace(/[.#$[\]]/g, '_');
-                return !dpMap[item.sku] && !dpMap[safeSkuKey];
-            });
+            const unDpRows = rawInventory.filter(item => !getItemDp(item.sku));
             downloadExcel(unDpRows, "미진열_품목리스트");
         });
 
