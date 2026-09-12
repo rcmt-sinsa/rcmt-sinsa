@@ -320,7 +320,6 @@
             </div>
         </section>
 
-
     </main>
 
     <script>
@@ -540,7 +539,7 @@
         }
 
         function cleanVal(v) {
-            return String(v || '').replace(/[​-‍﻿]/g, '').trim();
+            return String(v || '').replace(/[-]/g, '').trim();
         }
 
         function cleanSku(s) {
@@ -863,7 +862,7 @@
             const keys = Object.keys(sampleRow);
 
             const skuKey = keys.find(k => cleanKey(k) === '품번') || keys.find(k => cleanKey(k).includes('품번') || cleanKey(k).toLowerCase().includes('sku')) || keys[0];
-            const nameKey = keys.find(k => cleanKey(k) === '품명') || keys.find(k => cleanKey(k).includes('품명') || cleanKey(k).includes('상품명')) || (keys.length > 1 ? keys : keys[0]) || '';
+            const nameKey = keys.find(k => cleanKey(k) === '품명') || keys.find(k => cleanKey(k).includes('품명') || cleanKey(k).includes('상품명')) || (keys.length > 1 ? keys[1] : keys[0]) || '';
             const priceKey = keys.find(k => cleanKey(k) === '소비자가') || keys.find(k => cleanKey(k).includes('소비자가') || cleanKey(k).includes('판매가') || cleanKey(k).includes('정가')) || '';
             const subCatKey = keys.find(k => cleanKey(k).includes('품목소분류') || cleanKey(k).includes('소분류') || cleanKey(k).includes('브랜드')) || '';
             const cat2Key = keys.find(k => cleanKey(k).includes('카테고리2') || cleanKey(k).includes('중분류') || cleanKey(k).toLowerCase().includes('biz')) || '';
@@ -1361,11 +1360,14 @@
                 const matchesDpLowStock = !isDpLowStockOnly || (group.isDp && group.totalStock <= 2);
                 const matchesDpMissing = !isDpMissingOnly || !group.isDp;
 
+                // [핵심 개선] 위치 관련 필터 사용 시, 신사점 매장 재고가 1개 이상(totalStock > 0) 있는 실보유 상품만 매칭
                 let matchesLocation = true;
                 if (selectedLocation === 'NONE') {
-                    matchesLocation = !group.location;
+                    // 위치 미지정: 위치 등록이 안 되어 있으면서 신사 매장 총 재고가 1개 이상 있는 품목만
+                    matchesLocation = !group.location && group.totalStock > 0;
                 } else if (selectedLocation !== '') {
-                    matchesLocation = group.location === selectedLocation;
+                    // 특정 위치: 해당 위치에 적재되어 있으면서 신사 매장 총 재고가 1개 이상 있는 품목만
+                    matchesLocation = group.location === selectedLocation && group.totalStock > 0;
                 }
 
                 return matchesSearch && matchesBrand && matchesBiz && matchesGender && 
@@ -1378,6 +1380,9 @@
                 if (isPosMissingOnly) {
                     // POS 미등록만 보기 필터 활성화 시, 신사 매장 재고가 1개 이상 있으면서 미등록된 사이즈만 표에 노출
                     filteredData.push(...group.items.filter(it => !it.hasPosBarcode && it.stock > 0));
+                } else if (selectedLocation !== '') {
+                    // 위치 필터 활성화 시, 신사 매장 재고가 1개 이상 있는 사이즈만 표에 노출 (품절 규격 제외하여 위치 등록 집중)
+                    filteredData.push(...group.items.filter(it => it.stock > 0));
                 } else {
                     filteredData.push(...group.items);
                 }
@@ -2275,3 +2280,4 @@
     </script>
 </body>
 </html>
+
