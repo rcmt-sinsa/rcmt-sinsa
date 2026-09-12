@@ -163,6 +163,7 @@
                         <button class="chip-btn" onclick="selectLocation('1층')"><i class="fa-solid fa-location-dot text-blue-500 mr-1.5"></i>1층</button>
                         <button class="chip-btn" onclick="selectLocation('3층')"><i class="fa-solid fa-location-dot text-emerald-500 mr-1.5"></i>3층</button>
                         <button class="chip-btn" onclick="selectLocation('4층')"><i class="fa-solid fa-location-dot text-amber-500 mr-1.5"></i>4층</button>
+                        <button class="chip-btn" onclick="selectLocation('LAST SALE')"><i class="fa-solid fa-tag text-rose-500 mr-1.5"></i>LAST SALE</button>
                         <button class="chip-btn" onclick="selectLocation('NONE')"><i class="fa-solid fa-circle-question text-gray-400 mr-1.5"></i>위치 미지정</button>
                     </div>
                 </div>
@@ -1495,6 +1496,7 @@
             else if (loc === '1층') bgClass = 'bg-blue-600 text-white border-blue-700 font-bold';
             else if (loc === '3층') bgClass = 'bg-emerald-600 text-white border-emerald-700 font-bold';
             else if (loc === '4층') bgClass = 'bg-amber-600 text-white border-amber-700 font-bold';
+            else if (loc === 'LAST SALE') bgClass = 'bg-rose-600 text-white border-rose-700 font-bold';
             else bgClass = isTable ? 'bg-gray-100 text-gray-500 border-gray-300 font-medium' : 'bg-black/60 hover:bg-black text-white font-bold border-transparent';
 
             const containerClass = isTable ? 'inline-block' : 'absolute bottom-2 right-2 z-10';
@@ -1509,6 +1511,7 @@
                         <option value="1층" ${loc === '1층' ? 'selected' : ''} class="bg-white text-blue-900 font-bold">📍 1층</option>
                         <option value="3층" ${loc === '3층' ? 'selected' : ''} class="bg-white text-emerald-900 font-bold">📍 3층</option>
                         <option value="4층" ${loc === '4층' ? 'selected' : ''} class="bg-white text-amber-900 font-bold">📍 4층</option>
+                        <option value="LAST SALE" ${loc === 'LAST SALE' ? 'selected' : ''} class="bg-white text-rose-900 font-bold">🏷️ LAST SALE</option>
                     </select>
                     <i class="fa-solid fa-chevron-down absolute right-1.5 text-[8px] pointer-events-none opacity-80 ${loc ? 'text-white' : (isTable ? 'text-gray-500' : 'text-white')}"></i>
                 </div>
