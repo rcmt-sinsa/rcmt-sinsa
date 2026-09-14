@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -1109,6 +1109,7 @@
             const sizeKey = keys.find(k => cleanKey(k) === '규격') || keys.find(k => cleanKey(k).includes('규격') || cleanKey(k).includes('사이즈')) || '';
             const imgKey = keys.find(k => cleanKey(k).includes('이미지') || cleanKey(k).toLowerCase().includes('image')) || '';
             const posBarcodeKey = keys.find(k => cleanKey(k).includes('POS') || cleanKey(k).includes('바코드')) || '';
+            const internalCodeKey = keys.find(k => cleanKey(k) === '품목내부코드') || keys.find(k => cleanKey(k).includes('품목내부코드') || cleanKey(k).includes('내부코드')) || '';
 
 
             const mappedRows = json.map(row => {
@@ -1130,6 +1131,7 @@
                 const rawSize = sizeKey ? cleanVal(row[sizeKey]) : '';
                 const rawImg = imgKey ? cleanVal(row[imgKey]) : '';
                 const rawPosBarcode = posBarcodeKey ? cleanBarcode(row[posBarcodeKey]) : '';
+                const rawInternalCode = internalCodeKey ? cleanVal(row[internalCodeKey]) : '';
 
 
                 const isShoe = isShoeSize(rawSize);
@@ -1152,6 +1154,7 @@
                     imageUrl: rawImg,
                     barcode: rawPosBarcode,
                     hasPosBarcode: rawPosBarcode !== '',
+                    internalCode: rawInternalCode,
                     sales: 0,
                     wos: 999,
                     isHighHeat: false,
@@ -1172,6 +1175,9 @@
                     inventorySumMap[itemKey].busanStock = (inventorySumMap[itemKey].busanStock || 0) + (item.busanStock || 0);
                     if (item.barcode && !inventorySumMap[itemKey].barcode) {
                         inventorySumMap[itemKey].barcode = item.barcode;
+                    }
+                    if (item.internalCode && !inventorySumMap[itemKey].internalCode) {
+                        inventorySumMap[itemKey].internalCode = item.internalCode;
                     }
                     if (item.hasPosBarcode) {
                         inventorySumMap[itemKey].hasPosBarcode = true;
@@ -1595,7 +1601,8 @@
                     sales: item.sales,
                     wos: item.wos,
                     barcode: item.barcode,
-                    hasPosBarcode: item.hasPosBarcode
+                    hasPosBarcode: item.hasPosBarcode,
+                    internalCode: item.internalCode || ''
                 });
             });
 
@@ -1935,7 +1942,7 @@
                 return `
                 <div class="flex items-center justify-between py-1.5 px-2 rounded ${highlightRow} border transition text-xs">
                     <div class="flex items-center gap-1.5 min-w-0">
-                        <span class="font-bold text-gray-900 truncate">${s.size}</span>
+                        <span class="font-bold text-gray-900 truncate">${s.size}</span>${s.internalCode ? `<span class="text-[10px] text-gray-400 font-mono" title="ERP 품목내부코드">#${s.internalCode}</span>` : ""}
                         ${isSelected ? '<span class="text-[9px] bg-black text-white px-1 py-0.2 rounded font-bold whitespace-nowrap">선택</span>' : ''}
                         ${(!s.hasPosBarcode && s.stock > 0) ? '<span class="text-[9px] bg-red-100 text-red-600 px-1 py-0.2 rounded font-bold whitespace-nowrap">POS 미등록</span>' : ''}
                     </div>
@@ -2111,7 +2118,7 @@
                 </td>
                 <td class="p-3 text-center">${dpTableBtn}</td>
                 <td class="p-3 text-center">${tableLocSelect}</td>
-                <td class="p-3 font-mono font-bold">${item.sku}</td>
+                <td class="p-3 font-mono font-bold">${item.sku}${item.internalCode ? `<span class="block text-[10px] text-gray-400 font-mono font-normal">코드: ${item.internalCode}</span>` : ""}</td>
                 <td class="p-3 font-medium">${item.name}</td>
                 <td class="p-3 font-bold text-gray-800">${item.sizeDisplay || '-'}</td>
                 <td class="p-3 text-right">${priceTableHtml}</td>
@@ -2326,6 +2333,7 @@
                     "품번(SKU)": item.sku,
                     "품명": item.name,
                     "규격(사이즈)": item.sizeDisplay || item.size,
+                    "품목내부코드": item.internalCode || "",
                     "브랜드": item.brand,
                     "BIZ": item.category2,
                     "성별": item.gender,
@@ -2342,22 +2350,23 @@
             // 엑셀에서 POS연동바코드 열이 지수형(9.90498E+11)으로 깨지지 않도록 문자열('s') 및 텍스트('@') 서식 강제 적용
             if (worksheet['!ref']) {
                 const range = XLSX.utils.decode_range(worksheet['!ref']);
-                let barcodeColIdx = -1;
+                const targetCols = [];
                 for (let C = range.s.c; C <= range.e.c; ++C) {
                     const hCell = worksheet[XLSX.utils.encode_cell({ c: C, r: 0 })];
-                    if (hCell && (hCell.v === 'POS연동바코드' || hCell.v === '바코드' || hCell.v === 'POS바코드')) {
-                        barcodeColIdx = C;
-                        break;
+                    if (hCell && (hCell.v === 'POS연동바코드' || hCell.v === '바코드' || hCell.v === 'POS바코드' || hCell.v === '품목내부코드' || hCell.v === '내부코드')) {
+                        targetCols.push(C);
                     }
                 }
-                if (barcodeColIdx !== -1) {
+                if (targetCols.length > 0) {
                     for (let R = range.s.r + 1; R <= range.e.r; ++R) {
-                        const cellRef = XLSX.utils.encode_cell({ c: barcodeColIdx, r: R });
-                        if (worksheet[cellRef]) {
-                            worksheet[cellRef].t = 's';
-                            worksheet[cellRef].z = '@';
-                            worksheet[cellRef].v = String(worksheet[cellRef].v || '');
-                        }
+                        targetCols.forEach(colIdx => {
+                            const cellRef = XLSX.utils.encode_cell({ c: colIdx, r: R });
+                            if (worksheet[cellRef]) {
+                                worksheet[cellRef].t = 's';
+                                worksheet[cellRef].z = '@';
+                                worksheet[cellRef].v = String(worksheet[cellRef].v || '');
+                            }
+                        });
                     }
                 }
             }
@@ -2571,7 +2580,7 @@
 
         async function loadCsvData() {
             try {
-                const inventoryCsv = await fetchCsvWithFallbacks(['./inventory.csv', 'inventory.csv']);
+                const inventoryCsv = await fetchCsvWithFallbacks(['./inventory.csv', 'inventory.csv', './Inventory.csv', 'Inventory.csv']);
                 const salesCsv = await fetchCsvWithFallbacks(['./sales.csv', 'sales.csv']);
                 const promotionCsv = await fetchCsvWithFallbacks(['./promotion.csv', 'promotion.csv', './PROMOTION.csv', 'PROMOTION.csv']);
 
