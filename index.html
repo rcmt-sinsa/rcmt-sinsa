@@ -64,7 +64,7 @@
 
 
         <!-- Summary Metrics Dashboard (5단 지표) -->
-        <section id="metricsSection" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-4 hidden">
+        <section id="metricsSection" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 md:gap-4 hidden">
             <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                 <p class="text-xs text-gray-500 font-medium">전체 품목 수 (SKU)</p>
                 <p id="metricTotalItems" class="text-2xl font-black mt-1">0</p>
@@ -78,8 +78,16 @@
                 <p id="metricTotalBusanStock" class="text-2xl font-black mt-1 text-purple-600">0</p>
             </div>
             <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                <p class="text-xs text-gray-500 font-medium">물류(WMS) 총 재고</p>
+                <p id="metricTotalWmsStock" class="text-2xl font-black mt-1 text-blue-600">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                <p class="text-xs text-gray-500 font-medium">불량창고 총 재고</p>
+                <p id="metricTotalDefectStock" class="text-2xl font-black mt-1 text-rose-600">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                 <p class="text-xs text-gray-500 font-medium">주간 총 판매량(신사)</p>
-                <p id="metricTotalSales" class="text-2xl font-black mt-1 text-blue-600">0</p>
+                <p id="metricTotalSales" class="text-2xl font-black mt-1 text-indigo-600">0</p>
             </div>
             <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                 <p class="text-xs text-gray-500 font-medium">HIGH HEAT 품목 수</p>
@@ -327,8 +335,10 @@
                                 <th class="p-3">성별</th>
                                 <th class="p-3">POS</th>
                                 <th class="p-3 text-right">매장(신사동) 재고</th>
-                                <th class="p-3 text-right">주간 판매량</th>
                                 <th class="p-3 text-right text-purple-700">해운대 재고</th>
+                                <th class="p-3 text-right text-blue-700">물류(WMS) 재고</th>
+                                <th class="p-3 text-right text-rose-600">불량창고 재고</th>
+                                <th class="p-3 text-right">주간 판매량</th>
                             </tr>
                         </thead>
                         <tbody id="inventoryTbody" class="divide-y divide-gray-100">
@@ -493,6 +503,8 @@
         const metricTotalItems = document.getElementById('metricTotalItems');
         const metricTotalStock = document.getElementById('metricTotalStock');
         const metricTotalBusanStock = document.getElementById('metricTotalBusanStock');
+        const metricTotalWmsStock = document.getElementById('metricTotalWmsStock');
+        const metricTotalDefectStock = document.getElementById('metricTotalDefectStock');
         const metricTotalSales = document.getElementById('metricTotalSales');
         const metricHighHeat = document.getElementById('metricHighHeat');
 
@@ -1104,6 +1116,8 @@
             
             const stockKey = keys.find(k => cleanKey(k).includes('신사동') || cleanKey(k).includes('매장(신사동)')) || keys.find(k => cleanKey(k).includes('신사') && cleanKey(k).includes('매장')) || keys.find(k => cleanKey(k).includes('매장')) || '';
             const busanStockKey = keys.find(k => cleanKey(k).includes('부산') && cleanKey(k).includes('매장')) || keys.find(k => cleanKey(k).includes('해운대') && cleanKey(k).includes('매장')) || keys.find(k => cleanKey(k).includes('부산') && !cleanKey(k).includes('대기')) || '';
+            const wmsStockKey = keys.find(k => cleanKey(k) === 'WMS 현재고') || keys.find(k => cleanKey(k).includes('WMS')) || keys.find(k => cleanKey(k).includes('물류창고') || cleanKey(k).includes('물류')) || '';
+            const defectStockKey = keys.find(k => cleanKey(k).includes('불량창고') || cleanKey(k).includes('불량') || cleanKey(k).includes('반품창고') || cleanKey(k).includes('반품/불량')) || '';
 
 
             const sizeKey = keys.find(k => cleanKey(k) === '규격') || keys.find(k => cleanKey(k).includes('규격') || cleanKey(k).includes('사이즈')) || '';
@@ -1126,6 +1140,12 @@
 
                 const rawBusanStockStr = busanStockKey ? cleanVal(row[busanStockKey]).replace(/,/g, '') : '0';
                 const busanStockVal = parseInt(rawBusanStockStr, 10) || 0;
+
+                const rawWmsStockStr = wmsStockKey ? cleanVal(row[wmsStockKey]).replace(/,/g, '') : '0';
+                const wmsStockVal = parseInt(rawWmsStockStr, 10) || 0;
+
+                const rawDefectStockStr = defectStockKey ? cleanVal(row[defectStockKey]).replace(/,/g, '') : '0';
+                const defectStockVal = parseInt(rawDefectStockStr, 10) || 0;
 
 
                 const rawSize = sizeKey ? cleanVal(row[sizeKey]) : '';
@@ -1151,6 +1171,8 @@
                     genderCat: getGenderCategory(rawGender),
                     stock: stockVal,             
                     busanStock: busanStockVal,   
+                    wmsStock: wmsStockVal,
+                    defectStock: defectStockVal,
                     imageUrl: rawImg,
                     barcode: rawPosBarcode,
                     hasPosBarcode: rawPosBarcode !== '',
@@ -1173,6 +1195,8 @@
                 } else {
                     inventorySumMap[itemKey].stock += item.stock;
                     inventorySumMap[itemKey].busanStock = (inventorySumMap[itemKey].busanStock || 0) + (item.busanStock || 0);
+                    inventorySumMap[itemKey].wmsStock = (inventorySumMap[itemKey].wmsStock || 0) + (item.wmsStock || 0);
+                    inventorySumMap[itemKey].defectStock = (inventorySumMap[itemKey].defectStock || 0) + (item.defectStock || 0);
                     if (item.barcode && !inventorySumMap[itemKey].barcode) {
                         inventorySumMap[itemKey].barcode = item.barcode;
                     }
@@ -1568,6 +1592,8 @@
                         groupKey: groupKey,
                         totalStock: 0,
                         totalBusanStock: 0,
+                        totalWmsStock: 0,
+                        totalDefectStock: 0,
                         totalSales: 0,
                         hasAnyPosMissing: false,
                         isDp: isItemDp,
@@ -1582,6 +1608,8 @@
 
                 allGroupsMap[groupKey].totalStock += item.stock;
                 allGroupsMap[groupKey].totalBusanStock += (item.busanStock || 0);
+                allGroupsMap[groupKey].totalWmsStock += (item.wmsStock || 0);
+                allGroupsMap[groupKey].totalDefectStock += (item.defectStock || 0);
                 allGroupsMap[groupKey].totalSales += item.sales;
                 
                 // POS 미등록 판정: 신사점 매장 재고가 1개 이상(item.stock > 0) 있으면서 바코드가 미등록된 경우만 POS 미등록으로 인정
@@ -1598,6 +1626,8 @@
                     genderCat: item.genderCat,
                     stock: item.stock,
                     busanStock: item.busanStock || 0,
+                    wmsStock: item.wmsStock || 0,
+                    defectStock: item.defectStock || 0,
                     sales: item.sales,
                     wos: item.wos,
                     barcode: item.barcode,
@@ -1959,6 +1989,14 @@
                             <span class="text-[9px] text-purple-600 font-bold block">해운대</span>
                             <span class="font-extrabold ${s.busanStock > 0 ? 'text-purple-700' : 'text-gray-400'}">${s.busanStock.toLocaleString()} EA</span>
                         </div>
+                        <div class="text-right pl-1.5 border-l border-gray-100">
+                            <span class="text-[9px] text-blue-600 font-bold block">물류</span>
+                            <span class="font-extrabold ${(s.wmsStock || 0) > 0 ? 'text-blue-700' : 'text-gray-400'}">${(s.wmsStock || 0).toLocaleString()} EA</span>
+                        </div>
+                        <div class="text-right pl-1.5 border-l border-gray-100">
+                            <span class="text-[9px] text-rose-600 font-bold block">불량</span>
+                            <span class="font-extrabold ${(s.defectStock || 0) > 0 ? 'text-rose-600 font-black' : 'text-gray-400'}">${(s.defectStock || 0).toLocaleString()} EA</span>
+                        </div>
                     </div>
                 </div>
                 `;
@@ -2127,8 +2165,10 @@
                 <td class="p-3 text-gray-600">${item.gender || '-'}</td>
                 <td class="p-3">${!item.hasPosBarcode ? (item.stock > 0 ? '<span class="bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded font-bold">POS 미등록</span>' : '<span class="text-gray-400 text-xs">미등록 (신사0)</span>') : '<span class="text-green-600 text-xs font-semibold">등록</span>'}</td>
                 <td class="p-3 text-right font-bold ${item.stock === 0 ? 'text-red-500' : ''}">${item.stock.toLocaleString()} EA</td>
-                <td class="p-3 text-right font-extrabold ${item.sales > 0 ? 'text-blue-600' : 'text-gray-400'}">${item.sales.toLocaleString()} EA</td>
                 <td class="p-3 text-right font-extrabold ${item.busanStock > 0 ? 'text-purple-700' : 'text-gray-400'}">${(item.busanStock || 0).toLocaleString()} EA</td>
+                <td class="p-3 text-right font-extrabold ${(item.wmsStock || 0) > 0 ? 'text-blue-700' : 'text-gray-400'}">${(item.wmsStock || 0).toLocaleString()} EA</td>
+                <td class="p-3 text-right font-extrabold ${(item.defectStock || 0) > 0 ? 'text-rose-600 font-black' : 'text-gray-400'}">${(item.defectStock || 0).toLocaleString()} EA</td>
+                <td class="p-3 text-right font-extrabold ${item.sales > 0 ? 'text-blue-600' : 'text-gray-400'}">${item.sales.toLocaleString()} EA</td>
             </tr>
             `;
         }
@@ -2140,6 +2180,12 @@
             metricTotalStock.textContent = filteredData.reduce((acc, cur) => acc + cur.stock, 0).toLocaleString();
             if (metricTotalBusanStock) {
                 metricTotalBusanStock.textContent = filteredData.reduce((acc, cur) => acc + (cur.busanStock || 0), 0).toLocaleString();
+            }
+            if (metricTotalWmsStock) {
+                metricTotalWmsStock.textContent = filteredData.reduce((acc, cur) => acc + (cur.wmsStock || 0), 0).toLocaleString();
+            }
+            if (metricTotalDefectStock) {
+                metricTotalDefectStock.textContent = filteredData.reduce((acc, cur) => acc + (cur.defectStock || 0), 0).toLocaleString();
             }
             metricTotalSales.textContent = filteredData.reduce((acc, cur) => acc + cur.sales, 0).toLocaleString();
             metricHighHeat.textContent = groupedData.filter(i => i.isHighHeat).length.toLocaleString();
@@ -2341,6 +2387,8 @@
                     "POS연동바코드": cleanBarcode(item.barcode),
                     "매장재고(신사동)": item.stock,
                     "해운대재고(부산)": item.busanStock || 0,
+                    "물류창고재고": item.wmsStock || 0,
+                    "불량창고재고": item.defectStock || 0,
                     "주간판매량": item.sales
                 };
             });
