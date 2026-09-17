@@ -347,6 +347,12 @@
 
     <script>
         // ==========================================
+                // Firebase 키 안전 변환 함수: Firebase는 경로 구분자로 쓰이는 '/' 및 '.', '#', '$', '[', ']'를 키로 허용하지 않음
+        function toSafeFirebaseKey(sku) {
+            if (!sku) return '';
+            return String(sku).trim().replace(/[.#$\[\]\/]/g, '_');
+        }
+
         // 1. Firebase 실시간 클라우드 DB 연동 설정
         // ==========================================
         const firebaseConfig = {
@@ -377,7 +383,7 @@
                 if (localSaved && Object.keys(localSaved).length > 0) {
                     Object.keys(localSaved).forEach(sku => {
                         if (localSaved[sku]) {
-                            const safeSkuKey = String(sku).replace(/[.#$[\]]/g, '_');
+                            const safeSkuKey = toSafeFirebaseKey(sku);
                             db.ref('rcmt_dp_status/' + safeSkuKey).set(true);
                         }
                     });
@@ -390,7 +396,7 @@
                 if (localLocSaved && Object.keys(localLocSaved).length > 0) {
                     Object.keys(localLocSaved).forEach(sku => {
                         if (localLocSaved[sku]) {
-                            const safeSkuKey = String(sku).replace(/[.#$[\]]/g, '_');
+                            const safeSkuKey = toSafeFirebaseKey(sku);
                             db.ref('rcmt_location/' + safeSkuKey).set(localLocSaved[sku]);
                         }
                     });
@@ -399,7 +405,19 @@
 
 
             db.ref('rcmt_dp_status').on('value', (snapshot) => {
-                dpMap = snapshot.val() || {};
+                const val = snapshot.val() || {};
+                dpMap = {};
+                for (const k in val) {
+                    if (val[k] && typeof val[k] === 'object') {
+                        // 레거시 슬래시(/)로 인해 중첩 객체로 저장된 항목 평탄화
+                        for (const subK in val[k]) {
+                            dpMap[`${k}_${subK}`] = val[k][subK];
+                            dpMap[`${k}/${subK}`] = val[k][subK];
+                        }
+                    } else {
+                        dpMap[k] = val[k];
+                    }
+                }
                 const cloudEl = document.getElementById('cloudIndicator');
                 if (cloudEl) cloudEl.innerHTML = '<span class="text-emerald-400 font-bold">🟢 실시간 클라우드 연동 완료</span>';
                 applyFiltersAndRender();
@@ -407,7 +425,19 @@
 
 
             db.ref('rcmt_location').on('value', (snapshot) => {
-                locationMap = snapshot.val() || {};
+                const val = snapshot.val() || {};
+                locationMap = {};
+                for (const k in val) {
+                    if (val[k] && typeof val[k] === 'object') {
+                        // 레거시 슬래시(/)로 인해 중첩 객체로 저장된 항목 평탄화
+                        for (const subK in val[k]) {
+                            locationMap[`${k}_${subK}`] = val[k][subK];
+                            locationMap[`${k}/${subK}`] = val[k][subK];
+                        }
+                    } else {
+                        locationMap[k] = val[k];
+                    }
+                }
                 applyFiltersAndRender();
             });
 
@@ -522,15 +552,13 @@
             if (event) event.stopPropagation();
             if (!sku) return;
 
-
-            const safeSkuKey = String(sku).replace(/[.#$[\]]/g, '_');
-            const noHyphenKey = String(sku).replace(/-/g, '');
+            const safeSkuKey = toSafeFirebaseKey(sku);
+            const noHyphenKey = String(sku).replace(/[-/]/g, '');
             const nextState = !getItemDp(sku);
             
             dpMap[sku] = nextState;
             dpMap[safeSkuKey] = nextState;
             if (noHyphenKey) dpMap[noHyphenKey] = nextState;
-
 
             if (isFirebaseActive && db) {
                 db.ref('rcmt_dp_status/' + safeSkuKey).set(nextState);
@@ -545,41 +573,17 @@
             }
         }
 
-
-        function getItemLocation(sku) {
-            if (!sku) return '';
-            const safeKey = String(sku).replace(/[.#$[\]]/g, '_');
-            const noHyphen = String(sku).replace(/-/g, '');
-            const withHyphen = formatSku(sku);
-            return locationMap[sku] || locationMap[safeKey] || locationMap[withHyphen] || locationMap[noHyphen] || '';
-        }
-
-
-        function getItemDp(sku) {
-            if (!sku) return false;
-            const safeKey = String(sku).replace(/[.#$[\]]/g, '_');
-            const noHyphen = String(sku).replace(/-/g, '');
-            const withHyphen = formatSku(sku);
-            return !!(dpMap[sku] || dpMap[safeKey] || dpMap[withHyphen] || dpMap[noHyphen]);
-        }
-
-
-
-
         function updateLocation(sku, newLoc, event) {
             if (event) event.stopPropagation();
             if (!sku) return;
 
-
-            const safeSkuKey = String(sku).replace(/[.#$[\]]/g, '_');
-            const noHyphenKey = String(sku).replace(/-/g, '');
+            const safeSkuKey = toSafeFirebaseKey(sku);
+            const noHyphenKey = String(sku).replace(/[-/]/g, '');
             const val = String(newLoc || '').trim();
-
 
             locationMap[sku] = val;
             locationMap[safeSkuKey] = val;
             if (noHyphenKey) locationMap[noHyphenKey] = val;
-
 
             if (isFirebaseActive && db) {
                 if (val) {
@@ -601,22 +605,48 @@
             }
         }
 
-
         function getItemLocation(sku) {
             if (!sku) return '';
-            const safeKey = String(sku).replace(/[.#$[\]]/g, '_');
-            const noHyphen = String(sku).replace(/-/g, '');
+            const safeKey = toSafeFirebaseKey(sku);
+            const noHyphen = String(sku).replace(/[-/]/g, '');
             const withHyphen = formatSku(sku);
-            return locationMap[sku] || locationMap[safeKey] || locationMap[withHyphen] || locationMap[noHyphen] || '';
-        }
 
+            if (locationMap[sku]) return locationMap[sku];
+            if (locationMap[safeKey]) return locationMap[safeKey];
+            if (locationMap[withHyphen]) return locationMap[withHyphen];
+            if (locationMap[noHyphen]) return locationMap[noHyphen];
+
+            if (sku.includes('/')) {
+                const parts = sku.split('/');
+                const pKey = toSafeFirebaseKey(parts[0]);
+                const cKey = parts[1];
+                if (locationMap[pKey] && typeof locationMap[pKey] === 'object' && locationMap[pKey][cKey]) {
+                    return String(locationMap[pKey][cKey]);
+                }
+            }
+            return '';
+        }
 
         function getItemDp(sku) {
             if (!sku) return false;
-            const safeKey = String(sku).replace(/[.#$[\]]/g, '_');
-            const noHyphen = String(sku).replace(/-/g, '');
+            const safeKey = toSafeFirebaseKey(sku);
+            const noHyphen = String(sku).replace(/[-/]/g, '');
             const withHyphen = formatSku(sku);
-            return !!(dpMap[sku] || dpMap[safeKey] || dpMap[withHyphen] || dpMap[noHyphen]);
+
+            if (dpMap[sku] !== undefined) return !!dpMap[sku];
+            if (dpMap[safeKey] !== undefined) return !!dpMap[safeKey];
+            if (dpMap[withHyphen] !== undefined) return !!dpMap[withHyphen];
+            if (dpMap[noHyphen] !== undefined) return !!dpMap[noHyphen];
+
+            if (sku.includes('/')) {
+                const parts = sku.split('/');
+                const pKey = toSafeFirebaseKey(parts[0]);
+                const cKey = parts[1];
+                if (dpMap[pKey] && typeof dpMap[pKey] === 'object' && dpMap[pKey][cKey]) {
+                    return true;
+                }
+            }
+            return false;
         }
 
 
@@ -648,10 +678,52 @@
         }
 
 
-        // 나이키 품번 정규화: 9자리 연속 코드(예: FZ0006010)를 나이키 표준 포맷(FZ0006-010)으로 자동 변환
+        // 브룩스 와이드 규격(예: 1104542E020) 등 지수형 숫자로 오인식된 품번 자동 복원 함수
+        function restoreCorruptedSku(sku) {
+            if (!sku) return '';
+            let s = String(sku).trim().toUpperCase();
+
+            // 1. 지수형 표기 문자열 (예: "1.104542E+26", "1104542E20") 감지 시 원본 브룩스 규격(1104542E020) 복원
+            const mSci = s.match(/^(\d+)\.?(\d*)E\+?(\d+)$/i);
+            if (mSci) {
+                const digits = mSci[1] + mSci[2];
+                const exp = parseInt(mSci[3], 10) - mSci[2].length;
+                if (digits.length >= 7) {
+                    const model = digits.slice(0, 6);
+                    const width = digits.slice(6, 7);
+                    return `${model}${width}E${String(exp).padStart(3, '0')}`;
+                }
+            }
+
+            // 2. 부동소수점 정수형 변환으로 인해 거대화된 20자리 이상 숫자 문자열 복원
+            if (/^\d{20,}$/.test(s)) {
+                const v = parseFloat(s);
+                if (isFinite(v) && v > 0) {
+                    const exp = Math.floor(Math.log10(v));
+                    const base = Math.round(v / Math.pow(10, exp - 6));
+                    const colorExp = exp - 6;
+                    const baseStr = String(base);
+                    if (baseStr.length >= 7) {
+                        const model = baseStr.slice(0, 6);
+                        const width = baseStr.slice(6, 7);
+                        return `${model}${width}E${String(colorExp).padStart(3, '0')}`;
+                    }
+                }
+            }
+
+            // 3. 브룩스 2자리 컬러코드 누락 보정 (예: 1104542E20 -> 1104542E020)
+            const mShort = s.match(/^(\d{6})([124]E)(\d{1,2})$/i);
+            if (mShort) {
+                return `${mShort[1]}${mShort[2]}${mShort[3].padStart(3, '0')}`;
+            }
+
+            return s;
+        }
+
+        // 나이키 및 브룩스 품번 정규화: 지수형 복원 및 나이키 표준 포맷(FZ0006-010) 자동 변환
         function formatSku(s) {
             if (!s) return '';
-            const trimmed = String(s).trim().toUpperCase();
+            let trimmed = restoreCorruptedSku(cleanVal(s));
             if (trimmed.includes('-')) return trimmed;
             // 9자리 영숫자 (앞 6자리 영숫자 + 뒤 3자리 숫자) 나이키 품번 형태 감지 시 자동 하이픈 삽입
             if (/^[A-Z0-9]{6}[0-9]{3}$/.test(trimmed)) {
@@ -918,32 +990,35 @@
 
         function safeSheetToMatrix(sheet) {
             if (!sheet) return [];
-            // SheetJS가 12자리 이상 바코드를 지수형(9.90498E+11)으로 축약 변환하는 것을 원천 차단
+            // SheetJS가 12~14자리 바코드를 지수형(9.90498E+11)으로 축약 변환하는 것을 복원하고,
+            // 브룩스 와이드 규격 품번(예: 1104542E020) 등 지수형으로 오인식된 품번을 완벽 복원
             for (const cellAddress in sheet) {
                 if (cellAddress.startsWith('!')) continue;
                 const cell = sheet[cellAddress];
                 if (!cell) continue;
 
-                if (typeof cell.v === 'number' && isFinite(cell.v) && cell.v >= 1e9 && Number.isInteger(cell.v)) {
-                    try {
-                        cell.w = BigInt(cell.v).toString();
-                        cell.v = cell.w;
-                        cell.t = 's';
-                    } catch (e) {
-                        cell.w = String(cell.v).split('.')[0];
+                if (typeof cell.v === 'number' && isFinite(cell.v)) {
+                    if (cell.v >= 1e11 && cell.v < 1e16 && Number.isInteger(cell.v)) {
+                        // 일반 12~14자리 바코드 정수 복원
+                        try {
+                            cell.w = BigInt(cell.v).toString();
+                            cell.v = cell.w;
+                            cell.t = 's';
+                        } catch (e) {
+                            cell.w = String(cell.v).split('.')[0];
+                            cell.v = cell.w;
+                            cell.t = 's';
+                        }
+                    } else if (cell.v >= 1e16) {
+                        // 1e16 이상은 바코드가 아닌 지수형으로 오인식된 품번(브룩스 등)
+                        cell.w = restoreCorruptedSku(cell.v);
                         cell.v = cell.w;
                         cell.t = 's';
                     }
-                } else if (typeof cell.w === 'string' && /e[+-]?\d+/i.test(cell.w) && typeof cell.v === 'number') {
-                    try {
-                        cell.w = BigInt(Math.round(cell.v)).toString();
-                        cell.v = cell.w;
-                        cell.t = 's';
-                    } catch (e) {
-                        cell.w = String(cell.v).split('.')[0];
-                        cell.v = cell.w;
-                        cell.t = 's';
-                    }
+                } else if (typeof cell.w === 'string' && /e[+-]?\d+/i.test(cell.w)) {
+                    cell.w = restoreCorruptedSku(cell.w);
+                    cell.v = cell.w;
+                    cell.t = 's';
                 }
             }
 
@@ -1209,6 +1284,8 @@
 
             globalNameColorMap = {};
             rawInventory.forEach(item => {
+                // 매장 실재고가 있는 품목만 다른 컬러 변체 맵에 등록
+                if ((item.stock || 0) <= 0 && (item.busanStock || 0) <= 0) return;
                 const cName = cleanVal(item.name).toLowerCase();
                 if (!cName) return;
                 if (!globalNameColorMap[cName]) globalNameColorMap[cName] = new Map();
@@ -1312,6 +1389,8 @@
 
 
             rawInventory.forEach(item => {
+                // 신사/해운대 매장 실보유 재고가 있는 품목만 필터 칩(브랜드/BIZ/성별/사이즈)에 반영
+                if ((item.stock || 0) <= 0 && (item.busanStock || 0) <= 0) return;
                 if (item.brand) brandSet.add(item.brand);
                 if (item.category2) bizSet.add(item.category2);
                 if (item.gender) genderSet.add(item.gender);
@@ -1649,6 +1728,11 @@
 
 
             groupedData = allGroups.filter(group => {
+                // [신사/해운대 매장 실보유 필터] 신사점과 해운대점 모두 재고가 0인 품목(타창고/WMS 재고만 있는 품목)은 재고 조회 목록에서 원천 제외
+                if (group.totalStock <= 0 && (group.totalBusanStock || 0) <= 0) {
+                    return false;
+                }
+
                 const matchesSearch = !searchTerm || group.name.toLowerCase().includes(searchTerm) || (group.sku && group.sku.toLowerCase().includes(searchTerm)) || group.items.some(it => it.barcode && it.barcode.toLowerCase().includes(searchTerm));
                 const matchesBrand = selectedBrand.length === 0 || selectedBrand.includes(group.brand);
                 const matchesBiz = selectedBiz.length === 0 || selectedBiz.includes(group.category2);
@@ -2610,21 +2694,21 @@
                 }
 
 
-                const inventoryWorkbook = XLSX.read(inventoryCsv, { type: "string" });
+                const inventoryWorkbook = XLSX.read(inventoryCsv, { type: "string", raw: true });
                 const inventorySheet = inventoryWorkbook.Sheets[inventoryWorkbook.SheetNames[0]];
                 const inventoryRows = parseExcelUniversal(inventorySheet);
 
 
                 let salesRows = [];
                 if (salesCsv) {
-                    const salesWorkbook = XLSX.read(salesCsv, { type: "string" });
+                    const salesWorkbook = XLSX.read(salesCsv, { type: "string", raw: true });
                     const salesSheet = salesWorkbook.Sheets[salesWorkbook.SheetNames[0]];
                     salesRows = parseExcelUniversal(salesSheet);
                 }
 
 
                 if (promotionCsv) {
-                    const promotionWorkbook = XLSX.read(promotionCsv, { type: "string" });
+                    const promotionWorkbook = XLSX.read(promotionCsv, { type: "string", raw: true });
                     const promotionSheet = promotionWorkbook.Sheets[promotionWorkbook.SheetNames[0]];
                     const promotionRows = parseExcelUniversal(promotionSheet);
                     processPromotionData(promotionRows);
