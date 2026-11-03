@@ -1782,7 +1782,7 @@
 
         function buildCardHtml(item, index) {
             const safeId = 'card_' + (item.sku ? item.sku.replace(/[^a-zA-Z0-9_-]/g, '_') : index);
-            const googleSearchUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent((item.sku || '') + ' ' + (item.name || ''))}`;
+            const googleSearchUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(item.sku || item.name || '')}`;
             const wosHtml = getWosBadgeHtml(item.totalStock, item.totalSales, item.wos);
             
             const itemDpStatus = getItemDpStatus(item.sku);
