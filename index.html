@@ -174,10 +174,24 @@
                 <!-- 프로모션별 필터 칩스 (텍스트 전용) -->
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-2">
-                        프로모션
+                        <i class="fa-solid fa-bullhorn text-gray-400 mr-1"></i>프로모션
                     </label>
                     <div id="promoChipContainer" class="flex flex-wrap gap-1.5">
                         <span class="text-xs text-gray-400">데이터 로딩 중...</span>
+                    </div>
+                </div>
+
+                <!-- 할인율별 필터 칩스 -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-2">
+                        <i class="fa-solid fa-percent text-red-500 mr-1"></i>할인율
+                    </label>
+                    <div id="discountChipContainer" class="flex flex-wrap gap-1.5">
+                        <button class="chip-btn active" onclick="selectDiscountBand('')">전체 할인율</button>
+                        <button class="chip-btn" onclick="selectDiscountBand('20_25')"><i class="fa-solid fa-tag text-red-500 mr-1.5"></i>20%~25%</button>
+                        <button class="chip-btn" onclick="selectDiscountBand('30_35')"><i class="fa-solid fa-tag text-red-500 mr-1.5"></i>30%~35%</button>
+                        <button class="chip-btn" onclick="selectDiscountBand('40_45')"><i class="fa-solid fa-tag text-red-500 mr-1.5"></i>40%~45%</button>
+                        <button class="chip-btn" onclick="selectDiscountBand('50_PLUS')"><i class="fa-solid fa-tag text-red-500 mr-1.5"></i>50% 이상</button>
                     </div>
                 </div>
 
@@ -197,6 +211,16 @@
                         <i class="fa-solid fa-layer-group text-gray-400 mr-1"></i>BIZ (카테고리)
                     </label>
                     <div id="bizChipContainer" class="flex flex-wrap gap-1.5">
+                        <span class="text-xs text-gray-400">데이터 로딩 중...</span>
+                    </div>
+                </div>
+
+                <!-- 2-1. 의류 실루엣 Filter Chips -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-2">
+                        <i class="fa-solid fa-shirt text-blue-500 mr-1"></i>의류 실루엣
+                    </label>
+                    <div id="silhouetteChipContainer" class="flex flex-wrap gap-1.5">
                         <span class="text-xs text-gray-400">데이터 로딩 중...</span>
                     </div>
                 </div>
@@ -465,6 +489,7 @@
         let isDpMissingOnly = false;
         let selectedLocation = '';
         let selectedPromotion = [];
+        let selectedDiscountBand = [];
         let viewMode = 'grid';
         let sortBy = 'name_asc';
         const HIGH_HEAT_THRESHOLD = 3;
@@ -473,6 +498,7 @@
 
         let selectedBrand = [];
         let selectedBiz = [];
+        let selectedSilhouette = [];
         let selectedGender = [];
         let selectedSizeDisplay = [];
 
@@ -1008,6 +1034,7 @@
                 if (text.includes('품명') || text.includes('상품명') || text.includes('수량')) score++;
                 if (text.includes('성별')) score++;
                 if (text.includes('카테고리')) score++;
+                if (text.includes('실루엣')) score++;
                 if (text.includes('브랜드')) score++;
                 if (text.includes('규격') || text.includes('사이즈')) score++;
                 if (text.includes('프로모션') || text.includes('할인')) score++;
@@ -1108,6 +1135,7 @@
             const priceKey = keys.find(k => cleanKey(k) === '소비자가') || keys.find(k => cleanKey(k).includes('소비자가') || cleanKey(k).includes('판매가') || cleanKey(k).includes('정가')) || '';
             const subCatKey = keys.find(k => cleanKey(k).includes('품목소분류') || cleanKey(k).includes('소분류') || cleanKey(k).includes('브랜드')) || '';
             const cat2Key = keys.find(k => cleanKey(k).includes('카테고리2') || cleanKey(k).includes('중분류') || cleanKey(k).toLowerCase().includes('biz')) || '';
+            const silhouetteKey = keys.find(k => cleanKey(k) === '실루엣') || keys.find(k => cleanKey(k).includes('실루엣') || cleanKey(k).toLowerCase().includes('silhouette')) || '';
             const genderKey = keys.find(k => cleanKey(k) === '성별') || keys.find(k => cleanKey(k).includes('성별')) || '';
             
             const stockKey = keys.find(k => cleanKey(k).includes('신사동') || cleanKey(k).includes('매장(신사동)')) || keys.find(k => cleanKey(k).includes('신사') && cleanKey(k).includes('매장')) || keys.find(k => cleanKey(k).includes('매장')) || '';
@@ -1126,6 +1154,7 @@
                 const priceVal = parseAndNormalizePrice(row[priceKey]);
                 const rawSubCat = subCatKey ? cleanVal(row[subCatKey]) : '';
                 const rawCat2 = cat2Key ? cleanVal(row[cat2Key]) : '';
+                const rawSilhouette = silhouetteKey ? cleanVal(row[silhouetteKey]) : '';
                 const rawGender = genderKey ? cleanVal(row[genderKey]) : '';
                 
                 const rawStockStr = stockKey ? cleanVal(row[stockKey]).replace(/,/g, '') : '0';
@@ -1154,6 +1183,7 @@
                     price: priceVal,
                     brand: extractBrand(rawSubCat),
                     category2: rawCat2,
+                    silhouette: rawSilhouette,
                     gender: rawGender,
                     size: rawSize,
                     sizeDisplay: formattedSize,
@@ -1200,6 +1230,9 @@
                     }
                     if (!inventorySumMap[itemKey].price && item.price) {
                         inventorySumMap[itemKey].price = item.price;
+                    }
+                    if (!inventorySumMap[itemKey].silhouette && item.silhouette) {
+                        inventorySumMap[itemKey].silhouette = item.silhouette;
                     }
                 }
             });
@@ -1271,7 +1304,7 @@
         }
 
         // ==========================================
-        // 3. 필터 칩 렌더링 (프로모션 텍스트 칩 포함)
+        // 3. 필터 칩 렌더링 (프로모션 / 할인율 / 의류 실루엣 포함)
         // ==========================================
         function renderFilterChips() {
             // 프로모션 칩스: 현재 유효하게 진행 중인 프로모션 목록 (텍스트 전용)
@@ -1294,18 +1327,44 @@
                 promoContainer.innerHTML = promoList.length > 0 ? promoHtml : '<span class="text-xs text-gray-400">현재 진행 중인 프로모션 없음</span>';
             }
 
-            // 브랜드 칩스
+            // 할인율 칩스 렌더링
+            const discountBands = [
+                { key: '20_25', label: '20%~25%' },
+                { key: '30_35', label: '30%~35%' },
+                { key: '40_45', label: '40%~45%' },
+                { key: '50_PLUS', label: '50% 이상' }
+            ];
+            let discountHtml = `<button class="chip-btn ${selectedDiscountBand.length === 0 ? 'active' : ''}" onclick="selectDiscountBand('')">전체 할인율</button>`;
+            discountBands.forEach(band => {
+                const isActive = selectedDiscountBand.includes(band.key) ? 'active' : '';
+                discountHtml += `<button class="chip-btn ${isActive}" onclick="selectDiscountBand('${band.key}')"><i class="fa-solid fa-tag text-red-500 mr-1.5"></i>${band.label}</button>`;
+            });
+            const discountContainer = document.getElementById('discountChipContainer');
+            if (discountContainer) {
+                discountContainer.innerHTML = discountHtml;
+            }
+
+            // 브랜드 / BIZ / 의류 실루엣 / 성별 칩스
             const brandSet = new Set();
             const bizSet = new Set();
+            const apparelSilhouetteSet = new Set();
+            const fallbackSilhouetteSet = new Set();
             const genderSet = new Set();
             const shoeSizesMap = new Map();
             const apparelSizesSet = new Set();
 
             rawInventory.forEach(item => {
-                // 신사/해운대 매장 실보유 재고가 있는 품목만 필터 칩(브랜드/BIZ/성별/사이즈)에 반영
+                // 신사/해운대 매장 실보유 재고가 있는 품목만 필터 칩(브랜드/BIZ/실루엣/성별/사이즈)에 반영
                 if ((item.stock || 0) <= 0 && (item.busanStock || 0) <= 0) return;
                 if (item.brand) brandSet.add(item.brand);
                 if (item.category2) bizSet.add(item.category2);
+                if (item.silhouette) {
+                    fallbackSilhouetteSet.add(item.silhouette);
+                    const cat2Str = String(item.category2 || '').toLowerCase();
+                    if (cat2Str.includes('의류') || cat2Str.includes('apparel') || cat2Str.includes('clothing')) {
+                        apparelSilhouetteSet.add(item.silhouette);
+                    }
+                }
                 if (item.gender) genderSet.add(item.gender);
 
                 if (item.sizeDisplay) {
@@ -1344,6 +1403,19 @@
                 bizHtml += `<button class="chip-btn ${isActive}" onclick="selectBiz('${safeB}')">${icon}${b}</button>`;
             });
             document.getElementById('bizChipContainer').innerHTML = bizHtml || '<span class="text-xs text-gray-400">데이터 없음</span>';
+
+            const activeSilhouetteSet = apparelSilhouetteSet.size > 0 ? apparelSilhouetteSet : fallbackSilhouetteSet;
+            const silhouettes = Array.from(activeSilhouetteSet).sort((a, b) => String(a).localeCompare(String(b), 'ko'));
+            let silhouetteHtml = `<button class="chip-btn ${selectedSilhouette.length === 0 ? 'active' : ''}" onclick="selectSilhouette('')"><i class="fa-solid fa-shirt mr-1.5"></i>전체 실루엣</button>`;
+            silhouettes.forEach(sil => {
+                const isActive = selectedSilhouette.includes(sil) ? 'active' : '';
+                const safeSil = String(sil).replace(/'/g, "\\'");
+                silhouetteHtml += `<button class="chip-btn ${isActive}" onclick="selectSilhouette('${safeSil}')">${sil}</button>`;
+            });
+            const silhouetteContainer = document.getElementById('silhouetteChipContainer');
+            if (silhouetteContainer) {
+                silhouetteContainer.innerHTML = silhouettes.length > 0 ? silhouetteHtml : '<span class="text-xs text-gray-400">실루엣 데이터 없음</span>';
+            }
 
             const genders = Array.from(genderSet).sort();
             let genderHtml = `<button class="chip-btn ${selectedGender.length === 0 ? 'active' : ''}" onclick="selectGender('')"><i class="fa-solid fa-users mr-1.5"></i>전체 성별</button>`;
@@ -1426,6 +1498,37 @@
             }
             renderFilterChips();
             applyFiltersAndRender();
+        }
+
+        function selectDiscountBand(val) {
+            if (!val) selectedDiscountBand = [];
+            else {
+                const idx = selectedDiscountBand.indexOf(val);
+                if (idx > -1) selectedDiscountBand.splice(idx, 1);
+                else selectedDiscountBand.push(val);
+            }
+            renderFilterChips();
+            applyFiltersAndRender();
+        }
+
+        function selectSilhouette(val) {
+            if (!val) selectedSilhouette = [];
+            else {
+                const idx = selectedSilhouette.indexOf(val);
+                if (idx > -1) selectedSilhouette.splice(idx, 1);
+                else selectedSilhouette.push(val);
+            }
+            renderFilterChips();
+            applyFiltersAndRender();
+        }
+
+        function matchesDiscountBandSingle(rate, bandKey) {
+            if (!rate || rate <= 0) return false;
+            if (bandKey === '20_25') return rate >= 20 && rate <= 25;
+            if (bandKey === '30_35') return rate >= 30 && rate <= 35;
+            if (bandKey === '40_45') return rate >= 40 && rate <= 45;
+            if (bandKey === '50_PLUS') return rate >= 50;
+            return false;
         }
 
         function selectBrand(val) {
@@ -1621,6 +1724,13 @@
                 const matchesSearch = !searchTerm || group.name.toLowerCase().includes(searchTerm) || (group.sku && group.sku.toLowerCase().includes(searchTerm)) || group.items.some(it => it.barcode && it.barcode.toLowerCase().includes(searchTerm));
                 const matchesBrand = selectedBrand.length === 0 || selectedBrand.includes(group.brand);
                 const matchesBiz = selectedBiz.length === 0 || selectedBiz.includes(group.category2);
+                const isGroupApparel = String(group.category2 || '').includes('의류') || String(group.category2 || '').toLowerCase().includes('apparel') || String(group.category2 || '').toLowerCase().includes('clothing');
+                const matchesSilhouette = selectedSilhouette.length === 0 || (
+                    isGroupApparel && (
+                        (group.silhouette && selectedSilhouette.includes(group.silhouette)) ||
+                        group.items.some(it => it.silhouette && selectedSilhouette.includes(it.silhouette))
+                    )
+                );
                 const matchesGender = selectedGender.length === 0 || selectedGender.includes(group.gender);
                 
                 const matchesSize = selectedSizeDisplay.length === 0 || group.items.some(item => 
@@ -1629,6 +1739,8 @@
 
                 const matchesPromotion = !isPromotionOnly || !!group.promo;
                 const matchesSpecificPromo = selectedPromotion.length === 0 || (group.promo && selectedPromotion.includes(group.promo.nameDisplay || group.promo.name));
+                const groupDiscountRate = group.promo ? (group.promo.discountRate || 0) : 0;
+                const matchesDiscountBand = selectedDiscountBand.length === 0 || selectedDiscountBand.some(bandKey => matchesDiscountBandSingle(groupDiscountRate, bandKey));
                 const matchesHeat = !isHighHeatOnly || group.isHighHeat;
                 const matchesWosWarning = !isWosWarningOnly || group.items.some(item => item.sales > 0 && item.wos <= 2.0);
                 
@@ -1647,8 +1759,8 @@
                     matchesLocation = group.location === selectedLocation && group.totalStock > 0;
                 }
 
-                return matchesSearch && matchesBrand && matchesBiz && matchesGender && 
-                       matchesSize && matchesPromotion && matchesSpecificPromo && matchesHeat && matchesWosWarning && matchesPosMissing && 
+                return matchesSearch && matchesBrand && matchesBiz && matchesSilhouette && matchesGender && 
+                       matchesSize && matchesPromotion && matchesSpecificPromo && matchesDiscountBand && matchesHeat && matchesWosWarning && matchesPosMissing && 
                        matchesDpOnly && matchesShowroomOnly && matchesDpLowStock && matchesDpMissing && matchesLocation;
             });
 
@@ -1970,7 +2082,10 @@
 
                     <div class="p-3.5 space-y-2">
                         <div class="flex justify-between items-center">
-                            <span class="musinsa-badge">${item.brand}</span>
+                            <div class="flex items-center gap-1 flex-wrap">
+                                <span class="musinsa-badge">${item.brand}</span>
+                                ${item.silhouette ? `<span class="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.2 rounded font-bold">${item.silhouette}</span>` : ''}
+                            </div>
                             <span class="text-[10px] text-gray-500 font-semibold">${item.gender || '공용'}</span>
                         </div>
 
@@ -2090,7 +2205,7 @@
                 <td class="p-3 font-bold text-gray-800">${item.sizeDisplay || '-'}</td>
                 <td class="p-3 text-right">${priceTableHtml}</td>
                 <td class="p-3"><span class="musinsa-badge">${item.brand}</span></td>
-                <td class="p-3 text-gray-600">${item.category2 || '-'}</td>
+                <td class="p-3 text-gray-600">${item.category2 || '-'}${item.silhouette ? ` <span class="text-[10px] text-blue-600 font-bold">(${item.silhouette})</span>` : ''}</td>
                 <td class="p-3 text-gray-600">${item.gender || '-'}</td>
                 <td class="p-3">${!item.hasPosBarcode ? (item.stock > 0 ? '<span class="bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded font-bold">POS 미등록</span>' : '<span class="text-gray-400 text-xs">미등록 (신사0)</span>') : '<span class="text-green-600 text-xs font-semibold">등록</span>'}</td>
                 <td class="p-3 text-right font-bold ${item.stock === 0 ? 'text-red-500' : ''}">${item.stock.toLocaleString()} EA</td>
@@ -2286,6 +2401,7 @@
                     "품목내부코드": item.internalCode || "",
                     "브랜드": item.brand,
                     "BIZ": item.category2,
+                    "실루엣": item.silhouette || "-",
                     "성별": item.gender,
                     "POS등록": item.hasPosBarcode ? "등록" : "미등록",
                     "POS연동바코드": cleanBarcode(item.barcode),
@@ -2460,8 +2576,10 @@
 
         resetFiltersBtn.addEventListener('click', () => {
             searchInput.value = '';
+            selectedDiscountBand = [];
             selectedBrand = [];
             selectedBiz = [];
+            selectedSilhouette = [];
             selectedGender = [];
             selectedSizeDisplay = [];
             selectedLocation = '';
@@ -2486,8 +2604,10 @@
 
         if (clearFilterBtn) {
             clearFilterBtn.addEventListener('click', () => {
+                selectedDiscountBand = [];
                 selectedBrand = [];
                 selectedBiz = [];
+                selectedSilhouette = [];
                 selectedGender = [];
                 selectedSizeDisplay = [];
                 selectedLocation = '';
