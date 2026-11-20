@@ -391,6 +391,12 @@
         let isFirebaseActive = false;
         let dpMap = {};
         let locationMap = {};
+        let rawDpFirebaseVal = {};
+        let rawLocationFirebaseVal = {};
+        let isInventoryLoaded = false;
+        let isDpLoaded = false;
+        let isLocationLoaded = false;
+        let sinsaStockBySkuMap = {};
 
         try {
             firebase.initializeApp(firebaseConfig);
@@ -424,6 +430,7 @@
 
             db.ref('rcmt_dp_status').on('value', (snapshot) => {
                 const val = snapshot.val() || {};
+                rawDpFirebaseVal = val;
                 dpMap = {};
                 for (const k in val) {
                     if (val[k] && typeof val[k] === 'object') {
@@ -436,13 +443,16 @@
                         dpMap[k] = val[k];
                     }
                 }
+                isDpLoaded = true;
                 const cloudEl = document.getElementById('cloudIndicator');
                 if (cloudEl) cloudEl.innerHTML = '<span class="text-emerald-400 font-bold">🟢 실시간 클라우드 연동 완료</span>';
+                cleanupZeroStockSinsaItems();
                 applyFiltersAndRender();
             });
 
             db.ref('rcmt_location').on('value', (snapshot) => {
                 const val = snapshot.val() || {};
+                rawLocationFirebaseVal = val;
                 locationMap = {};
                 for (const k in val) {
                     if (val[k] && typeof val[k] === 'object') {
@@ -455,6 +465,8 @@
                         locationMap[k] = val[k];
                     }
                 }
+                isLocationLoaded = true;
+                cleanupZeroStockSinsaItems();
                 applyFiltersAndRender();
             });
 
@@ -466,6 +478,10 @@
                 dpMap = {};
                 locationMap = {};
             }
+            rawDpFirebaseVal = { ...dpMap };
+            rawLocationFirebaseVal = { ...locationMap };
+            isDpLoaded = true;
+            isLocationLoaded = true;
             const cloudEl = document.getElementById('cloudIndicator');
             if (cloudEl) cloudEl.innerHTML = '<span class="text-amber-400">⚠️ 로컬 단독 모드</span>';
         }
@@ -556,14 +572,164 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
+        // 품번별 신사점 총 재고 조회
+        function getSinsaTotalStock(sku) {
+            if (!sku) return 0;
+            const formatted = formatSku(sku);
+            if (sinsaStockBySkuMap[sku] !== undefined) return sinsaStockBySkuMap[sku];
+            if (sinsaStockBySkuMap[formatted] !== undefined) return sinsaStockBySkuMap[formatted];
+            return 0;
+        }
+
+        // 신사점 현재고가 0(또는 목록에서 소진)인 품목의 DP/적재 위치 자동 리셋
+        function cleanupZeroStockSinsaItems() {
+            if (!isInventoryLoaded || rawInventory.length === 0) return;
+
+            const activeSinsaSkuKeys = new Set();
+            Object.keys(sinsaStockBySkuMap).forEach(sku => {
+                if ((sinsaStockBySkuMap[sku] || 0) > 0) {
+                    const formatted = formatSku(sku);
+                    activeSinsaSkuKeys.add(sku);
+                    activeSinsaSkuKeys.add(toSafeFirebaseKey(sku));
+                    activeSinsaSkuKeys.add(formatted);
+                    activeSinsaSkuKeys.add(toSafeFirebaseKey(formatted));
+                    const noHyphen = String(sku).replace(/[-/]/g, '');
+                    if (noHyphen) activeSinsaSkuKeys.add(noHyphen);
+                    const formattedNoHyphen = String(formatted).replace(/[-/]/g, '');
+                    if (formattedNoHyphen) activeSinsaSkuKeys.add(formattedNoHyphen);
+                }
+            });
+
+            // 안전장치: 신사점 재고가 1건도 없으면(CSV 오류 등) DB 초기화 중단
+            if (activeSinsaSkuKeys.size === 0) return;
+
+            const isKeyActiveInSinsa = (rawKey) => {
+                if (!rawKey) return false;
+                const formatted = formatSku(rawKey);
+                const noHyphen = String(rawKey).replace(/[-/]/g, '');
+                return activeSinsaSkuKeys.has(rawKey) ||
+                       activeSinsaSkuKeys.has(toSafeFirebaseKey(rawKey)) ||
+                       activeSinsaSkuKeys.has(formatted) ||
+                       activeSinsaSkuKeys.has(toSafeFirebaseKey(formatted)) ||
+                       (noHyphen && activeSinsaSkuKeys.has(noHyphen));
+            };
+
+            const dpUpdates = {};
+            const locUpdates = {};
+            let resetDpCount = 0;
+            let resetLocCount = 0;
+
+            if (isDpLoaded) {
+                const dpSource = isFirebaseActive ? rawDpFirebaseVal : dpMap;
+                for (const k in dpSource) {
+                    const entry = dpSource[k];
+                    if (entry && typeof entry === 'object') {
+                        for (const subK in entry) {
+                            if (normalizeDpValue(entry[subK]) !== 'NONE') {
+                                const slashKey = `${k}/${subK}`;
+                                const underKey = `${k}_${subK}`;
+                                if (!isKeyActiveInSinsa(slashKey) && !isKeyActiveInSinsa(underKey)) {
+                                    dpUpdates[slashKey] = null;
+                                    delete dpMap[slashKey];
+                                    delete dpMap[underKey];
+                                    resetDpCount++;
+                                }
+                            }
+                        }
+                    } else if (normalizeDpValue(entry) !== 'NONE') {
+                        if (!isKeyActiveInSinsa(k)) {
+                            dpUpdates[k] = null;
+                            delete dpMap[k];
+                            resetDpCount++;
+                        }
+                    }
+                }
+                for (const k in dpMap) {
+                    if (normalizeDpValue(dpMap[k]) !== 'NONE' && !isKeyActiveInSinsa(k)) {
+                        delete dpMap[k];
+                    }
+                }
+            }
+
+            if (isLocationLoaded) {
+                const locSource = isFirebaseActive ? rawLocationFirebaseVal : locationMap;
+                for (const k in locSource) {
+                    const entry = locSource[k];
+                    if (entry && typeof entry === 'object') {
+                        for (const subK in entry) {
+                            if (String(entry[subK] || '').trim() !== '') {
+                                const slashKey = `${k}/${subK}`;
+                                const underKey = `${k}_${subK}`;
+                                if (!isKeyActiveInSinsa(slashKey) && !isKeyActiveInSinsa(underKey)) {
+                                    locUpdates[slashKey] = null;
+                                    delete locationMap[slashKey];
+                                    delete locationMap[underKey];
+                                    resetLocCount++;
+                                }
+                            }
+                        }
+                    } else if (String(entry || '').trim() !== '') {
+                        if (!isKeyActiveInSinsa(k)) {
+                            locUpdates[k] = null;
+                            delete locationMap[k];
+                            resetLocCount++;
+                        }
+                    }
+                }
+                for (const k in locationMap) {
+                    if (String(locationMap[k] || '').trim() !== '' && !isKeyActiveInSinsa(k)) {
+                        delete locationMap[k];
+                    }
+                }
+            }
+
+            if (isFirebaseActive && db) {
+                if (Object.keys(dpUpdates).length > 0) {
+                    db.ref('rcmt_dp_status').update(dpUpdates);
+                }
+                if (Object.keys(locUpdates).length > 0) {
+                    db.ref('rcmt_location').update(locUpdates);
+                }
+            }
+
+            // 로컬 스토리지도 함께 정리하여 재접속 시 삭제된 항목이 복원되지 않도록 동기화
+            if (resetDpCount > 0 || resetLocCount > 0) {
+                try {
+                    const cleanLocalDp = {};
+                    for (const k in dpMap) {
+                        if (normalizeDpValue(dpMap[k]) !== 'NONE' && isKeyActiveInSinsa(k)) {
+                            cleanLocalDp[k] = dpMap[k];
+                        }
+                    }
+                    localStorage.setItem('rcmt_dp_status', JSON.stringify(cleanLocalDp));
+
+                    const cleanLocalLoc = {};
+                    for (const k in locationMap) {
+                        if (String(locationMap[k] || '').trim() !== '' && isKeyActiveInSinsa(k)) {
+                            cleanLocalLoc[k] = locationMap[k];
+                        }
+                    }
+                    localStorage.setItem('rcmt_location', JSON.stringify(cleanLocalLoc));
+                } catch (e) {}
+
+                showToast(`신사점 재고 소진 품목 자동 리셋 완료 (DP ${resetDpCount}건 / 위치 ${resetLocCount}건)`);
+            }
+        }
+
         // 진열 상태 변경 함수 (드롭다운: 'DP' | 'SHOWROOM' | 'NONE')
         function updateDpStatus(sku, newStatus, event) {
             if (event) event.stopPropagation();
             if (!sku) return;
 
+            const normStatus = normalizeDpValue(newStatus);
+            if (isInventoryLoaded && getSinsaTotalStock(sku) <= 0 && normStatus !== 'NONE') {
+                showToast("신사점 재고가 0인 품목은 DP/쇼룸으로 등록할 수 없습니다.");
+                applyFiltersAndRender();
+                return;
+            }
+
             const safeSkuKey = toSafeFirebaseKey(sku);
             const noHyphenKey = String(sku).replace(/[-/]/g, '');
-            const normStatus = normalizeDpValue(newStatus);
             const dbValue = normStatus === 'DP' ? true : (normStatus === 'SHOWROOM' ? 'SHOWROOM' : false);
 
             dpMap[sku] = dbValue;
@@ -571,9 +737,16 @@
             if (noHyphenKey) dpMap[noHyphenKey] = dbValue;
 
             if (isFirebaseActive && db) {
-                db.ref('rcmt_dp_status/' + safeSkuKey).set(dbValue);
-                if (noHyphenKey && noHyphenKey !== safeSkuKey) {
-                    db.ref('rcmt_dp_status/' + noHyphenKey).set(dbValue);
+                if (normStatus === 'NONE') {
+                    db.ref('rcmt_dp_status/' + safeSkuKey).remove();
+                    if (noHyphenKey && noHyphenKey !== safeSkuKey) {
+                        db.ref('rcmt_dp_status/' + noHyphenKey).remove();
+                    }
+                } else {
+                    db.ref('rcmt_dp_status/' + safeSkuKey).set(dbValue);
+                    if (noHyphenKey && noHyphenKey !== safeSkuKey) {
+                        db.ref('rcmt_dp_status/' + noHyphenKey).set(dbValue);
+                    }
                 }
             } else {
                 try {
@@ -595,9 +768,15 @@
             if (event) event.stopPropagation();
             if (!sku) return;
 
+            const val = String(newLoc || '').trim();
+            if (isInventoryLoaded && getSinsaTotalStock(sku) <= 0 && val !== '') {
+                showToast("신사점 재고가 0인 품목은 적재 위치를 등록할 수 없습니다.");
+                applyFiltersAndRender();
+                return;
+            }
+
             const safeSkuKey = toSafeFirebaseKey(sku);
             const noHyphenKey = String(sku).replace(/[-/]/g, '');
-            const val = String(newLoc || '').trim();
 
             locationMap[sku] = val;
             locationMap[safeSkuKey] = val;
@@ -625,6 +804,7 @@
 
         function getItemLocation(sku) {
             if (!sku) return '';
+            if (isInventoryLoaded && getSinsaTotalStock(sku) <= 0) return '';
             const safeKey = toSafeFirebaseKey(sku);
             const noHyphen = String(sku).replace(/[-/]/g, '');
             const withHyphen = formatSku(sku);
@@ -648,6 +828,7 @@
         // 품번별 진열 상태 조회 ('DP' | 'SHOWROOM' | 'NONE')
         function getItemDpStatus(sku) {
             if (!sku) return 'NONE';
+            if (isInventoryLoaded && getSinsaTotalStock(sku) <= 0) return 'NONE';
             const safeKey = toSafeFirebaseKey(sku);
             const noHyphen = String(sku).replace(/[-/]/g, '');
             const withHyphen = formatSku(sku);
@@ -1238,6 +1419,15 @@
             });
 
             rawInventory = Object.values(inventorySumMap);
+
+            // 품번별 신사점 총 재고 집계 후 0재고 품목의 DP/적재 위치 자동 리셋 실행
+            sinsaStockBySkuMap = {};
+            rawInventory.forEach(item => {
+                if (!item.sku) return;
+                sinsaStockBySkuMap[item.sku] = (sinsaStockBySkuMap[item.sku] || 0) + (item.stock || 0);
+            });
+            isInventoryLoaded = true;
+            cleanupZeroStockSinsaItems();
 
             globalNameColorMap = {};
             rawInventory.forEach(item => {
@@ -2154,7 +2344,7 @@
             const itemDpStatus = getItemDpStatus(item.sku);
             const itemLoc = getItemLocation(item.sku);
             
-            const dpTableSelect = renderDpSelectHtml(item.sku, itemDpStatus, item.stock, true);
+            const dpTableSelect = renderDpSelectHtml(item.sku, itemDpStatus, getSinsaTotalStock(item.sku), true);
             const tableLocSelect = renderLocationSelectHtml(item.sku, itemLoc, true);
             
             let promoBadgeTable = '';
