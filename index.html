@@ -361,11 +361,36 @@
             }, 2500);
         }
 
+        // 내부 품목 코드 클립보드 복사 함수 (iFrame 호환)
+        function copyInternalCode(code, event) {
+            if (event) event.stopPropagation();
+            if (!code) return;
+            try {
+                const textarea = document.createElement('textarea');
+                textarea.value = String(code);
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showToast(`내부코드 복사됨: ${code}`);
+            } catch (e) {
+                showToast(`내부코드: ${code}`);
+            }
+        }
+
         // ==========================================
         // Firebase 키 안전 변환 함수: Firebase는 경로 구분자로 쓰이는 '/' 및 '.', '#', '$', '[', ']'를 키로 허용하지 않음
         function toSafeFirebaseKey(sku) {
             if (!sku) return '';
             return String(sku).trim().replace(/[.#$\[\]\/]/g, '_');
+        }
+
+        // 품번 대조용 정규화 키 (대소문자/하이픈/슬래시/공백 차이로 인한 매칭 누락 및 오삭제 방지)
+        function normalizeSkuCompareKey(sku) {
+            if (!sku) return '';
+            return String(formatSku(sku) || sku).trim().toUpperCase().replace(/[^A-Z0-9가-힣]/g, '');
         }
 
         // 진열 상태 정규화 함수: 'DP' | 'SHOWROOM' | 'NONE'
@@ -396,50 +421,34 @@
         let isInventoryLoaded = false;
         let isDpLoaded = false;
         let isLocationLoaded = false;
+        let isDemoMode = false;
         let sinsaStockBySkuMap = {};
+        let sinsaStockByCompareKeyMap = {};
+        let eslRepCodeMap = {};
 
         try {
             firebase.initializeApp(firebaseConfig);
             db = firebase.database();
             isFirebaseActive = true;
 
-            try {
-                const localSaved = JSON.parse(localStorage.getItem('rcmt_dp_status') || '{}');
-                if (localSaved && Object.keys(localSaved).length > 0) {
-                    Object.keys(localSaved).forEach(sku => {
-                        const norm = normalizeDpValue(localSaved[sku]);
-                        if (norm !== 'NONE') {
-                            const safeSkuKey = toSafeFirebaseKey(sku);
-                            db.ref('rcmt_dp_status/' + safeSkuKey).set(norm === 'DP' ? true : 'SHOWROOM');
-                        }
-                    });
-                }
-            } catch (migErr) {}
-
-            try {
-                const localLocSaved = JSON.parse(localStorage.getItem('rcmt_location') || '{}');
-                if (localLocSaved && Object.keys(localLocSaved).length > 0) {
-                    Object.keys(localLocSaved).forEach(sku => {
-                        if (localLocSaved[sku]) {
-                            const safeSkuKey = toSafeFirebaseKey(sku);
-                            db.ref('rcmt_location/' + safeSkuKey).set(localLocSaved[sku]);
-                        }
-                    });
-                }
-            } catch (locMigErr) {}
-
+            // [버그 수정] 새로고침 시 localStorage의 오래된 값이 Firebase를 덮어쓰는 레거시 마이그레이션을 제거하고,
+            // 클라우드(Firebase) 데이터를 단일 기준(Source of Truth)으로 사용합니다.
             db.ref('rcmt_dp_status').on('value', (snapshot) => {
                 const val = snapshot.val() || {};
                 rawDpFirebaseVal = val;
                 dpMap = {};
+                // 1차: 레거시 슬래시(/) 중첩 객체 평탄화 (낮은 우선순위)
                 for (const k in val) {
                     if (val[k] && typeof val[k] === 'object') {
-                        // 레거시 슬래시(/)로 인해 중첩 객체로 저장된 항목 평탄화
                         for (const subK in val[k]) {
                             dpMap[`${k}_${subK}`] = val[k][subK];
                             dpMap[`${k}/${subK}`] = val[k][subK];
                         }
-                    } else {
+                    }
+                }
+                // 2차: 최신 단일 키 반영 (높은 우선순위로 덮어쓰기)
+                for (const k in val) {
+                    if (!val[k] || typeof val[k] !== 'object') {
                         dpMap[k] = val[k];
                     }
                 }
@@ -454,14 +463,18 @@
                 const val = snapshot.val() || {};
                 rawLocationFirebaseVal = val;
                 locationMap = {};
+                // 1차: 레거시 슬래시(/) 중첩 객체 평탄화 (낮은 우선순위)
                 for (const k in val) {
                     if (val[k] && typeof val[k] === 'object') {
-                        // 레거시 슬래시(/)로 인해 중첩 객체로 저장된 항목 평탄화
                         for (const subK in val[k]) {
                             locationMap[`${k}_${subK}`] = val[k][subK];
                             locationMap[`${k}/${subK}`] = val[k][subK];
                         }
-                    } else {
+                    }
+                }
+                // 2차: 최신 단일 키 반영 (높은 우선순위로 덮어쓰기)
+                for (const k in val) {
+                    if (!val[k] || typeof val[k] !== 'object') {
                         locationMap[k] = val[k];
                     }
                 }
@@ -578,14 +591,25 @@
             const formatted = formatSku(sku);
             if (sinsaStockBySkuMap[sku] !== undefined) return sinsaStockBySkuMap[sku];
             if (sinsaStockBySkuMap[formatted] !== undefined) return sinsaStockBySkuMap[formatted];
+            const cmpKey = normalizeSkuCompareKey(sku);
+            if (cmpKey && sinsaStockByCompareKeyMap[cmpKey] !== undefined) return sinsaStockByCompareKeyMap[cmpKey];
             return 0;
+        }
+
+        // esl.csv 기준 대표품목여부=1인 내부 품목 코드 조회
+        function getEslRepInternalCode(sku) {
+            if (!sku) return '';
+            const formatted = formatSku(sku);
+            const cmpKey = normalizeSkuCompareKey(sku);
+            return eslRepCodeMap[sku] || eslRepCodeMap[formatted] || (cmpKey ? eslRepCodeMap[cmpKey] : '') || '';
         }
 
         // 신사점 현재고가 0(또는 목록에서 소진)인 품목의 DP/적재 위치 자동 리셋
         function cleanupZeroStockSinsaItems() {
-            if (!isInventoryLoaded || rawInventory.length === 0) return;
+            if (isDemoMode || !isInventoryLoaded || rawInventory.length === 0) return;
 
             const activeSinsaSkuKeys = new Set();
+            const activeSinsaCompareKeys = new Set();
             Object.keys(sinsaStockBySkuMap).forEach(sku => {
                 if ((sinsaStockBySkuMap[sku] || 0) > 0) {
                     const formatted = formatSku(sku);
@@ -597,6 +621,8 @@
                     if (noHyphen) activeSinsaSkuKeys.add(noHyphen);
                     const formattedNoHyphen = String(formatted).replace(/[-/]/g, '');
                     if (formattedNoHyphen) activeSinsaSkuKeys.add(formattedNoHyphen);
+                    const cmpKey = normalizeSkuCompareKey(sku);
+                    if (cmpKey) activeSinsaCompareKeys.add(cmpKey);
                 }
             });
 
@@ -607,11 +633,13 @@
                 if (!rawKey) return false;
                 const formatted = formatSku(rawKey);
                 const noHyphen = String(rawKey).replace(/[-/]/g, '');
+                const cmpKey = normalizeSkuCompareKey(rawKey);
                 return activeSinsaSkuKeys.has(rawKey) ||
                        activeSinsaSkuKeys.has(toSafeFirebaseKey(rawKey)) ||
                        activeSinsaSkuKeys.has(formatted) ||
                        activeSinsaSkuKeys.has(toSafeFirebaseKey(formatted)) ||
-                       (noHyphen && activeSinsaSkuKeys.has(noHyphen));
+                       (noHyphen && activeSinsaSkuKeys.has(noHyphen)) ||
+                       (cmpKey && activeSinsaCompareKeys.has(cmpKey));
             };
 
             const dpUpdates = {};
@@ -692,7 +720,6 @@
                 }
             }
 
-            // 로컬 스토리지도 함께 정리하여 재접속 시 삭제된 항목이 복원되지 않도록 동기화
             if (resetDpCount > 0 || resetLocCount > 0) {
                 try {
                     const cleanLocalDp = {};
@@ -728,30 +755,62 @@
                 return;
             }
 
-            const safeSkuKey = toSafeFirebaseKey(sku);
-            const noHyphenKey = String(sku).replace(/[-/]/g, '');
+            const formattedSku = formatSku(sku);
+            const safeSkuKey = toSafeFirebaseKey(formattedSku || sku);
+            const safeNoHyphenKey = toSafeFirebaseKey(String(formattedSku || sku).replace(/[-/\s]/g, ''));
+            const targetCmpKey = normalizeSkuCompareKey(sku);
             const dbValue = normStatus === 'DP' ? true : (normStatus === 'SHOWROOM' ? 'SHOWROOM' : false);
 
+            // 메모리 맵 즉시 갱신 (관련 별칭 키 포함)
             dpMap[sku] = dbValue;
+            dpMap[formattedSku] = dbValue;
             dpMap[safeSkuKey] = dbValue;
-            if (noHyphenKey) dpMap[noHyphenKey] = dbValue;
+            if (safeNoHyphenKey) dpMap[safeNoHyphenKey] = dbValue;
 
-            if (isFirebaseActive && db) {
-                if (normStatus === 'NONE') {
-                    db.ref('rcmt_dp_status/' + safeSkuKey).remove();
-                    if (noHyphenKey && noHyphenKey !== safeSkuKey) {
-                        db.ref('rcmt_dp_status/' + noHyphenKey).remove();
-                    }
-                } else {
-                    db.ref('rcmt_dp_status/' + safeSkuKey).set(dbValue);
-                    if (noHyphenKey && noHyphenKey !== safeSkuKey) {
-                        db.ref('rcmt_dp_status/' + noHyphenKey).set(dbValue);
+            if (isFirebaseActive && db && !isDemoMode) {
+                const updates = {};
+                // Firebase에 남아있는 동일 품번의 레거시/중첩/별칭 키들을 찾아 모두 정리(새로고침 시 풀림 방지)
+                for (const k in rawDpFirebaseVal) {
+                    const entry = rawDpFirebaseVal[k];
+                    if (entry && typeof entry === 'object') {
+                        for (const subK in entry) {
+                            const slashKey = `${k}/${subK}`;
+                            if (normalizeSkuCompareKey(slashKey) === targetCmpKey) {
+                                updates[slashKey] = null;
+                                delete dpMap[slashKey];
+                                delete dpMap[`${k}_${subK}`];
+                            }
+                        }
+                    } else if (normalizeSkuCompareKey(k) === targetCmpKey && k !== safeSkuKey) {
+                        updates[k] = null;
+                        delete dpMap[k];
                     }
                 }
+
+                if (normStatus === 'NONE') {
+                    updates[safeSkuKey] = null;
+                    if (safeNoHyphenKey && safeNoHyphenKey !== safeSkuKey) {
+                        updates[safeNoHyphenKey] = null;
+                    }
+                } else {
+                    updates[safeSkuKey] = dbValue;
+                    if (safeNoHyphenKey && safeNoHyphenKey !== safeSkuKey) {
+                        updates[safeNoHyphenKey] = null;
+                    }
+                }
+
+                db.ref('rcmt_dp_status').update(updates, (err) => {
+                    if (err) {
+                        console.error('DP 상태 클라우드 저장 실패:', err);
+                        showToast('진열 상태 저장에 실패했습니다. 네트워크를 확인해주세요.');
+                    }
+                });
             } else {
-                try {
-                    localStorage.setItem('rcmt_dp_status', JSON.stringify(dpMap));
-                } catch (e) {}
+                if (!isDemoMode) {
+                    try {
+                        localStorage.setItem('rcmt_dp_status', JSON.stringify(dpMap));
+                    } catch (e) {}
+                }
                 applyFiltersAndRender();
             }
         }
@@ -775,29 +834,60 @@
                 return;
             }
 
-            const safeSkuKey = toSafeFirebaseKey(sku);
-            const noHyphenKey = String(sku).replace(/[-/]/g, '');
+            const formattedSku = formatSku(sku);
+            const safeSkuKey = toSafeFirebaseKey(formattedSku || sku);
+            const safeNoHyphenKey = toSafeFirebaseKey(String(formattedSku || sku).replace(/[-/\s]/g, ''));
+            const targetCmpKey = normalizeSkuCompareKey(sku);
 
             locationMap[sku] = val;
+            locationMap[formattedSku] = val;
             locationMap[safeSkuKey] = val;
-            if (noHyphenKey) locationMap[noHyphenKey] = val;
+            if (safeNoHyphenKey) locationMap[safeNoHyphenKey] = val;
 
-            if (isFirebaseActive && db) {
-                if (val) {
-                    db.ref('rcmt_location/' + safeSkuKey).set(val);
-                    if (noHyphenKey && noHyphenKey !== safeSkuKey) {
-                        db.ref('rcmt_location/' + noHyphenKey).set(val);
-                    }
-                } else {
-                    db.ref('rcmt_location/' + safeSkuKey).remove();
-                    if (noHyphenKey && noHyphenKey !== safeSkuKey) {
-                        db.ref('rcmt_location/' + noHyphenKey).remove();
+            if (isFirebaseActive && db && !isDemoMode) {
+                const updates = {};
+                // Firebase에 남아있는 동일 품번의 레거시/중첩/별칭 키들을 찾아 모두 정리
+                for (const k in rawLocationFirebaseVal) {
+                    const entry = rawLocationFirebaseVal[k];
+                    if (entry && typeof entry === 'object') {
+                        for (const subK in entry) {
+                            const slashKey = `${k}/${subK}`;
+                            if (normalizeSkuCompareKey(slashKey) === targetCmpKey) {
+                                updates[slashKey] = null;
+                                delete locationMap[slashKey];
+                                delete locationMap[`${k}_${subK}`];
+                            }
+                        }
+                    } else if (normalizeSkuCompareKey(k) === targetCmpKey && k !== safeSkuKey) {
+                        updates[k] = null;
+                        delete locationMap[k];
                     }
                 }
+
+                if (val) {
+                    updates[safeSkuKey] = val;
+                    if (safeNoHyphenKey && safeNoHyphenKey !== safeSkuKey) {
+                        updates[safeNoHyphenKey] = null;
+                    }
+                } else {
+                    updates[safeSkuKey] = null;
+                    if (safeNoHyphenKey && safeNoHyphenKey !== safeSkuKey) {
+                        updates[safeNoHyphenKey] = null;
+                    }
+                }
+
+                db.ref('rcmt_location').update(updates, (err) => {
+                    if (err) {
+                        console.error('적재 위치 클라우드 저장 실패:', err);
+                        showToast('적재 위치 저장에 실패했습니다. 네트워크를 확인해주세요.');
+                    }
+                });
             } else {
-                try {
-                    localStorage.setItem('rcmt_location', JSON.stringify(locationMap));
-                } catch (e) {}
+                if (!isDemoMode) {
+                    try {
+                        localStorage.setItem('rcmt_location', JSON.stringify(locationMap));
+                    } catch (e) {}
+                }
                 applyFiltersAndRender();
             }
         }
@@ -805,13 +895,15 @@
         function getItemLocation(sku) {
             if (!sku) return '';
             if (isInventoryLoaded && getSinsaTotalStock(sku) <= 0) return '';
-            const safeKey = toSafeFirebaseKey(sku);
-            const noHyphen = String(sku).replace(/[-/]/g, '');
             const withHyphen = formatSku(sku);
+            const safeKey = toSafeFirebaseKey(withHyphen || sku);
+            const rawSafeKey = toSafeFirebaseKey(sku);
+            const noHyphen = toSafeFirebaseKey(String(withHyphen || sku).replace(/[-/\s]/g, ''));
 
-            if (locationMap[sku]) return locationMap[sku];
             if (locationMap[safeKey]) return locationMap[safeKey];
             if (locationMap[withHyphen]) return locationMap[withHyphen];
+            if (locationMap[sku]) return locationMap[sku];
+            if (locationMap[rawSafeKey]) return locationMap[rawSafeKey];
             if (locationMap[noHyphen]) return locationMap[noHyphen];
 
             if (sku.includes('/')) {
@@ -829,13 +921,15 @@
         function getItemDpStatus(sku) {
             if (!sku) return 'NONE';
             if (isInventoryLoaded && getSinsaTotalStock(sku) <= 0) return 'NONE';
-            const safeKey = toSafeFirebaseKey(sku);
-            const noHyphen = String(sku).replace(/[-/]/g, '');
             const withHyphen = formatSku(sku);
+            const safeKey = toSafeFirebaseKey(withHyphen || sku);
+            const rawSafeKey = toSafeFirebaseKey(sku);
+            const noHyphen = toSafeFirebaseKey(String(withHyphen || sku).replace(/[-/\s]/g, ''));
 
-            if (dpMap[sku] !== undefined) return normalizeDpValue(dpMap[sku]);
             if (dpMap[safeKey] !== undefined) return normalizeDpValue(dpMap[safeKey]);
             if (dpMap[withHyphen] !== undefined) return normalizeDpValue(dpMap[withHyphen]);
+            if (dpMap[sku] !== undefined) return normalizeDpValue(dpMap[sku]);
+            if (dpMap[rawSafeKey] !== undefined) return normalizeDpValue(dpMap[rawSafeKey]);
             if (dpMap[noHyphen] !== undefined) return normalizeDpValue(dpMap[noHyphen]);
 
             if (sku.includes('/')) {
@@ -1216,6 +1310,7 @@
                 if (text.includes('성별')) score++;
                 if (text.includes('카테고리')) score++;
                 if (text.includes('실루엣')) score++;
+                if (text.includes('대표품목')) score++;
                 if (text.includes('브랜드')) score++;
                 if (text.includes('규격') || text.includes('사이즈')) score++;
                 if (text.includes('프로모션') || text.includes('할인')) score++;
@@ -1302,6 +1397,49 @@
             }).filter(p => p.sku);
 
             renderFilterChips();
+            applyFiltersAndRender();
+        }
+
+        // esl.csv 파싱: 대표품목여부 === 1 인 품목의 내부 품목 코드를 품번별로 매핑
+        function processEslData(json) {
+            eslRepCodeMap = {};
+            if (!json || json.length === 0) return;
+
+            const sampleRow = json[0] || {};
+            const keys = Object.keys(sampleRow);
+
+            const skuKey = keys.find(k => cleanKey(k) === '품번')
+                || keys.find(k => cleanKey(k).includes('품번') || cleanKey(k).toLowerCase().includes('sku'))
+                || '';
+            const repKey = keys.find(k => cleanKey(k) === '대표품목여부')
+                || keys.find(k => cleanKey(k).includes('대표품목') || cleanKey(k).includes('대표'))
+                || '';
+            const internalCodeKey = keys.find(k => {
+                const ck = cleanKey(k).replace(/\s+/g, '');
+                return ck === '품목내부코드' || ck === '내부품목코드' || ck === '내부코드';
+            }) || keys.find(k => {
+                const ck = cleanKey(k).replace(/\s+/g, '');
+                return k !== skuKey && (ck.includes('내부') || ck.includes('품목코드'));
+            }) || '';
+
+            if (!skuKey || !internalCodeKey) return;
+
+            json.forEach(row => {
+                const rawRep = repKey ? cleanVal(row[repKey]) : '';
+                const isRep = rawRep === '1' || Number(rawRep) === 1;
+                if (repKey && !isRep) return;
+
+                const rawSkuVal = cleanVal(row[skuKey]);
+                const formattedSku = cleanSku(rawSkuVal);
+                const internalCode = cleanVal(row[internalCodeKey]);
+                if (!formattedSku || !internalCode) return;
+
+                const cmpKey = normalizeSkuCompareKey(formattedSku);
+                if (rawSkuVal) eslRepCodeMap[rawSkuVal] = internalCode;
+                eslRepCodeMap[formattedSku] = internalCode;
+                if (cmpKey) eslRepCodeMap[cmpKey] = internalCode;
+            });
+
             applyFiltersAndRender();
         }
 
@@ -1422,9 +1560,14 @@
 
             // 품번별 신사점 총 재고 집계 후 0재고 품목의 DP/적재 위치 자동 리셋 실행
             sinsaStockBySkuMap = {};
+            sinsaStockByCompareKeyMap = {};
             rawInventory.forEach(item => {
                 if (!item.sku) return;
                 sinsaStockBySkuMap[item.sku] = (sinsaStockBySkuMap[item.sku] || 0) + (item.stock || 0);
+                const cmpKey = normalizeSkuCompareKey(item.sku);
+                if (cmpKey) {
+                    sinsaStockByCompareKeyMap[cmpKey] = (sinsaStockByCompareKeyMap[cmpKey] || 0) + (item.stock || 0);
+                }
             });
             isInventoryLoaded = true;
             cleanupZeroStockSinsaItems();
@@ -1911,7 +2054,12 @@
                     return false;
                 }
 
-                const matchesSearch = !searchTerm || group.name.toLowerCase().includes(searchTerm) || (group.sku && group.sku.toLowerCase().includes(searchTerm)) || group.items.some(it => it.barcode && it.barcode.toLowerCase().includes(searchTerm));
+                const eslRepCode = getEslRepInternalCode(group.sku);
+                const matchesSearch = !searchTerm
+                    || group.name.toLowerCase().includes(searchTerm)
+                    || (group.sku && group.sku.toLowerCase().includes(searchTerm))
+                    || (eslRepCode && eslRepCode.toLowerCase().includes(searchTerm))
+                    || group.items.some(it => it.barcode && it.barcode.toLowerCase().includes(searchTerm));
                 const matchesBrand = selectedBrand.length === 0 || selectedBrand.includes(group.brand);
                 const matchesBiz = selectedBiz.length === 0 || selectedBiz.includes(group.category2);
                 const isGroupApparel = String(group.category2 || '').includes('의류') || String(group.category2 || '').toLowerCase().includes('apparel') || String(group.category2 || '').toLowerCase().includes('clothing');
@@ -1941,7 +2089,7 @@
                 const matchesDpLowStock = !isDpLowStockOnly || (group.dpStatus === 'DP' && group.totalStock <= 2);
                 const matchesDpMissing = !isDpMissingOnly || group.dpStatus === 'NONE';
 
-                // [핵심 개선] 위치 관련 필터 사용 시, 신사점 매장 재고가 1개 이상(totalStock > 0) 있는 실보유 상품만 매칭
+                // 위치 관련 필터 사용 시, 신사점 매장 재고가 1개 이상(totalStock > 0) 있는 실보유 상품만 매칭
                 let matchesLocation = true;
                 if (selectedLocation === 'NONE') {
                     matchesLocation = !group.location && group.totalStock > 0;
@@ -2086,6 +2234,7 @@
             const safeId = 'card_' + (item.sku ? item.sku.replace(/[^a-zA-Z0-9_-]/g, '_') : index);
             const googleSearchUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(item.sku || item.name || '')}`;
             const wosHtml = getWosBadgeHtml(item.totalStock, item.totalSales, item.wos);
+            const eslRepCode = getEslRepInternalCode(item.sku);
             
             const itemDpStatus = getItemDpStatus(item.sku);
             const isItemDp = itemDpStatus === 'DP';
@@ -2262,6 +2411,7 @@
                     <div class="relative">
                         ${imageArea}
                         <div class="absolute top-2 left-2 flex flex-col gap-1 z-10 items-start">
+                            ${eslRepCode ? `<button type="button" onclick="copyInternalCode('${eslRepCode}', event)" title="대표품목 내부 품목 코드 (클릭 시 복사)" class="bg-slate-900/85 hover:bg-black text-white font-mono text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1 border border-white/20 transition"><i class="fa-solid fa-barcode text-[9px] text-amber-300"></i>${eslRepCode}</button>` : ''}
                             ${item.isHighHeat ? '<span class="heat-badge text-[10px] px-2 py-0.5 rounded shadow">🔥 HIGH HEAT</span>' : ''}
                         </div>
                         ${dpSelectorHtml}
@@ -2445,9 +2595,11 @@
                 }
             }
 
-            const activePromoCount = Object.keys(getActivePromotionsMap()).length;
-            const promoText = rawPromotions.length > 0 ? ` / 프로모션 ${rawPromotions.length}건 (활성 ${activePromoCount}건) 연동` : '';
-            statusIndicator.innerHTML = `✅ 데이터 연동 완료 (${groupedData.length}개 상품 / ${filteredData.length}개 규격${promoText})`;
+            if (!isDemoMode) {
+                const activePromoCount = Object.keys(getActivePromotionsMap()).length;
+                const promoText = rawPromotions.length > 0 ? ` / 프로모션 ${rawPromotions.length}건 (활성 ${activePromoCount}건) 연동` : '';
+                statusIndicator.innerHTML = `✅ 데이터 연동 완료 (${groupedData.length}개 상품 / ${filteredData.length}개 규격${promoText})`;
+            }
         }
 
         function loadMoreGridItems() {
@@ -2589,6 +2741,7 @@
                     "품명": item.name,
                     "규격(사이즈)": item.sizeDisplay || item.size,
                     "품목내부코드": item.internalCode || "",
+                    "대표내부코드(ESL)": getEslRepInternalCode(item.sku) || "",
                     "브랜드": item.brand,
                     "BIZ": item.category2,
                     "실루엣": item.silhouette || "-",
@@ -2610,7 +2763,7 @@
                 const targetCols = [];
                 for (let C = range.s.c; C <= range.e.c; ++C) {
                     const hCell = worksheet[XLSX.utils.encode_cell({ c: C, r: 0 })];
-                    if (hCell && (hCell.v === 'POS연동바코드' || hCell.v === '바코드' || hCell.v === 'POS바코드' || hCell.v === '품목내부코드' || hCell.v === '내부코드')) {
+                    if (hCell && (hCell.v === 'POS연동바코드' || hCell.v === '바코드' || hCell.v === 'POS바코드' || hCell.v === '품목내부코드' || hCell.v === '내부코드' || hCell.v === '대표내부코드(ESL)')) {
                         targetCols.push(C);
                     }
                 }
@@ -2822,6 +2975,9 @@
         }
 
         async function fetchCsvWithFallbacks(paths) {
+            if (window.location.protocol === 'blob:' || window.location.protocol === 'about:') {
+                return null;
+            }
             for (const p of paths) {
                 try {
                     const res = await fetch(p + '?v=' + Date.now());
@@ -2836,14 +2992,55 @@
             return null;
         }
 
+        // 미리보기(Preview) 환경 전용 샘플 데이터 (실제 Firebase DB에는 쓰기/삭제하지 않음)
+        function loadPreviewSampleData() {
+            isDemoMode = true;
+            dpMap = { 'HJ4165-010': true, 'JH6206': 'SHOWROOM', '001-LOAM-M': true };
+            locationMap = { 'HJ4165-010': '1층', 'JH6206': '3층', '001-LOAM-M': '1층' };
+
+            const sampleInventory = [
+                { 품번: '001-LOAM-M', 품명: '001A', 소비자가: '399000', 품목소분류: '신발(노다)', 카테고리2: '신발', 실루엣: '트레일', 성별: '남성', 규격: '260', '매장(신사동)': '2', '매장(부산)': '0', POS바코드: '880000100101' },
+                { 품번: '001A-ALMOND-M', 품명: '001A', 소비자가: '399000', 품목소분류: '신발(노다)', 카테고리2: '신발', 실루엣: '트레일', 성별: '남성', 규격: '270', '매장(신사동)': '8', '매장(부산)': '8', POS바코드: '880000100102' },
+                { 품번: 'HJ4165-010', 품명: '드라이 핏 런 에너지 마일러 탱크 탑', 소비자가: '55000', 품목소분류: '의류(나이키)', 카테고리2: '의류', 실루엣: '싱글렛/탱크', 성별: '남성', 규격: 'M', '매장(신사동)': '5', '매장(부산)': '3', POS바코드: '880000100201' },
+                { 품번: 'JH6206', 품명: '아디제로 EVO SL', 소비자가: '209000', 품목소분류: '신발(아디다스)', 카테고리2: '신발', 실루엣: '로드', 성별: '남성', 규격: '270', '매장(신사동)': '6', '매장(부산)': '4', POS바코드: '880000100301' },
+                { 품번: 'JP7147', 품명: '아디제로 EVO SL', 소비자가: '209000', 품목소분류: '신발(아디다스)', 카테고리2: '신발', 실루엣: '로드', 성별: '여성', 규격: '240', '매장(신사동)': '0', '매장(부산)': '3', POS바코드: '880000100302' }
+            ];
+            const samplePromotions = [
+                { 품번: 'HJ4165-010', '프로모션 할인': '30%', '프로모션 이름': '매장 전용 할인', '신규/생일': 'X', 시작: '2026-01-01', 종료: '2026-12-31' }
+            ];
+            const sampleSales = [
+                { 품번: 'JH6206', 규격: '270', 수량: '4' },
+                { 품번: 'HJ4165-010', 규격: 'M', 수량: '2' }
+            ];
+            const sampleEsl = [
+                { 품번: '001-LOAM-M', 대표품목여부: '1', 품목내부코드: 'ESL-00101' },
+                { 품번: 'HJ4165-010', 대표품목여부: '1', 품목내부코드: 'ESL-10001' },
+                { 품번: 'JH6206', 대표품목여부: '1', 품목내부코드: 'ESL-10006' }
+            ];
+
+            processEslData(sampleEsl);
+            processPromotionData(samplePromotions);
+            processInventoryData(sampleInventory);
+            processSalesData(sampleSales);
+
+            if (statusIndicator) {
+                statusIndicator.innerHTML = '🧪 미리보기 샘플 모드 (CSV 미연동 · 실제 DB 보호 중)';
+            }
+            if (lastUpdated) {
+                lastUpdated.innerHTML = '샘플 데이터 표시 중';
+            }
+        }
+
         async function loadCsvData() {
             try {
                 const inventoryCsv = await fetchCsvWithFallbacks(['./inventory.csv', 'inventory.csv', './Inventory.csv', 'Inventory.csv']);
                 const salesCsv = await fetchCsvWithFallbacks(['./sales.csv', 'sales.csv']);
                 const promotionCsv = await fetchCsvWithFallbacks(['./promotion.csv', 'promotion.csv', './PROMOTION.csv', 'PROMOTION.csv']);
+                const eslCsv = await fetchCsvWithFallbacks(['./esl.csv', 'esl.csv', './ESL.csv', 'ESL.csv']);
 
                 if (!inventoryCsv) {
-                    throw new Error("inventory.csv 파일을 불러올 수 없습니다.");
+                    loadPreviewSampleData();
+                    return;
                 }
 
                 const inventoryWorkbook = XLSX.read(inventoryCsv, { type: "string", raw: true });
@@ -2864,17 +3061,27 @@
                     processPromotionData(promotionRows);
                 }
 
+                if (eslCsv) {
+                    const eslWorkbook = XLSX.read(eslCsv, { type: "string", raw: true });
+                    const eslSheet = eslWorkbook.Sheets[eslWorkbook.SheetNames[0]];
+                    const eslRows = parseExcelUniversal(eslSheet);
+                    processEslData(eslRows);
+                }
+
                 processInventoryData(inventoryRows);
                 if (salesRows.length > 0) {
                     processSalesData(salesRows);
                 }
             } catch(err) {
-                console.error(err);
-                statusIndicator.innerHTML = '❌ CSV 로딩 실패: ' + err.message;
+                console.warn('CSV 로딩 오류로 샘플 모드로 전환합니다:', err);
+                loadPreviewSampleData();
             }
         }
 
         async function updateLastModified() {
+            if (window.location.protocol === 'blob:' || window.location.protocol === 'about:') {
+                return;
+            }
             try {
                 const response = await fetch("./inventory.csv?v=" + Date.now(), { method: "HEAD" });
                 const modified = response.headers.get("last-modified");
