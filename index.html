@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>RCMT 신사 재고 현황</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
@@ -414,6 +417,7 @@
 
         let db = null;
         let isFirebaseActive = false;
+        let isFirebaseConnected = false;
         let dpMap = {};
         let locationMap = {};
         let rawDpFirebaseVal = {};
@@ -426,10 +430,51 @@
         let sinsaStockByCompareKeyMap = {};
         let eslRepCodeMap = {};
 
+        // 모바일 WebSocket 지연/차단 시 Firebase REST API로 직접 저장하는 안전 폴백 함수
+        async function saveFirebaseRest(path, value) {
+            if (!firebaseConfig || !firebaseConfig.databaseURL || isDemoMode) return false;
+            const url = `${firebaseConfig.databaseURL.replace(/\/$/, '')}/${path}.json`;
+            try {
+                const res = await fetch(url, {
+                    method: value === null ? 'DELETE' : 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: value === null ? undefined : JSON.stringify(value)
+                });
+                return res.ok;
+            } catch (e) {
+                console.error('Firebase REST 저장 실패:', e);
+                return false;
+            }
+        }
+
         try {
             firebase.initializeApp(firebaseConfig);
             db = firebase.database();
             isFirebaseActive = true;
+
+            // 모바일 백그라운드 복귀/네트워크 전환 시 실시간 연결 상태 감지
+            db.ref('.info/connected').on('value', (snap) => {
+                isFirebaseConnected = !!snap.val();
+                const cloudEl = document.getElementById('cloudIndicator');
+                if (!cloudEl) return;
+                if (isFirebaseConnected) {
+                    cloudEl.innerHTML = '<span class="text-emerald-400 font-bold">🟢 실시간 클라우드 연동 완료</span>';
+                } else {
+                    cloudEl.innerHTML = '<span class="text-amber-400 font-bold">🟠 클라우드 재연결 중...</span>';
+                }
+            });
+
+            // 모바일 화면 복귀 또는 온라인 전환 시 끊어진 소켓 즉시 복구
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible' && db && !isFirebaseConnected) {
+                    try { db.goOnline(); } catch (e) {}
+                }
+            });
+            window.addEventListener('online', () => {
+                if (db) {
+                    try { db.goOnline(); } catch (e) {}
+                }
+            });
 
             // [버그 수정] 새로고침 시 localStorage의 오래된 값이 Firebase를 덮어쓰는 레거시 마이그레이션을 제거하고,
             // 클라우드(Firebase) 데이터를 단일 기준(Source of Truth)으로 사용합니다.
@@ -453,10 +498,32 @@
                     }
                 }
                 isDpLoaded = true;
-                const cloudEl = document.getElementById('cloudIndicator');
-                if (cloudEl) cloudEl.innerHTML = '<span class="text-emerald-400 font-bold">🟢 실시간 클라우드 연동 완료</span>';
                 cleanupZeroStockSinsaItems();
-                applyFiltersAndRender();
+                applyFiltersAndRender(true);
+            });
+
+            db.ref('rcmt_location').on('value', (snapshot) => {
+                const val = snapshot.val() || {};
+                rawLocationFirebaseVal = val;
+                locationMap = {};
+                // 1차: 레거시 슬래시(/) 중첩 객체 평탄화 (낮은 우선순위)
+                for (const k in val) {
+                    if (val[k] && typeof val[k] === 'object') {
+                        for (const subK in val[k]) {
+                            locationMap[`${k}_${subK}`] = val[k][subK];
+                            locationMap[`${k}/${subK}`] = val[k][subK];
+                        }
+                    }
+                }
+                // 2차: 최신 단일 키 반영 (높은 우선순위로 덮어쓰기)
+                for (const k in val) {
+                    if (!val[k] || typeof val[k] !== 'object') {
+                        locationMap[k] = val[k];
+                    }
+                }
+                isLocationLoaded = true;
+                cleanupZeroStockSinsaItems();
+                applyFiltersAndRender(true);
             });
 
             db.ref('rcmt_location').on('value', (snapshot) => {
@@ -744,14 +811,14 @@
         }
 
         // 진열 상태 변경 함수 (드롭다운: 'DP' | 'SHOWROOM' | 'NONE')
-        function updateDpStatus(sku, newStatus, event) {
+        async function updateDpStatus(sku, newStatus, event) {
             if (event) event.stopPropagation();
             if (!sku) return;
 
             const normStatus = normalizeDpValue(newStatus);
             if (isInventoryLoaded && getSinsaTotalStock(sku) <= 0 && normStatus !== 'NONE') {
                 showToast("신사점 재고가 0인 품목은 DP/쇼룸으로 등록할 수 없습니다.");
-                applyFiltersAndRender();
+                applyFiltersAndRender(true);
                 return;
             }
 
@@ -759,59 +826,185 @@
             const safeSkuKey = toSafeFirebaseKey(formattedSku || sku);
             const safeNoHyphenKey = toSafeFirebaseKey(String(formattedSku || sku).replace(/[-/\s]/g, ''));
             const targetCmpKey = normalizeSkuCompareKey(sku);
-            const dbValue = normStatus === 'DP' ? true : (normStatus === 'SHOWROOM' ? 'SHOWROOM' : false);
+            const dbValue = normStatus === 'DP' ? true : (normStatus === 'SHOWROOM' ? 'SHOWROOM' : null);
+            const statusLabel = normStatus === 'DP' ? 'DP' : (normStatus === 'SHOWROOM' ? '쇼룸' : '미진열');
 
-            // 메모리 맵 즉시 갱신 (관련 별칭 키 포함)
-            dpMap[sku] = dbValue;
-            dpMap[formattedSku] = dbValue;
-            dpMap[safeSkuKey] = dbValue;
-            if (safeNoHyphenKey) dpMap[safeNoHyphenKey] = dbValue;
+            // 메모리 맵 즉시 갱신 (UI 즉각 반응)
+            const memVal = dbValue === null ? false : dbValue;
+            dpMap[sku] = memVal;
+            dpMap[formattedSku] = memVal;
+            dpMap[safeSkuKey] = memVal;
+            if (safeNoHyphenKey) dpMap[safeNoHyphenKey] = memVal;
+            applyFiltersAndRender(true);
 
             if (isFirebaseActive && db && !isDemoMode) {
-                const updates = {};
-                // Firebase에 남아있는 동일 품번의 레거시/중첩/별칭 키들을 찾아 모두 정리(새로고침 시 풀림 방지)
+                // 모바일 절전/백그라운드 복귀로 소켓이 끊긴 경우 즉시 재연결 시도
+                if (!isFirebaseConnected) {
+                    try { db.goOnline(); } catch (e) {}
+                }
+
+                // 1) 메인 키를 안전하게 직접 저장 (부모/자식 경로 충돌 방지)
+                let saved = false;
+                if (isFirebaseConnected) {
+                    try {
+                        await new Promise((resolve, reject) => {
+                            const timer = setTimeout(() => reject(new Error('timeout')), 3500);
+                            const ref = db.ref('rcmt_dp_status/' + safeSkuKey);
+                            const op = dbValue === null ? ref.remove() : ref.set(dbValue);
+                            op.then(() => { clearTimeout(timer); resolve(); })
+                              .catch((err) => { clearTimeout(timer); reject(err); });
+                        });
+                        saved = true;
+                    } catch (sdkErr) {
+                        console.warn('SDK 저장 지연/실패, REST API로 재시도:', sdkErr);
+                    }
+                }
+
+                // 2) 모바일 환경에서 WebSocket이 막히거나 지연된 경우 REST API로 확실하게 저장
+                if (!saved) {
+                    saved = await saveFirebaseRest('rcmt_dp_status/' + encodeURIComponent(safeSkuKey), dbValue);
+                }
+
+                // 3) 동일 품번의 레거시/중첩/별칭 키 정리 (메인 키와 겹치지 않는 키만 개별 삭제)
+                const legacyKeysToRemove = [];
                 for (const k in rawDpFirebaseVal) {
                     const entry = rawDpFirebaseVal[k];
                     if (entry && typeof entry === 'object') {
                         for (const subK in entry) {
                             const slashKey = `${k}/${subK}`;
-                            if (normalizeSkuCompareKey(slashKey) === targetCmpKey) {
-                                updates[slashKey] = null;
+                            if (normalizeSkuCompareKey(slashKey) === targetCmpKey && slashKey !== safeSkuKey) {
+                                legacyKeysToRemove.push(slashKey);
                                 delete dpMap[slashKey];
                                 delete dpMap[`${k}_${subK}`];
                             }
                         }
                     } else if (normalizeSkuCompareKey(k) === targetCmpKey && k !== safeSkuKey) {
-                        updates[k] = null;
+                        legacyKeysToRemove.push(k);
                         delete dpMap[k];
                     }
                 }
-
-                if (normStatus === 'NONE') {
-                    updates[safeSkuKey] = null;
-                    if (safeNoHyphenKey && safeNoHyphenKey !== safeSkuKey) {
-                        updates[safeNoHyphenKey] = null;
-                    }
-                } else {
-                    updates[safeSkuKey] = dbValue;
-                    if (safeNoHyphenKey && safeNoHyphenKey !== safeSkuKey) {
-                        updates[safeNoHyphenKey] = null;
-                    }
+                if (safeNoHyphenKey && safeNoHyphenKey !== safeSkuKey && !legacyKeysToRemove.includes(safeNoHyphenKey)) {
+                    legacyKeysToRemove.push(safeNoHyphenKey);
                 }
-
-                db.ref('rcmt_dp_status').update(updates, (err) => {
-                    if (err) {
-                        console.error('DP 상태 클라우드 저장 실패:', err);
-                        showToast('진열 상태 저장에 실패했습니다. 네트워크를 확인해주세요.');
+                legacyKeysToRemove.forEach(lk => {
+                    if (isFirebaseConnected) {
+                        db.ref('rcmt_dp_status/' + lk).remove().catch(() => {});
+                    } else {
+                        saveFirebaseRest('rcmt_dp_status/' + lk.split('/').map(encodeURIComponent).join('/'), null);
                     }
                 });
+
+                if (saved) {
+                    showToast(`✅ ${formattedSku || sku} → ${statusLabel} 저장 완료`);
+                } else {
+                    showToast('⚠️ 저장 실패: 네트워크 연결을 확인 후 다시 시도해주세요.');
+                }
             } else {
                 if (!isDemoMode) {
                     try {
                         localStorage.setItem('rcmt_dp_status', JSON.stringify(dpMap));
                     } catch (e) {}
                 }
-                applyFiltersAndRender();
+                showToast(`✅ ${formattedSku || sku} → ${statusLabel} 변경 완료`);
+            }
+        }
+
+        function toggleDpStatus(sku, event) {
+            if (event) event.stopPropagation();
+            if (!sku) return;
+            const current = getItemDpStatus(sku);
+            const nextState = current === 'DP' ? 'NONE' : 'DP';
+            updateDpStatus(sku, nextState, event);
+        }
+
+        async function updateLocation(sku, newLoc, event) {
+            if (event) event.stopPropagation();
+            if (!sku) return;
+
+            const val = String(newLoc || '').trim();
+            if (isInventoryLoaded && getSinsaTotalStock(sku) <= 0 && val !== '') {
+                showToast("신사점 재고가 0인 품목은 적재 위치를 등록할 수 없습니다.");
+                applyFiltersAndRender(true);
+                return;
+            }
+
+            const formattedSku = formatSku(sku);
+            const safeSkuKey = toSafeFirebaseKey(formattedSku || sku);
+            const safeNoHyphenKey = toSafeFirebaseKey(String(formattedSku || sku).replace(/[-/\s]/g, ''));
+            const targetCmpKey = normalizeSkuCompareKey(sku);
+            const dbValue = val ? val : null;
+
+            locationMap[sku] = val;
+            locationMap[formattedSku] = val;
+            locationMap[safeSkuKey] = val;
+            if (safeNoHyphenKey) locationMap[safeNoHyphenKey] = val;
+            applyFiltersAndRender(true);
+
+            if (isFirebaseActive && db && !isDemoMode) {
+                if (!isFirebaseConnected) {
+                    try { db.goOnline(); } catch (e) {}
+                }
+
+                let saved = false;
+                if (isFirebaseConnected) {
+                    try {
+                        await new Promise((resolve, reject) => {
+                            const timer = setTimeout(() => reject(new Error('timeout')), 3500);
+                            const ref = db.ref('rcmt_location/' + safeSkuKey);
+                            const op = dbValue === null ? ref.remove() : ref.set(dbValue);
+                            op.then(() => { clearTimeout(timer); resolve(); })
+                              .catch((err) => { clearTimeout(timer); reject(err); });
+                        });
+                        saved = true;
+                    } catch (sdkErr) {
+                        console.warn('위치 SDK 저장 지연/실패, REST API로 재시도:', sdkErr);
+                    }
+                }
+
+                if (!saved) {
+                    saved = await saveFirebaseRest('rcmt_location/' + encodeURIComponent(safeSkuKey), dbValue);
+                }
+
+                const legacyKeysToRemove = [];
+                for (const k in rawLocationFirebaseVal) {
+                    const entry = rawLocationFirebaseVal[k];
+                    if (entry && typeof entry === 'object') {
+                        for (const subK in entry) {
+                            const slashKey = `${k}/${subK}`;
+                            if (normalizeSkuCompareKey(slashKey) === targetCmpKey && slashKey !== safeSkuKey) {
+                                legacyKeysToRemove.push(slashKey);
+                                delete locationMap[slashKey];
+                                delete locationMap[`${k}_${subK}`];
+                            }
+                        }
+                    } else if (normalizeSkuCompareKey(k) === targetCmpKey && k !== safeSkuKey) {
+                        legacyKeysToRemove.push(k);
+                        delete locationMap[k];
+                    }
+                }
+                if (safeNoHyphenKey && safeNoHyphenKey !== safeSkuKey && !legacyKeysToRemove.includes(safeNoHyphenKey)) {
+                    legacyKeysToRemove.push(safeNoHyphenKey);
+                }
+                legacyKeysToRemove.forEach(lk => {
+                    if (isFirebaseConnected) {
+                        db.ref('rcmt_location/' + lk).remove().catch(() => {});
+                    } else {
+                        saveFirebaseRest('rcmt_location/' + lk.split('/').map(encodeURIComponent).join('/'), null);
+                    }
+                });
+
+                if (saved) {
+                    showToast(`✅ ${formattedSku || sku} → ${val || '위치 미지정'} 저장 완료`);
+                } else {
+                    showToast('⚠️ 적재 위치 저장 실패: 네트워크 연결을 확인해주세요.');
+                }
+            } else {
+                if (!isDemoMode) {
+                    try {
+                        localStorage.setItem('rcmt_location', JSON.stringify(locationMap));
+                    } catch (e) {}
+                }
+                showToast(`✅ ${formattedSku || sku} → ${val || '위치 미지정'} 변경 완료`);
             }
         }
 
@@ -1930,7 +2123,7 @@
         // ==========================================
         // 4. 필터링 및 분할 렌더링 로직
         // ==========================================
-        function applyFiltersAndRender() {
+        function applyFiltersAndRender(preservePagination = false) {
             if (rawInventory.length === 0) return;
             const searchTerm = searchInput.value.trim().toLowerCase();
             const activePromoMap = getActivePromotionsMap();
@@ -2132,8 +2325,10 @@
                 return 0;
             });
 
-            currentGridLimit = GRID_PAGE_SIZE;
-            currentTableLimit = TABLE_PAGE_SIZE;
+            if (!preservePagination) {
+                currentGridLimit = GRID_PAGE_SIZE;
+                currentTableLimit = TABLE_PAGE_SIZE;
+            }
             renderResults();
         }
 
@@ -2157,6 +2352,7 @@
         function renderDpSelectHtml(sku, currentStatus, totalStock, isTable = false) {
             const status = normalizeDpValue(currentStatus);
             const isLowStockDp = status === 'DP' && totalStock <= 2;
+            const safeSkuAttr = String(sku || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
             let bgClass = '';
 
             if (status === 'DP') {
@@ -2176,21 +2372,21 @@
             } else {
                 bgClass = isTable
                     ? 'bg-gray-100 text-gray-500 border-gray-300 font-bold'
-                    : 'bg-black/60 hover:bg-black text-white font-bold border-transparent';
+                    : 'bg-black/70 hover:bg-black text-white font-bold border-transparent';
             }
 
-            const containerClass = isTable ? 'inline-block' : 'absolute top-2 right-2 z-10';
+            const containerClass = isTable ? 'inline-block' : 'absolute top-2 right-2 z-30';
             const chevronColor = isTable
                 ? (status === 'DP' ? (isLowStockDp ? 'text-red-700' : 'text-emerald-700') : (status === 'SHOWROOM' ? 'text-sky-700' : 'text-gray-500'))
                 : 'text-white';
             const dpLabel = isLowStockDp ? `🚨 DP (${totalStock}개)` : '✨ DP';
 
             return `
-            <div class="${containerClass}" onclick="event.stopPropagation();">
+            <div class="${containerClass}" onclick="event.stopPropagation();" ontouchstart="event.stopPropagation();" onmousedown="event.stopPropagation();">
                 <div class="relative inline-flex items-center">
-                    <select onchange="updateDpStatus('${sku}', this.value, event)"
+                    <select onchange="updateDpStatus('${safeSkuAttr}', this.value, event)"
                             title="${isLowStockDp ? '정상 진열(DP) 중이나 매장 재고가 2개 이하입니다!' : '진열 상태 변경 (DP / 쇼룸 / 미진열)'}"
-                            class="${bgClass} text-[10px] px-2 py-0.5 rounded shadow cursor-pointer border focus:outline-none transition appearance-none pr-4">
+                            class="${bgClass} text-[11px] sm:text-[10px] pl-2.5 pr-5 py-1 sm:py-0.5 rounded shadow cursor-pointer border focus:outline-none transition appearance-none">
                         <option value="DP" ${status === 'DP' ? 'selected' : ''} class="bg-white text-emerald-900 font-bold">${dpLabel}</option>
                         <option value="SHOWROOM" ${status === 'SHOWROOM' ? 'selected' : ''} class="bg-white text-sky-900 font-bold">🛋️ 쇼룸</option>
                         <option value="NONE" ${status === 'NONE' ? 'selected' : ''} class="bg-white text-gray-900 font-bold">📦 미진열</option>
@@ -2202,6 +2398,7 @@
 
         function renderLocationSelectHtml(sku, currentLoc, isTable = false) {
             const loc = currentLoc || '';
+            const safeSkuAttr = String(sku || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
             let bgClass = '';
             
             if (loc === 'B1') bgClass = 'bg-indigo-600 text-white border-indigo-700 font-bold';
@@ -2209,15 +2406,15 @@
             else if (loc === '3층') bgClass = 'bg-emerald-600 text-white border-emerald-700 font-bold';
             else if (loc === '4층') bgClass = 'bg-amber-600 text-white border-amber-700 font-bold';
             else if (loc === 'LAST SALE') bgClass = 'bg-rose-600 text-white border-rose-700 font-bold';
-            else bgClass = isTable ? 'bg-gray-100 text-gray-500 border-gray-300 font-medium' : 'bg-black/60 hover:bg-black text-white font-bold border-transparent';
+            else bgClass = isTable ? 'bg-gray-100 text-gray-500 border-gray-300 font-medium' : 'bg-black/70 hover:bg-black text-white font-bold border-transparent';
 
-            const containerClass = isTable ? 'inline-block' : 'absolute bottom-2 right-2 z-10';
+            const containerClass = isTable ? 'inline-block' : 'absolute bottom-2 right-2 z-30';
 
             return `
-            <div class="${containerClass}" onclick="event.stopPropagation();">
+            <div class="${containerClass}" onclick="event.stopPropagation();" ontouchstart="event.stopPropagation();" onmousedown="event.stopPropagation();">
                 <div class="relative inline-flex items-center">
-                    <select onchange="updateLocation('${sku}', this.value, event)"
-                            class="${bgClass} text-[10px] px-2 py-0.5 rounded shadow cursor-pointer border focus:outline-none transition appearance-none pr-4">
+                    <select onchange="updateLocation('${safeSkuAttr}', this.value, event)"
+                            class="${bgClass} text-[11px] sm:text-[10px] pl-2.5 pr-5 py-1 sm:py-0.5 rounded shadow cursor-pointer border focus:outline-none transition appearance-none">
                         <option value="" ${!loc ? 'selected' : ''} class="bg-white text-gray-900">📍 위치 미지정</option>
                         <option value="B1" ${loc === 'B1' ? 'selected' : ''} class="bg-white text-indigo-900 font-bold">📍 B1</option>
                         <option value="1층" ${loc === '1층' ? 'selected' : ''} class="bg-white text-blue-900 font-bold">📍 1층</option>
@@ -2294,7 +2491,7 @@
 
                 if (item.promo.discountRate > 0) {
                     promoBadgeTop = `
-                    <div class="absolute right-2 top-8 sm:top-8 flex flex-col items-end gap-1 z-10">
+                    <div class="absolute right-2 top-10 sm:top-9 flex flex-col items-end gap-1 z-10 pointer-events-none">
                         <span class="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded shadow flex items-center gap-1 border border-red-400">
                             ${displayName} <i class="fa-solid fa-bolt text-yellow-300"></i>
                         </span>
@@ -2305,7 +2502,7 @@
                     </div>`;
                 } else {
                     promoBadgeTop = `
-                    <div class="absolute right-2 top-8 sm:top-8 flex flex-col items-end gap-1 z-10">
+                    <div class="absolute right-2 top-10 sm:top-9 flex flex-col items-end gap-1 z-10 pointer-events-none">
                         <span class="bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1 border border-indigo-400">
                             ${displayName} <i class="fa-solid fa-gift text-yellow-300"></i>
                         </span>
